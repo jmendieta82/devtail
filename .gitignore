@@ -1,0 +1,67 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Xcode — User-specific
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+*.xcscmblueprint
+*.xccheckout
+
+# Xcode — Build artifacts
+build/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# CocoaPods (no las usamos pero por las dudas)
+Pods/
+
+# Carthage (idem)
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+iOSInjectionProject/
+
+# Bundler / Ruby (si en algún momento usamos fastlane)
+.bundle/
+vendor/
+
+# Editor folders
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
+
+# Env / secrets (NUNCA commitear)
+.env
+.env.local
+*.pem
+*.p12
+*.cer
+secrets/
