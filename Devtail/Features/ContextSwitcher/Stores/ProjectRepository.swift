@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @MainActor
-struct ProjectRepository {
+struct ProjectRepository: ProjectRepositoryProtocol {
     let context: ModelContext
 
     func create(name: String, notes: String? = nil) throws -> Project {
