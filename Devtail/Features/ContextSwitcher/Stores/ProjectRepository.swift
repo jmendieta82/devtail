@@ -20,6 +20,7 @@ struct ProjectRepository: ProjectRepositoryProtocol {
 
         let project = Project(name: trimmed, notes: notes)
         context.insert(project)
+        try context.save()
         return project
     }
 
@@ -43,9 +44,11 @@ struct ProjectRepository: ProjectRepositoryProtocol {
 
         project.name = trimmed
         project.updatedAt = .now
+        try context.save()
     }
 
     func delete(_ project: Project) throws {
         context.delete(project)
+        try context.save()
     }
 }
