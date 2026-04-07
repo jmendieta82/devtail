@@ -6,11 +6,27 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		43521D832F8546350004EC71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 439B96612F84BF1D0065D2C3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 439B96682F84BF1D0065D2C3;
+			remoteInfo = Devtail;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		43521D7F2F8546350004EC71 /* DevtailTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DevtailTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		439B96692F84BF1D0065D2C3 /* Devtail.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Devtail.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		43521D802F8546350004EC71 /* DevtailTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DevtailTests;
+			sourceTree = "<group>";
+		};
 		439B966B2F84BF1D0065D2C3 /* Devtail */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Devtail;
@@ -19,6 +35,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		43521D7C2F8546350004EC71 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		439B96662F84BF1D0065D2C3 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				439B966B2F84BF1D0065D2C3 /* Devtail */,
+				43521D802F8546350004EC71 /* DevtailTests */,
 				439B966A2F84BF1D0065D2C3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				439B96692F84BF1D0065D2C3 /* Devtail.app */,
+				43521D7F2F8546350004EC71 /* DevtailTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +73,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		43521D7E2F8546350004EC71 /* DevtailTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 43521D872F8546350004EC71 /* Build configuration list for PBXNativeTarget "DevtailTests" */;
+			buildPhases = (
+				43521D7B2F8546350004EC71 /* Sources */,
+				43521D7C2F8546350004EC71 /* Frameworks */,
+				43521D7D2F8546350004EC71 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				43521D842F8546350004EC71 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				43521D802F8546350004EC71 /* DevtailTests */,
+			);
+			name = DevtailTests;
+			packageProductDependencies = (
+			);
+			productName = DevtailTests;
+			productReference = 43521D7F2F8546350004EC71 /* DevtailTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		439B96682F84BF1D0065D2C3 /* Devtail */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 439B96762F84BF1E0065D2C3 /* Build configuration list for PBXNativeTarget "Devtail" */;
@@ -80,6 +128,10 @@
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2640;
 				TargetAttributes = {
+					43521D7E2F8546350004EC71 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 439B96682F84BF1D0065D2C3;
+					};
 					439B96682F84BF1D0065D2C3 = {
 						CreatedOnToolsVersion = 26.4;
 					};
@@ -100,11 +152,19 @@
 			projectRoot = "";
 			targets = (
 				439B96682F84BF1D0065D2C3 /* Devtail */,
+				43521D7E2F8546350004EC71 /* DevtailTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		43521D7D2F8546350004EC71 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		439B96672F84BF1D0065D2C3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +175,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		43521D7B2F8546350004EC71 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		439B96652F84BF1D0065D2C3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,7 +191,57 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		43521D842F8546350004EC71 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 439B96682F84BF1D0065D2C3 /* Devtail */;
+			targetProxy = 43521D832F8546350004EC71 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		43521D852F8546350004EC71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = UCSM3T74LQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jamodev.DevtailTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Devtail.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Devtail";
+			};
+			name = Debug;
+		};
+		43521D862F8546350004EC71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = UCSM3T74LQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jamodev.DevtailTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Devtail.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Devtail";
+			};
+			name = Release;
+		};
 		439B96742F84BF1E0065D2C3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -312,6 +429,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		43521D872F8546350004EC71 /* Build configuration list for PBXNativeTarget "DevtailTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43521D852F8546350004EC71 /* Debug */,
+				43521D862F8546350004EC71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		439B96642F84BF1D0065D2C3 /* Build configuration list for PBXProject "Devtail" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -55,6 +55,9 @@ vendor/
 *.swp
 *~
 
+# Agent tooling cache (skill registry, SDD context)
+.atl/
+
 # Logs
 *.log
 

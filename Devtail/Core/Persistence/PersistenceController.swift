@@ -12,10 +12,6 @@ enum PersistenceController {
     static func makeContainer(inMemory: Bool = false) -> ModelContainer {
         let schema = Schema([
             Project.self,
-            QuickLink.self,
-            QuickCommand.self,
-            CloudAccount.self,
-            CostSnapshot.self,
         ])
 
         let configuration = ModelConfiguration(
