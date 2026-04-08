@@ -23,18 +23,49 @@ final class MockProjectRepository: ProjectRepositoryProtocol {
     var createCallCount = 0
     var deleteCallCount = 0
     var loadCallCount = 0
+    var updateCallCount = 0
+
+    // MARK: - Capture state
+
+    var lastCreatedFields: (
+        name: String,
+        notes: String?,
+        color: ProjectColor,
+        environment: ProjectEnvironment,
+        stack: String?
+    )?
+    var lastUpdatedProject: Project?
 
     // MARK: - ProjectRepositoryProtocol
 
-    func create(name: String, notes: String?) throws -> Project {
+    func create(
+        name: String,
+        notes: String?,
+        color: ProjectColor,
+        environment: ProjectEnvironment,
+        stack: String?
+    ) throws -> Project {
         createCallCount += 1
+        lastCreatedFields = (
+            name: name,
+            notes: notes,
+            color: color,
+            environment: environment,
+            stack: stack
+        )
         if let errorToThrow {
             throw errorToThrow
         }
         if let projectToReturnOnCreate {
             return projectToReturnOnCreate
         }
-        return Project(name: name, notes: notes)
+        return Project(
+            name: name,
+            notes: notes,
+            color: color,
+            environment: environment,
+            stack: stack
+        )
     }
 
     func findAll() throws -> [Project] {
@@ -53,6 +84,8 @@ final class MockProjectRepository: ProjectRepositoryProtocol {
     }
 
     func update(_ project: Project) throws {
+        updateCallCount += 1
+        lastUpdatedProject = project
         if let errorToThrow {
             throw errorToThrow
         }

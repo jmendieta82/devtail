@@ -49,6 +49,22 @@ struct ProjectRepositoryTests {
         }
     }
 
+    @Test("create persists color, environment, and stack when provided")
+    func createPersistsAllOptionalFields() throws {
+        let project = try repository.create(
+            name: "Full Project",
+            notes: "with notes",
+            color: .blue,
+            environment: .staging,
+            stack: "Swift"
+        )
+
+        #expect(project.color == .blue)
+        #expect(project.environment == .staging)
+        #expect(project.stack == "Swift")
+        #expect(project.notes == "with notes")
+    }
+
     // MARK: - Group B: findAll
 
     @Test("findAll returns all inserted projects")
@@ -105,6 +121,26 @@ struct ProjectRepositoryTests {
 
         let refetched = try repository.findById(project.id)
         #expect(refetched?.name == "Updated Name")
+    }
+
+    @Test("update persists changes to color, environment, and stack")
+    func updatePersistsFieldChangesIncludingColorEnvironmentStack() throws {
+        let project = try repository.create(
+            name: "Original",
+            color: .gray,
+            environment: .dev,
+            stack: nil
+        )
+
+        project.color = .purple
+        project.environment = .prod
+        project.stack = "Rust"
+        try repository.update(project)
+
+        let refetched = try repository.findById(project.id)
+        #expect(refetched?.color == .purple)
+        #expect(refetched?.environment == .prod)
+        #expect(refetched?.stack == "Rust")
     }
 
     // MARK: - Group E: delete

@@ -35,10 +35,51 @@ final class ProjectStore {
         }
     }
 
-    func createProject(name: String, notes: String? = nil) {
+    func createProject(
+        name: String,
+        notes: String? = nil,
+        color: ProjectColor = .gray,
+        environment: ProjectEnvironment = .dev,
+        stack: String? = nil
+    ) {
         do {
-            let project = try repository.create(name: name, notes: notes)
+            let project = try repository.create(
+                name: name,
+                notes: notes,
+                color: color,
+                environment: environment,
+                stack: stack
+            )
             projects.append(project)
+            lastError = nil
+        } catch {
+            lastError = error
+        }
+    }
+
+    func updateProject(
+        _ project: Project,
+        name: String,
+        notes: String? = nil,
+        color: ProjectColor,
+        environment: ProjectEnvironment,
+        stack: String?
+    ) {
+        do {
+            project.name = name
+            project.notes = notes
+            project.color = color
+            project.environment = environment
+            project.stack = (stack?.isEmpty == true) ? nil : stack
+            try repository.update(project)
+
+            // Force @Observable to detect the nested mutation by re-assigning
+            // the array slot. Project is a reference type so the array still
+            // holds the same instance; this is purely a notification trigger.
+            if let idx = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[idx] = project
+            }
+
             lastError = nil
         } catch {
             lastError = error

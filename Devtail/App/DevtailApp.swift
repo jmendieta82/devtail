@@ -12,6 +12,7 @@ import SwiftData
 struct DevtailApp: App {
     @State private var modelContainer: ModelContainer
     @State private var projectStore: ProjectStore
+    @Environment(\.openWindow) private var openWindow
 
     init() {
         let container = PersistenceController.makeContainer()
@@ -24,31 +25,53 @@ struct DevtailApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuBarRootView()
+                .preferredColorScheme(.dark)
         } label: {
             Image(systemName: "terminal.fill")
         }
         .menuBarExtraStyle(.window)
         .modelContainer(modelContainer)
         .environment(projectStore)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Project") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: WindowID.projectForm, value: UUID?.none)
+                }
+                .keyboardShortcut("n", modifiers: .command)
+            }
+        }
 
         Window("Devtail", id: WindowID.dashboard) {
             DashboardRootView()
+                .preferredColorScheme(.dark)
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
         .windowResizability(.contentSize)
 
-        Window("New Project", id: WindowID.newProject) {
-            NewProjectView()
+        WindowGroup("Project", id: WindowID.projectForm, for: UUID?.self) { $projectID in
+            ProjectFormView(projectID: projectID ?? nil)
+                .preferredColorScheme(.dark)
+        } defaultValue: {
+            nil
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
         .windowResizability(.contentSize)
-        .defaultSize(width: 360, height: 280)
+        .defaultSize(width: 460, height: 580)
+
+        Window("Settings", id: WindowID.settings) {
+            ComingSoonView(title: "Settings")
+                .preferredColorScheme(.dark)
+        }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 400, height: 300)
     }
 }
 
 enum WindowID {
-    static let dashboard = "devtail.dashboard"
-    static let newProject = "devtail.newProject"
+    static let dashboard   = "devtail.dashboard"
+    static let projectForm = "devtail.projectForm"
+    static let settings    = "devtail.settings"
 }

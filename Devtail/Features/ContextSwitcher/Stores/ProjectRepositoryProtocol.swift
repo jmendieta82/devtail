@@ -9,7 +9,13 @@ import Foundation
 
 @MainActor
 protocol ProjectRepositoryProtocol {
-    func create(name: String, notes: String?) throws -> Project
+    func create(
+        name: String,
+        notes: String?,
+        color: ProjectColor,
+        environment: ProjectEnvironment,
+        stack: String?
+    ) throws -> Project
     func findAll() throws -> [Project]
     func findById(_ id: UUID) throws -> Project?
     func update(_ project: Project) throws

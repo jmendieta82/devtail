@@ -158,4 +158,102 @@ struct ProjectStoreTests {
 
         #expect(mock.createCallCount == 1)
     }
+
+    // MARK: - createProject with full fields
+
+    @Test("createProject passes color, environment, and stack to repository")
+    func createProjectPassesAllFieldsToRepository() {
+        let mock = MockProjectRepository()
+        let store = ProjectStore(repository: mock)
+
+        store.createProject(
+            name: "Devtail",
+            notes: nil,
+            color: .purple,
+            environment: .prod,
+            stack: "Swift"
+        )
+
+        #expect(mock.lastCreatedFields?.color == .purple)
+        #expect(mock.lastCreatedFields?.environment == .prod)
+        #expect(mock.lastCreatedFields?.stack == "Swift")
+    }
+
+    // MARK: - updateProject
+
+    @Test("updateProject mutates fields and delegates to repository exactly once")
+    func updateProjectMutatesFieldsAndDelegatesToRepository() {
+        let mock = MockProjectRepository()
+        let seed = Project(
+            name: "Original",
+            color: .gray,
+            environment: .dev,
+            stack: nil
+        )
+        mock.projectsToReturn = [seed]
+        let store = ProjectStore(repository: mock)
+        store.loadProjects()
+
+        let target = store.projects[0]
+        store.updateProject(
+            target,
+            name: "Renamed",
+            notes: nil,
+            color: .blue,
+            environment: .staging,
+            stack: "TypeScript"
+        )
+
+        #expect(target.name == "Renamed")
+        #expect(target.color == .blue)
+        #expect(target.environment == .staging)
+        #expect(target.stack == "TypeScript")
+        #expect(mock.updateCallCount == 1)
+        #expect(store.projects.count == 1)
+        #expect(store.lastError == nil)
+    }
+
+    @Test("updateProject on repository error captures lastError")
+    func updateProjectOnRepositoryErrorCapturesLastError() {
+        let mock = MockProjectRepository()
+        let seed = Project(name: "Original")
+        mock.projectsToReturn = [seed]
+        let store = ProjectStore(repository: mock)
+        store.loadProjects()
+
+        mock.errorToThrow = ProjectError.invalidName
+        store.updateProject(
+            store.projects[0],
+            name: "Renamed",
+            color: .blue,
+            environment: .dev,
+            stack: nil
+        )
+
+        #expect(store.lastError != nil)
+    }
+
+    @Test("updateProject clears a previously captured lastError on success")
+    func updateProjectClearsLastErrorOnSuccess() {
+        let mock = MockProjectRepository()
+        mock.errorToThrow = ProjectError.invalidName
+        let store = ProjectStore(repository: mock)
+        store.loadProjects()
+        #expect(store.lastError != nil)
+
+        let project = Project(name: "Recovery")
+        mock.errorToThrow = nil
+        mock.projectsToReturn = [project]
+        store.loadProjects()
+
+        store.updateProject(
+            store.projects[0],
+            name: "Recovered",
+            color: .green,
+            environment: .prod,
+            stack: nil
+        )
+
+        #expect(store.lastError == nil)
+    }
 }

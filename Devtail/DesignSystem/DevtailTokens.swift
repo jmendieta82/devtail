@@ -154,6 +154,7 @@ enum DevtailTokens {
         static let trafficDot: CGFloat           = 12
         static let searchIconSize: CGFloat       = 12
         static let actionIconSize: CGFloat       = 10
+        static let colorPickerDot: CGFloat       = 24
         static let tabIconSize: CGFloat          = 14
     }
 
