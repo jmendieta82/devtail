@@ -19,8 +19,13 @@ final class Project {
     var createdAt: Date
     var updatedAt: Date
 
+    var directoryPath: String = ""
+
     @Relationship(deleteRule: .cascade, inverse: \QuickLink.project)
     var quickLinks: [QuickLink] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \WorkspacePane.project)
+    var workspacePanes: [WorkspacePane] = []
 
     /// User-assigned color from the closed `ProjectColor` palette.
     /// Stored as raw string for SwiftData and surfaced as the enum.

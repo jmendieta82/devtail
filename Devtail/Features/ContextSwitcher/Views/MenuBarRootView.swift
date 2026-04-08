@@ -87,7 +87,7 @@ struct MenuBarRootView: View {
 
                 Divider()
 
-                QuickLinksPanel(projectID: selectedProjectID)
+                DetailPanel(projectID: selectedProjectID)
             }
 
             Divider()
@@ -157,7 +157,8 @@ struct MenuBarRootView: View {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
         let linkRepository = QuickLinkRepository(context: container.mainContext)
-        return ProjectStore(repository: repository, quickLinkRepository: linkRepository)
+        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
+        return ProjectStore(repository: repository, quickLinkRepository: linkRepository, workspacePaneRepository: paneRepository)
     }()
     MenuBarRootView()
         .environment(store)
@@ -168,7 +169,8 @@ struct MenuBarRootView: View {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
         let linkRepository = QuickLinkRepository(context: container.mainContext)
-        let store = ProjectStore(repository: repository, quickLinkRepository: linkRepository)
+        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
+        let store = ProjectStore(repository: repository, quickLinkRepository: linkRepository, workspacePaneRepository: paneRepository)
         store.createProject(
             name: "Devtail",
             color: .green,

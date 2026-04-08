@@ -16,6 +16,7 @@ enum PersistenceController {
         let schema = Schema([
             Project.self,
             QuickLink.self,
+            WorkspacePane.self,
         ])
 
         let configuration = ModelConfiguration(

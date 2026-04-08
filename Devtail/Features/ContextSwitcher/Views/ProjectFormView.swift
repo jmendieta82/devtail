@@ -22,6 +22,7 @@ struct ProjectFormView: View {
     @State private var stack: String = ""
     @State private var environment: ProjectEnvironment = .dev
     @State private var color: ProjectColor = .gray
+    @State private var directoryPath: String = ""
     @State private var showError: Bool = false
     @State private var didLoad: Bool = false
 
@@ -93,6 +94,39 @@ struct ProjectFormView: View {
                         .font(DevtailTokens.Typography.caption)
                         .foregroundStyle(DevtailTokens.Colors.textTertiary)
                     ColorPickerRow(selection: $color)
+                }
+
+                // Directory
+                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
+                    Text("Directory")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    HStack(spacing: DevtailTokens.Spacing.gapMedium) {
+                        Text(directoryPath.isEmpty ? "No folder selected" : directoryPath)
+                            .font(DevtailTokens.Typography.monoSmall)
+                            .foregroundStyle(directoryPath.isEmpty
+                                ? DevtailTokens.Colors.textPlaceholder
+                                : DevtailTokens.Colors.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                            .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+                            .background(
+                                RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
+                                    .fill(DevtailTokens.Colors.inputBackground)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
+                                    .stroke(DevtailTokens.Colors.borderSubtle,
+                                            lineWidth: DevtailTokens.BorderWidth.default)
+                            )
+                        Button("Choose folder…") {
+                            chooseDirectory()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
             }
 
@@ -201,6 +235,7 @@ struct ProjectFormView: View {
         stack = project.stack ?? ""
         environment = project.environment
         color = project.color
+        directoryPath = project.directoryPath
     }
 
     private func submit() {
@@ -217,7 +252,8 @@ struct ProjectFormView: View {
                 notes: project.notes,
                 color: color,
                 environment: environment,
-                stack: resolvedStack
+                stack: resolvedStack,
+                directoryPath: directoryPath
             )
         } else {
             // Create mode
@@ -225,7 +261,8 @@ struct ProjectFormView: View {
                 name: trimmedName,
                 color: color,
                 environment: environment,
-                stack: resolvedStack
+                stack: resolvedStack,
+                directoryPath: directoryPath
             )
         }
 
@@ -242,11 +279,23 @@ struct ProjectFormView: View {
         dismissWindow(id: WindowID.projectForm, value: projectID)
     }
 
+    private func chooseDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        if panel.runModal() == .OK, let url = panel.url {
+            directoryPath = url.path
+        }
+    }
+
     private func resetState() {
         name = ""
         stack = ""
         environment = .dev
         color = .gray
+        directoryPath = ""
         showError = false
         didLoad = false
     }
@@ -257,7 +306,8 @@ struct ProjectFormView: View {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
         let linkRepository = QuickLinkRepository(context: container.mainContext)
-        return ProjectStore(repository: repository, quickLinkRepository: linkRepository)
+        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
+        return ProjectStore(repository: repository, quickLinkRepository: linkRepository, workspacePaneRepository: paneRepository)
     }()
     ProjectFormView(projectID: nil)
         .environment(store)
@@ -268,7 +318,8 @@ struct ProjectFormView: View {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
         let linkRepository = QuickLinkRepository(context: container.mainContext)
-        let store = ProjectStore(repository: repository, quickLinkRepository: linkRepository)
+        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
+        let store = ProjectStore(repository: repository, quickLinkRepository: linkRepository, workspacePaneRepository: paneRepository)
         store.createProject(
             name: "Devtail",
             color: .green,

@@ -16,9 +16,10 @@ struct ProjectStoreTests {
 
     private func makeStore(
         projectRepo: MockProjectRepository = MockProjectRepository(),
-        linkRepo: MockQuickLinkRepository = MockQuickLinkRepository()
+        linkRepo: MockQuickLinkRepository = MockQuickLinkRepository(),
+        paneRepo: MockWorkspacePaneRepository = MockWorkspacePaneRepository()
     ) -> ProjectStore {
-        ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo)
+        ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo, workspacePaneRepository: paneRepo)
     }
 
     // MARK: - Initial state
@@ -152,6 +153,20 @@ struct ProjectStoreTests {
 
         #expect(store.lastError == nil)
         #expect(store.projects.count == 1)
+    }
+
+    // MARK: - createProject seeds default pane
+
+    @Test("createProject seeds a default Main pane via workspacePaneRepository")
+    func createProjectSeedsDefaultPane() {
+        let projectRepo = MockProjectRepository()
+        let paneRepo = MockWorkspacePaneRepository()
+        let store = makeStore(projectRepo: projectRepo, paneRepo: paneRepo)
+
+        store.createProject(name: "Devtail")
+
+        #expect(paneRepo.createCallCount == 1)
+        #expect(paneRepo.lastCreateLabel == "Main")
     }
 
     // MARK: - Delegation

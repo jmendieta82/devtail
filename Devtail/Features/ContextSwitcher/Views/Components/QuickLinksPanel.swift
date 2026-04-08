@@ -26,7 +26,6 @@ struct QuickLinksPanel: View {
         }
         .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
         .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-        .frame(height: DevtailTokens.Sizes.detailPanelHeight)
         .onChange(of: projectID) { _, _ in
             resetEditState()
         }
@@ -178,7 +177,8 @@ struct QuickLinksPanel: View {
         let container = PersistenceController.makeContainer(inMemory: true)
         let projectRepo = ProjectRepository(context: container.mainContext)
         let linkRepo = QuickLinkRepository(context: container.mainContext)
-        return ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo)
+        let paneRepo = WorkspacePaneRepository(context: container.mainContext)
+        return ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo, workspacePaneRepository: paneRepo)
     }()
     QuickLinksPanel(projectID: nil)
         .environment(store)
@@ -191,7 +191,8 @@ struct QuickLinksPanel: View {
         let container = PersistenceController.makeContainer(inMemory: true)
         let projectRepo = ProjectRepository(context: container.mainContext)
         let linkRepo = QuickLinkRepository(context: container.mainContext)
-        let store = ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo)
+        let paneRepo = WorkspacePaneRepository(context: container.mainContext)
+        let store = ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo, workspacePaneRepository: paneRepo)
         store.createProject(name: "Devtail", color: .green, environment: .dev, stack: "Swift")
         if let project = store.projects.first {
             store.addQuickLink(label: "GitHub", url: "https://github.com", to: project)

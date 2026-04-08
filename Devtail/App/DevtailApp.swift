@@ -18,7 +18,12 @@ struct DevtailApp: App {
         let container = PersistenceController.makeContainer()
         let repository = ProjectRepository(context: container.mainContext)
         let quickLinkRepository = QuickLinkRepository(context: container.mainContext)
-        let store = ProjectStore(repository: repository, quickLinkRepository: quickLinkRepository)
+        let workspacePaneRepository = WorkspacePaneRepository(context: container.mainContext)
+        let store = ProjectStore(
+            repository: repository,
+            quickLinkRepository: quickLinkRepository,
+            workspacePaneRepository: workspacePaneRepository
+        )
         _modelContainer = State(initialValue: container)
         _projectStore = State(initialValue: store)
     }

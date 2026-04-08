@@ -17,7 +17,12 @@ struct ProjectStoreQuickLinkTests {
     private func makeStore() -> (ProjectStore, MockProjectRepository, MockQuickLinkRepository) {
         let projectRepo = MockProjectRepository()
         let linkRepo = MockQuickLinkRepository()
-        let store = ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo)
+        let paneRepo = MockWorkspacePaneRepository()
+        let store = ProjectStore(
+            repository: projectRepo,
+            quickLinkRepository: linkRepo,
+            workspacePaneRepository: paneRepo
+        )
         return (store, projectRepo, linkRepo)
     }
 

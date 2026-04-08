@@ -22,10 +22,16 @@ final class ProjectStore {
 
     private let repository: any ProjectRepositoryProtocol
     private let quickLinkRepository: any QuickLinkRepositoryProtocol
+    private let workspacePaneRepository: any WorkspacePaneRepositoryProtocol
 
-    init(repository: any ProjectRepositoryProtocol, quickLinkRepository: any QuickLinkRepositoryProtocol) {
+    init(
+        repository: any ProjectRepositoryProtocol,
+        quickLinkRepository: any QuickLinkRepositoryProtocol,
+        workspacePaneRepository: any WorkspacePaneRepositoryProtocol
+    ) {
         self.repository = repository
         self.quickLinkRepository = quickLinkRepository
+        self.workspacePaneRepository = workspacePaneRepository
     }
 
     func loadProjects() {
@@ -42,7 +48,8 @@ final class ProjectStore {
         notes: String? = nil,
         color: ProjectColor = .gray,
         environment: ProjectEnvironment = .dev,
-        stack: String? = nil
+        stack: String? = nil,
+        directoryPath: String = ""
     ) {
         do {
             let project = try repository.create(
@@ -51,6 +58,19 @@ final class ProjectStore {
                 color: color,
                 environment: environment,
                 stack: stack
+            )
+            if !directoryPath.isEmpty {
+                project.directoryPath = directoryPath
+                try repository.update(project)
+            }
+            // Seed a default "Main" pane for every new project.
+            _ = try? workspacePaneRepository.create(
+                label: "Main",
+                relativeCwd: ".",
+                command: "",
+                order: 0,
+                splitDirection: "none",
+                project: project
             )
             projects.append(project)
             lastError = nil
@@ -65,7 +85,8 @@ final class ProjectStore {
         notes: String? = nil,
         color: ProjectColor,
         environment: ProjectEnvironment,
-        stack: String?
+        stack: String?,
+        directoryPath: String = ""
     ) {
         do {
             project.name = name
@@ -73,6 +94,7 @@ final class ProjectStore {
             project.color = color
             project.environment = environment
             project.stack = (stack?.isEmpty == true) ? nil : stack
+            project.directoryPath = directoryPath
             try repository.update(project)
 
             // Force @Observable to detect the nested mutation by re-assigning
@@ -129,6 +151,70 @@ final class ProjectStore {
         let project = quickLink.project
         do {
             try quickLinkRepository.delete(quickLink)
+            if let project,
+               let idx = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[idx] = project
+            }
+            lastError = nil
+        } catch {
+            lastError = error
+        }
+    }
+
+    // MARK: - WorkspacePane CRUD
+
+    func addWorkspacePane(
+        label: String,
+        relativeCwd: String,
+        command: String,
+        splitDirection: String,
+        to project: Project
+    ) {
+        do {
+            _ = try workspacePaneRepository.create(
+                label: label,
+                relativeCwd: relativeCwd,
+                command: command,
+                order: 0, // repository computes actual order from existing panes
+                splitDirection: splitDirection,
+                project: project
+            )
+            if let idx = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[idx] = project
+            }
+            lastError = nil
+        } catch {
+            lastError = error
+        }
+    }
+
+    func updateWorkspacePane(
+        _ pane: WorkspacePane,
+        label: String,
+        relativeCwd: String,
+        command: String,
+        splitDirection: String
+    ) {
+        do {
+            pane.label = label
+            pane.relativeCwd = relativeCwd
+            pane.command = command
+            pane.splitDirection = splitDirection
+            try workspacePaneRepository.update(pane)
+            if let project = pane.project,
+               let idx = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[idx] = project
+            }
+            lastError = nil
+        } catch {
+            lastError = error
+        }
+    }
+
+    func deleteWorkspacePane(_ pane: WorkspacePane) {
+        let project = pane.project
+        do {
+            try workspacePaneRepository.delete(pane)
             if let project,
                let idx = projects.firstIndex(where: { $0.id == project.id }) {
                 projects[idx] = project
