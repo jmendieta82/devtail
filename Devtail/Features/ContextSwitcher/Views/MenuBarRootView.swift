@@ -3,8 +3,8 @@
 //  Devtail
 //
 //  Root view rendered inside the MenuBarExtra popover. Tabs header,
-//  conditional search, custom-rendered project list with hover and
-//  selection states, footer with Settings and Quit.
+//  conditional search, master-detail layout (project list + QuickLinksPanel),
+//  footer with Settings and Quit.
 //
 
 import SwiftUI
@@ -16,7 +16,14 @@ struct MenuBarRootView: View {
 
     @State private var selectedTab: ContextSwitcherTab = .projects
     @State private var searchQuery: String = ""
-    @State private var selectedProjectID: UUID?
+
+    /// Stored as String because @AppStorage doesn't support UUID? natively.
+    /// Read via the `selectedProjectID` computed property.
+    @AppStorage("devtail.selectedProjectID") private var selectedProjectIDString: String = ""
+
+    private var selectedProjectID: UUID? {
+        UUID(uuidString: selectedProjectIDString)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -64,7 +71,9 @@ struct MenuBarRootView: View {
                                 stack: project.stack,
                                 isSelected: selectedProjectID == project.id,
                                 isInteractive: true,
-                                onTap: { selectedProjectID = project.id },
+                                onTap: {
+                                    selectedProjectIDString = project.id.uuidString
+                                },
                                 onEdit: { openEditForm(for: project.id) },
                                 onDelete: { store.deleteProject(project) }
                             )
@@ -74,7 +83,11 @@ struct MenuBarRootView: View {
                     .padding(.top, DevtailTokens.Spacing.gapMedium)
                     .padding(.bottom, DevtailTokens.Spacing.gapMedium)
                 }
-                .frame(maxHeight: 360)
+                .frame(height: DevtailTokens.Sizes.projectListHeight)
+
+                Divider()
+
+                QuickLinksPanel(projectID: selectedProjectID)
             }
 
             Divider()
@@ -134,7 +147,7 @@ struct MenuBarRootView: View {
     private func clearSelectionIfStale(_ newProjects: [Project]) {
         guard let id = selectedProjectID else { return }
         if !newProjects.contains(where: { $0.id == id }) {
-            selectedProjectID = nil
+            selectedProjectIDString = ""
         }
     }
 }
@@ -143,7 +156,8 @@ struct MenuBarRootView: View {
     let store: ProjectStore = {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
-        return ProjectStore(repository: repository)
+        let linkRepository = QuickLinkRepository(context: container.mainContext)
+        return ProjectStore(repository: repository, quickLinkRepository: linkRepository)
     }()
     MenuBarRootView()
         .environment(store)
@@ -153,7 +167,8 @@ struct MenuBarRootView: View {
     let store: ProjectStore = {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
-        let store = ProjectStore(repository: repository)
+        let linkRepository = QuickLinkRepository(context: container.mainContext)
+        let store = ProjectStore(repository: repository, quickLinkRepository: linkRepository)
         store.createProject(
             name: "Devtail",
             color: .green,

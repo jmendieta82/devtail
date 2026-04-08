@@ -14,12 +14,19 @@ import Foundation
 @Suite("ProjectStore")
 struct ProjectStoreTests {
 
+    private func makeStore(
+        projectRepo: MockProjectRepository = MockProjectRepository(),
+        linkRepo: MockQuickLinkRepository = MockQuickLinkRepository()
+    ) -> ProjectStore {
+        ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo)
+    }
+
     // MARK: - Initial state
 
     @Test("initial state is empty with no error")
     func initialStateIsEmptyWithNoError() {
         let mock = MockProjectRepository()
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         #expect(store.projects.isEmpty)
         #expect(store.lastError == nil)
@@ -34,7 +41,7 @@ struct ProjectStoreTests {
             Project(name: "Alpha"),
             Project(name: "Beta")
         ]
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.loadProjects()
 
@@ -46,7 +53,7 @@ struct ProjectStoreTests {
     func loadProjectsWithEmptyRepositoryLeavesProjectsEmpty() {
         let mock = MockProjectRepository()
         mock.projectsToReturn = []
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.loadProjects()
 
@@ -58,7 +65,7 @@ struct ProjectStoreTests {
     func loadProjectsErrorCapturesLastError() {
         let mock = MockProjectRepository()
         mock.errorToThrow = ProjectError.invalidName
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.loadProjects()
 
@@ -71,7 +78,7 @@ struct ProjectStoreTests {
     @Test("createProject appends the created project on success")
     func createProjectAppendsOnSuccess() {
         let mock = MockProjectRepository()
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.createProject(name: "Gamma")
 
@@ -84,7 +91,7 @@ struct ProjectStoreTests {
     func createProjectErrorCapturesProjectError() {
         let mock = MockProjectRepository()
         mock.errorToThrow = ProjectError.invalidName
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.createProject(name: "")
 
@@ -102,7 +109,7 @@ struct ProjectStoreTests {
             Project(name: "Beta")
         ]
         mock.projectsToReturn = seed
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
         store.loadProjects()
 
         let target = store.projects[0]
@@ -117,7 +124,7 @@ struct ProjectStoreTests {
     func deleteProjectErrorKeepsProjectsUnchanged() {
         let mock = MockProjectRepository()
         mock.projectsToReturn = [Project(name: "Alpha")]
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
         store.loadProjects()
         let originalCount = store.projects.count
 
@@ -134,7 +141,7 @@ struct ProjectStoreTests {
     func lastErrorClearedAfterSuccess() {
         let mock = MockProjectRepository()
         mock.errorToThrow = ProjectError.invalidName
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.loadProjects()
         #expect(store.lastError != nil)
@@ -152,7 +159,7 @@ struct ProjectStoreTests {
     @Test("createProject delegates exactly once to repository")
     func createProjectDelegatesOnce() {
         let mock = MockProjectRepository()
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.createProject(name: "Delta")
 
@@ -164,7 +171,7 @@ struct ProjectStoreTests {
     @Test("createProject passes color, environment, and stack to repository")
     func createProjectPassesAllFieldsToRepository() {
         let mock = MockProjectRepository()
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
 
         store.createProject(
             name: "Devtail",
@@ -191,7 +198,7 @@ struct ProjectStoreTests {
             stack: nil
         )
         mock.projectsToReturn = [seed]
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
         store.loadProjects()
 
         let target = store.projects[0]
@@ -218,7 +225,7 @@ struct ProjectStoreTests {
         let mock = MockProjectRepository()
         let seed = Project(name: "Original")
         mock.projectsToReturn = [seed]
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
         store.loadProjects()
 
         mock.errorToThrow = ProjectError.invalidName
@@ -237,7 +244,7 @@ struct ProjectStoreTests {
     func updateProjectClearsLastErrorOnSuccess() {
         let mock = MockProjectRepository()
         mock.errorToThrow = ProjectError.invalidName
-        let store = ProjectStore(repository: mock)
+        let store = makeStore(projectRepo: mock)
         store.loadProjects()
         #expect(store.lastError != nil)
 

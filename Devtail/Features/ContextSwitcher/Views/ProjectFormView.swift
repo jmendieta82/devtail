@@ -256,7 +256,8 @@ struct ProjectFormView: View {
     let store: ProjectStore = {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
-        return ProjectStore(repository: repository)
+        let linkRepository = QuickLinkRepository(context: container.mainContext)
+        return ProjectStore(repository: repository, quickLinkRepository: linkRepository)
     }()
     ProjectFormView(projectID: nil)
         .environment(store)
@@ -266,7 +267,8 @@ struct ProjectFormView: View {
     let (store, projectID): (ProjectStore, UUID) = {
         let container = PersistenceController.makeContainer(inMemory: true)
         let repository = ProjectRepository(context: container.mainContext)
-        let store = ProjectStore(repository: repository)
+        let linkRepository = QuickLinkRepository(context: container.mainContext)
+        let store = ProjectStore(repository: repository, quickLinkRepository: linkRepository)
         store.createProject(
             name: "Devtail",
             color: .green,

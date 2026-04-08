@@ -147,6 +147,10 @@ enum DevtailTokens {
         static let sidebarWidth: CGFloat         = 200
         static let titleBarHeight: CGFloat       = 38
 
+        // === Quick Links panel ===
+        static let projectListHeight: CGFloat    = 180
+        static let detailPanelHeight: CGFloat    = 220
+
         // === Elements ===
         static let projectDot: CGFloat           = 8
         static let projectDotLarge: CGFloat      = 10

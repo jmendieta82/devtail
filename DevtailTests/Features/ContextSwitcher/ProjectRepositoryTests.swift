@@ -20,7 +20,7 @@ struct ProjectRepositoryTests {
 
     init() throws {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        container = try ModelContainer(for: Project.self, configurations: config)
+        container = try ModelContainer(for: Project.self, QuickLink.self, configurations: config)
         context = ModelContext(container)
         repository = ProjectRepository(context: context)
     }

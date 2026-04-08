@@ -19,6 +19,9 @@ final class Project {
     var createdAt: Date
     var updatedAt: Date
 
+    @Relationship(deleteRule: .cascade, inverse: \QuickLink.project)
+    var quickLinks: [QuickLink] = []
+
     /// User-assigned color from the closed `ProjectColor` palette.
     /// Stored as raw string for SwiftData and surfaced as the enum.
     var color: ProjectColor {
