@@ -25,7 +25,9 @@ struct DashboardRootView: View {
     let initialIntent: DashboardIntent
 
     @State private var selectedProjectID: UUID?
-    @State private var selectedTab: DashboardDetailTab = .quickLinks
+    /// Workspace first by default — same reasoning as the popover:
+    /// the primary action lives in the Workspace tab, so anchor there.
+    @State private var selectedTab: DashboardDetailTab = .workspace
     @State private var mode: DashboardMode = .browsing
     @State private var isFormDirty: Bool = false
     @State private var pendingSelection: UUID?
@@ -374,8 +376,10 @@ struct DashboardRootView: View {
 
     private var detailTabBar: some View {
         HStack(spacing: 0) {
-            dashboardTabButton(title: "QUICK LINKS", tab: .quickLinks)
+            // WORKSPACE first — matches the menubar popover ordering and
+            // puts the primary launch action one click away.
             dashboardTabButton(title: "WORKSPACE",   tab: .workspace)
+            dashboardTabButton(title: "QUICK LINKS", tab: .quickLinks)
             Spacer()
         }
         .padding(.horizontal, DevtailTokens.Spacing.dashboardPadding)

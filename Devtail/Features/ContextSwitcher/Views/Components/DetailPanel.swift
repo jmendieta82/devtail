@@ -31,7 +31,10 @@ struct DetailPanel: View {
     var onEditProject: ((UUID) -> Void)? = nil
 
     @Environment(ProjectStore.self) private var store
-    @State private var selectedTab: DetailTab = .quickLinks
+    /// Default tab is Workspace because Launch is the primary verb of
+    /// the popover — opening Devtail and pressing Launch should be a
+    /// two-click flow, not three. Quick Links are secondary affordances.
+    @State private var selectedTab: DetailTab = .workspace
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,7 +44,9 @@ struct DetailPanel: View {
         }
         .frame(height: DevtailTokens.Sizes.detailPanelHeight)
         .onChange(of: projectID) { _, _ in
-            selectedTab = .quickLinks
+            // Re-anchor on Workspace whenever the user switches projects
+            // — same reasoning as the initial default.
+            selectedTab = .workspace
         }
     }
 
@@ -54,8 +59,10 @@ struct DetailPanel: View {
 
     private var tabBar: some View {
         HStack(spacing: 0) {
-            tabButton(title: "QUICK LINKS", tab: .quickLinks)
+            // WORKSPACE first — it hosts the Launch button, which is
+            // the primary action of the entire popover.
             tabButton(title: "WORKSPACE", tab: .workspace)
+            tabButton(title: "QUICK LINKS", tab: .quickLinks)
             Spacer()
 
             // Read-only callers (the menubar popover) get an inline
