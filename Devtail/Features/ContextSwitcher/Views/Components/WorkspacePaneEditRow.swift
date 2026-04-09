@@ -26,6 +26,11 @@ struct WorkspacePaneEditRow: View {
     let initialSplitDirection: String
     let initialStack: String?
 
+    /// Stack auto-detection registry. Defaults to the production list,
+    /// but is injectable so tests and previews can swap in deterministic
+    /// fakes without touching the filesystem.
+    let detectorRegistry: StackDetectorRegistry
+
     let onSave: (
         _ label: String,
         _ relativeCwd: String,
@@ -54,6 +59,7 @@ struct WorkspacePaneEditRow: View {
         initialCommand: String = "",
         initialSplitDirection: String = "none",
         initialStack: String? = nil,
+        detectorRegistry: StackDetectorRegistry = .default,
         onSave: @escaping (String, String, String, String, String?) -> Void,
         onCancel: @escaping () -> Void
     ) {
@@ -63,6 +69,7 @@ struct WorkspacePaneEditRow: View {
         self.initialCommand = initialCommand
         self.initialSplitDirection = initialSplitDirection
         self.initialStack = initialStack
+        self.detectorRegistry = detectorRegistry
         self.onSave = onSave
         self.onCancel = onCancel
         _label = State(initialValue: initialLabel)
@@ -292,6 +299,39 @@ struct WorkspacePaneEditRow: View {
         // an explicit label the user entered before picking the folder.
         if label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             label = chosen.lastPathComponent
+        }
+
+        // Kick off stack auto-detection. The detector IO suspends the
+        // main actor (it doesn't block it), so the editor stays responsive
+        // while we sniff the folder. Result is filled in inside the Task.
+        runStackDetection(at: chosenStandardized)
+    }
+
+    /// Runs the configured detector registry against the chosen folder
+    /// and, on success, fills in `stack` and `command` — but only when
+    /// those fields are still empty. Anything the user already typed is
+    /// preserved verbatim, matching how the label auto-fill works above.
+    ///
+    /// Concurrency note: this uses `Task { }` (NOT `Task.detached`) so
+    /// the closure inherits the @MainActor isolation of the View. The
+    /// `await registry.detectBestMatch(...)` suspends the main actor
+    /// during the actual filesystem IO — the detectors are `Sendable`
+    /// and run on the cooperative pool — so the UI stays responsive.
+    /// `Task.detached` is the wrong tool here: it would copy the View
+    /// struct and mutations would not reach the real `@State` storage.
+    private func runStackDetection(at folder: URL) {
+        let registry = detectorRegistry
+        Task {
+            guard let detected = await registry.detectBestMatch(in: folder) else {
+                return
+            }
+            if stack.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                stack = detected.label
+            }
+            if command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let suggested = detected.suggestedCommand {
+                command = suggested
+            }
         }
     }
 

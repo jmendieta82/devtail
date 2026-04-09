@@ -24,9 +24,17 @@ struct StackDetectorRegistry: Sendable {
     /// Convenience: the registry used in production with all the
     /// detectors that ship today. Tests build their own instance with
     /// a custom detector list so they don't depend on this.
+    ///
+    /// Order rationale: detectors are independent (each one looks at
+    /// disjoint marker files), so registration order only matters as a
+    /// tie-breaker on equal confidence. Listed alphabetically below for
+    /// readability — there is no overlap to disambiguate today.
     static let `default` = StackDetectorRegistry(
         detectors: [
-            NodeStackDetector()
+            GoStackDetector(),
+            NodeStackDetector(),
+            PythonStackDetector(),
+            SwiftStackDetector()
         ]
     )
 
