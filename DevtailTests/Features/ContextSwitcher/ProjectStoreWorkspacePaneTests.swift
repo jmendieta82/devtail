@@ -69,19 +69,27 @@ struct ProjectStoreWorkspacePaneTests {
 
     // MARK: - updateWorkspacePane
 
-    @Test("updateWorkspacePane delegates and mutates all four fields")
+    @Test("updateWorkspacePane delegates and mutates all fields including stack")
     func updateWorkspacePaneSuccess() {
         let (store, _, paneRepo, _) = makeStore()
         let project = Project(name: "Devtail", color: .green, environment: .dev)
         let pane = WorkspacePane(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
 
-        store.updateWorkspacePane(pane, label: "API", relativeCwd: "api", command: "npm run dev", splitDirection: "right")
+        store.updateWorkspacePane(
+            pane,
+            label: "API",
+            relativeCwd: "api",
+            command: "npm run dev",
+            splitDirection: "right",
+            stack: "TypeScript"
+        )
 
         #expect(paneRepo.updateCallCount == 1)
         #expect(pane.label == "API")
         #expect(pane.relativeCwd == "api")
         #expect(pane.command == "npm run dev")
         #expect(pane.splitDirection == "right")
+        #expect(pane.stack == "TypeScript")
         #expect(store.lastError == nil)
     }
 
@@ -92,7 +100,14 @@ struct ProjectStoreWorkspacePaneTests {
         let project = Project(name: "Devtail", color: .green, environment: .dev)
         let pane = WorkspacePane(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
 
-        store.updateWorkspacePane(pane, label: "", relativeCwd: ".", command: "", splitDirection: "none")
+        store.updateWorkspacePane(
+            pane,
+            label: "",
+            relativeCwd: ".",
+            command: "",
+            splitDirection: "none",
+            stack: nil
+        )
 
         #expect(store.lastError as? WorkspacePaneError == .invalidLabel)
     }
@@ -124,19 +139,16 @@ struct ProjectStoreWorkspacePaneTests {
         #expect(store.lastError as? WorkspacePaneError == .invalidLabel)
     }
 
-    // MARK: - createProject seeds default pane
+    // MARK: - createProject does NOT seed any default pane
 
-    @Test("createProject seeds default Main pane via workspacePaneRepository")
-    func createProjectSeedsDefaultPane() {
+    @Test("createProject does not auto-create any workspace pane")
+    func createProjectDoesNotSeedDefaultPane() {
         let (store, _, paneRepo, _) = makeStore()
 
         store.createProject(name: "Devtail")
 
-        #expect(paneRepo.createCallCount == 1)
-        #expect(paneRepo.lastCreateLabel == "Main")
-        #expect(paneRepo.lastCreateRelativeCwd == ".")
-        #expect(paneRepo.lastCreateCommand == "")
-        #expect(paneRepo.lastCreateSplitDirection == "none")
+        // Phase 2.5 decision: see ProjectStoreTests for the rationale.
+        #expect(paneRepo.createCallCount == 0)
     }
 
     @Test("createProject with directoryPath assigns it to project.directoryPath")
@@ -201,5 +213,60 @@ struct ProjectStoreWorkspacePaneTests {
         #expect(
             store.lastError as? WorkspaceLauncherError == .ghosttyNotInstalled
         )
+    }
+
+    @Test("launchWorkspace clears isLaunchingWorkspace after success")
+    func launchWorkspaceClearsFlagAfterSuccess() async {
+        let (store, _, _, _) = makeStore()
+        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        project.directoryPath = "/Users/dev/devtail"
+
+        store.launchWorkspace(for: project)
+        // Immediately after invocation, the flag MUST be true — the Task
+        // hasn't had a chance to run yet because we haven't yielded.
+        #expect(store.isLaunchingWorkspace == true)
+
+        try? await Task.sleep(for: .milliseconds(50))
+
+        // After the Task finishes, the flag MUST be back to false,
+        // regardless of success.
+        #expect(store.isLaunchingWorkspace == false)
+    }
+
+    @Test("launchWorkspace clears isLaunchingWorkspace after failure")
+    func launchWorkspaceClearsFlagAfterFailure() async {
+        let (store, _, _, launcher) = makeStore()
+        launcher.errorToThrow = WorkspaceLauncherError.ghosttyNotInstalled
+        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        project.directoryPath = "/Users/dev/devtail"
+
+        store.launchWorkspace(for: project)
+        try? await Task.sleep(for: .milliseconds(50))
+
+        // Even when the launcher throws, the flag MUST come back down so
+        // the UI doesn't get stuck on "Launching..." forever.
+        #expect(store.isLaunchingWorkspace == false)
+        #expect(store.lastError as? WorkspaceLauncherError == .ghosttyNotInstalled)
+    }
+
+    @Test("launchWorkspace is a no-op while another launch is in flight")
+    func launchWorkspaceIgnoresDoubleTap() async {
+        let (store, _, _, launcher) = makeStore()
+        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        project.directoryPath = "/Users/dev/devtail"
+
+        // First launch — fires the Task, flag goes true.
+        store.launchWorkspace(for: project)
+        #expect(store.isLaunchingWorkspace == true)
+
+        // Second launch BEFORE the first Task has yielded. The guard on
+        // isLaunchingWorkspace should make this a silent no-op.
+        store.launchWorkspace(for: project)
+
+        try? await Task.sleep(for: .milliseconds(50))
+
+        // Only one actual call should have reached the launcher.
+        #expect(launcher.launchCallCount == 1)
+        #expect(store.isLaunchingWorkspace == false)
     }
 }

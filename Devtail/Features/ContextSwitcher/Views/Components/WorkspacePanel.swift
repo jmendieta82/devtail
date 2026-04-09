@@ -2,9 +2,13 @@
 //  WorkspacePanel.swift
 //  Devtail
 //
-//  Detail panel for Workspace panes. Shows the pane list for the selected
-//  project, edit-mode toggle, inline add/edit rows, and a disabled
-//  "Launch" button (Coming soon — launcher ships in Change 2).
+//  Detail panel for Workspace panes. Lists the panes of the selected
+//  project (read-only rows with hover actions for edit/delete), a
+//  permanent "+ Add pane" button next to Launch, and an inline editor
+//  that takes over when adding or editing a pane.
+//
+//  The previous "Edit/Done" toggle is gone: panes are always editable
+//  via hover actions, and a new pane is always one click away.
 //
 
 import SwiftUI
@@ -15,10 +19,8 @@ struct WorkspacePanel: View {
 
     @Environment(ProjectStore.self) private var store
 
-    @State private var isEditingPanes: Bool = false
-    @State private var isAddingPane: Bool = false
     @State private var editingPaneID: UUID?
-    @State private var isLaunching: Bool = false
+    @State private var isAddingPane: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -33,9 +35,6 @@ struct WorkspacePanel: View {
         .onChange(of: projectID) { _, _ in
             resetEditState()
         }
-        .onChange(of: store.lastError as? WorkspaceLauncherError) { _, _ in
-            isLaunching = false
-        }
     }
 
     // MARK: - Computed helpers
@@ -49,11 +48,16 @@ struct WorkspacePanel: View {
         currentProject?.workspacePanes.sorted { $0.order < $1.order } ?? []
     }
 
+    private var projectRoot: String {
+        currentProject?.directoryPath ?? ""
+    }
+
+    private var hasProjectRoot: Bool {
+        !projectRoot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var canLaunch: Bool {
-        guard let project = currentProject else { return false }
-        return !project.directoryPath
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
+        hasProjectRoot && !sortedPanes.isEmpty
     }
 
     // MARK: - Header
@@ -71,15 +75,46 @@ struct WorkspacePanel: View {
                     .foregroundStyle(DevtailTokens.Colors.textMuted)
             }
             Spacer()
+
+            // Secondary: add a new pane (icon-only, discreet).
+            if currentProject != nil {
+                Button {
+                    startAddingPane()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(DevtailTokens.Typography.bodySmall)
+                        .foregroundStyle(
+                            hasProjectRoot
+                                ? DevtailTokens.Colors.textSecondary
+                                : DevtailTokens.Colors.textDisabled
+                        )
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!hasProjectRoot || isAddingPane || editingPaneID != nil)
+                .help(
+                    hasProjectRoot
+                        ? "Add workspace pane"
+                        : "Set a project directory first"
+                )
+            }
+
+            // Keep a visible gap between the secondary (add) and the
+            // primary CTA (Launch). A mis-click on Add should NOT fire
+            // Launch — Launch actually opens Ghostty and runs commands.
+            Spacer()
+                .frame(width: DevtailTokens.Spacing.gapLarge)
+
+            // Primary: launch workspace (prominent, green).
             Button {
                 guard let project = currentProject else { return }
-                isLaunching = true
                 store.launchWorkspace(for: project)
             } label: {
                 HStack(spacing: DevtailTokens.Spacing.gapTiny) {
-                    Image(systemName: isLaunching ? "hourglass" : "play.fill")
+                    Image(systemName: store.isLaunchingWorkspace ? "hourglass" : "play.fill")
                         .font(DevtailTokens.Typography.captionSmall)
-                    Text(isLaunching ? "Launching..." : "Launch")
+                    Text(store.isLaunchingWorkspace ? "Launching..." : "Launch")
                         .font(DevtailTokens.Typography.bodySmall)
                 }
                 .foregroundStyle(
@@ -89,27 +124,20 @@ struct WorkspacePanel: View {
                 )
             }
             .buttonStyle(.plain)
-            .disabled(!canLaunch || isLaunching)
-            .help(
-                canLaunch
-                    ? "Launch workspace in Ghostty"
-                    : "Set a project directory first"
-            )
-
-            if currentProject != nil {
-                Button(isEditingPanes ? "Done" : "Edit") {
-                    if isEditingPanes {
-                        isAddingPane = false
-                        editingPaneID = nil
-                    }
-                    isEditingPanes.toggle()
-                }
-                .buttonStyle(.plain)
-                .font(DevtailTokens.Typography.bodySmall)
-                .foregroundStyle(DevtailTokens.Colors.accentGreen)
-            }
+            .disabled(!canLaunch || store.isLaunchingWorkspace)
+            .help(launchHelp)
         }
         .padding(.bottom, DevtailTokens.Spacing.gapMedium)
+    }
+
+    private var launchHelp: String {
+        if !hasProjectRoot {
+            return "Set a project directory first"
+        }
+        if sortedPanes.isEmpty {
+            return "Add at least one workspace pane first"
+        }
+        return "Launch workspace in Ghostty"
     }
 
     // MARK: - Content
@@ -118,7 +146,9 @@ struct WorkspacePanel: View {
     private var content: some View {
         if currentProject == nil {
             emptyNoSelection
-        } else if sortedPanes.isEmpty && !isEditingPanes {
+        } else if !hasProjectRoot && sortedPanes.isEmpty {
+            emptyNoProjectRoot
+        } else if sortedPanes.isEmpty && !isAddingPane {
             emptyNoPanes
         } else {
             paneList
@@ -137,12 +167,29 @@ struct WorkspacePanel: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
+    private var emptyNoProjectRoot: some View {
+        VStack(alignment: .center, spacing: DevtailTokens.Spacing.gapSmall) {
+            Image(systemName: "folder.badge.questionmark")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(DevtailTokens.Colors.textTertiary)
+            Text("Set a project directory first")
+                .font(DevtailTokens.Typography.bodyDefault)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            Text("Edit this project and choose its root folder, then come back to add workspace panes.")
+                .font(DevtailTokens.Typography.caption)
+                .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
     private var emptyNoPanes: some View {
         VStack(alignment: .center, spacing: DevtailTokens.Spacing.gapSmall) {
             Text("No panes yet")
                 .font(DevtailTokens.Typography.bodyDefault)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
-            Text("Enter edit mode to add your first pane.")
+            Text("Tap + to add your first pane.")
                 .font(DevtailTokens.Typography.caption)
                 .foregroundStyle(DevtailTokens.Colors.textTertiary)
         }
@@ -155,17 +202,20 @@ struct WorkspacePanel: View {
                 ForEach(sortedPanes, id: \.id) { pane in
                     if editingPaneID == pane.id {
                         WorkspacePaneEditRow(
+                            projectRoot: projectRoot,
                             initialLabel: pane.label,
                             initialRelativeCwd: pane.relativeCwd,
                             initialCommand: pane.command,
                             initialSplitDirection: pane.splitDirection,
-                            onSave: { label, cwd, cmd, dir in
+                            initialStack: pane.stack,
+                            onSave: { label, cwd, cmd, dir, stack in
                                 store.updateWorkspacePane(
                                     pane,
                                     label: label,
                                     relativeCwd: cwd,
                                     command: cmd,
-                                    splitDirection: dir
+                                    splitDirection: dir,
+                                    stack: stack
                                 )
                                 editingPaneID = nil
                             },
@@ -176,58 +226,52 @@ struct WorkspacePanel: View {
                     } else {
                         WorkspacePaneRow(
                             pane: pane,
-                            isEditing: isEditingPanes,
-                            onEditTap: {
-                                editingPaneID = pane.id
-                            },
-                            onDelete: {
-                                store.deleteWorkspacePane(pane)
-                            }
+                            onEditTap: { startEditingPane(pane.id) },
+                            onDelete: { store.deleteWorkspacePane(pane) }
                         )
                     }
                 }
 
-                if isEditingPanes {
-                    if isAddingPane {
-                        WorkspacePaneEditRow(
-                            onSave: { label, cwd, cmd, dir in
-                                if let project = currentProject {
-                                    store.addWorkspacePane(
-                                        label: label,
-                                        relativeCwd: cwd,
-                                        command: cmd,
-                                        splitDirection: dir,
-                                        to: project
-                                    )
-                                }
-                                isAddingPane = false
-                            },
-                            onCancel: {
-                                isAddingPane = false
+                if isAddingPane {
+                    WorkspacePaneEditRow(
+                        projectRoot: projectRoot,
+                        onSave: { label, cwd, cmd, dir, stack in
+                            if let project = currentProject {
+                                store.addWorkspacePane(
+                                    label: label,
+                                    relativeCwd: cwd,
+                                    command: cmd,
+                                    splitDirection: dir,
+                                    stack: stack,
+                                    to: project
+                                )
                             }
-                        )
-                    } else {
-                        Button {
-                            isAddingPane = true
-                        } label: {
-                            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                                Image(systemName: "plus")
-                                Text("Add pane")
-                            }
-                            .font(DevtailTokens.Typography.bodySmall)
-                            .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                            isAddingPane = false
+                        },
+                        onCancel: {
+                            isAddingPane = false
                         }
-                        .buttonStyle(.plain)
-                    }
+                    )
                 }
             }
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Edit state transitions
+
+    private func startAddingPane() {
+        guard hasProjectRoot else { return }
+        editingPaneID = nil
+        isAddingPane = true
+    }
+
+    private func startEditingPane(_ id: UUID) {
+        guard hasProjectRoot else { return }
+        isAddingPane = false
+        editingPaneID = id
+    }
 
     private func resetEditState() {
-        isEditingPanes = false
         isAddingPane = false
         editingPaneID = nil
     }
@@ -318,7 +362,7 @@ struct WorkspacePanel: View {
             workspacePaneRepository: paneRepo,
             launcher: WorkspaceLauncher()
         )
-        store.createProject(name: "Devtail", color: .green, environment: .dev, stack: "Swift")
+        store.createProject(name: "Devtail", color: .green, environment: .dev)
         return (store, store.projects[0].id)
     }()
     WorkspacePanel(projectID: projectID)

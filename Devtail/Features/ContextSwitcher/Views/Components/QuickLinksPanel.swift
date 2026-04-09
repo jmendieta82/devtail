@@ -203,7 +203,7 @@ struct QuickLinksPanel: View {
             workspacePaneRepository: paneRepo,
             launcher: WorkspaceLauncher()
         )
-        store.createProject(name: "Devtail", color: .green, environment: .dev, stack: "Swift")
+        store.createProject(name: "Devtail", color: .green, environment: .dev)
         if let project = store.projects.first {
             store.addQuickLink(label: "GitHub", url: "https://github.com", to: project)
             store.addQuickLink(label: "Notion", url: "https://notion.so", to: project)

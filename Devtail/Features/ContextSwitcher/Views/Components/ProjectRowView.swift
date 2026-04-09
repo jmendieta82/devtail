@@ -13,7 +13,6 @@ struct ProjectRowView: View {
     let name: String
     let color: ProjectColor
     let environment: ProjectEnvironment
-    let stack: String?
     let isSelected: Bool
     var isInteractive: Bool = true
     var onTap: (() -> Void)? = nil
@@ -30,12 +29,6 @@ struct ProjectRowView: View {
                     .font(DevtailTokens.Typography.bodyDefault)
                     .foregroundStyle(DevtailTokens.Colors.textPrimary)
                     .lineLimit(1)
-                if let stack, !stack.isEmpty {
-                    Text(stack)
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(DevtailTokens.Colors.textMuted)
-                        .lineLimit(1)
-                }
             }
             Spacer(minLength: DevtailTokens.Spacing.gapSmall)
             if isSelected {
@@ -44,7 +37,7 @@ struct ProjectRowView: View {
                     .foregroundStyle(DevtailTokens.Colors.accentGreen)
             }
             EnvironmentPill(environment: environment)
-            if isInteractive && isHovered {
+            if isInteractive && isHovered && hasActions {
                 rowActions
             }
         }
@@ -68,10 +61,14 @@ struct ProjectRowView: View {
             onTap?()
         }
         .contextMenu {
-            if isInteractive {
+            if isInteractive && hasActions {
                 menuContent
             }
         }
+    }
+
+    private var hasActions: Bool {
+        onEdit != nil || onDelete != nil
     }
 
     @ViewBuilder
@@ -139,21 +136,18 @@ struct ProjectRowView: View {
             name: "Devtail",
             color: .green,
             environment: .dev,
-            stack: "Swift + SwiftUI",
             isSelected: false
         )
         ProjectRowView(
             name: "Side Project",
             color: .blue,
             environment: .staging,
-            stack: "TypeScript",
             isSelected: true
         )
         ProjectRowView(
             name: "Pixel",
             color: .purple,
             environment: .prod,
-            stack: nil,
             isSelected: false
         )
     }
@@ -167,7 +161,6 @@ struct ProjectRowView: View {
         name: "Live preview",
         color: .amber,
         environment: .prod,
-        stack: "Rust",
         isSelected: false,
         isInteractive: false
     )

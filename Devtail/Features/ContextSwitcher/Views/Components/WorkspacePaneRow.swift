@@ -2,15 +2,15 @@
 //  WorkspacePaneRow.swift
 //  Devtail
 //
-//  Read-only row displaying a workspace pane. In edit mode shows a delete
-//  button and routes taps to the edit closure.
+//  Read-only row displaying a workspace pane. Hover reveals edit/delete
+//  action icons — no more "edit mode" toggle on the parent. Shows label,
+//  stack (if set), relativeCwd, command and split direction badge.
 //
 
 import SwiftUI
 
 struct WorkspacePaneRow: View {
     let pane: WorkspacePane
-    let isEditing: Bool
     let onEditTap: () -> Void
     let onDelete: () -> Void
 
@@ -19,10 +19,23 @@ struct WorkspacePaneRow: View {
     var body: some View {
         HStack(spacing: DevtailTokens.Spacing.gapSmall) {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
-                Text(pane.label)
-                    .font(DevtailTokens.Typography.bodySmall)
-                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                    .lineLimit(1)
+                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                    Text(pane.label)
+                        .font(DevtailTokens.Typography.bodySmall)
+                        .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                        .lineLimit(1)
+                    if let stack = pane.stack, !stack.isEmpty {
+                        Text(stack)
+                            .font(DevtailTokens.Typography.captionSmall)
+                            .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                            .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
+                            .padding(.vertical, 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
+                                    .fill(DevtailTokens.Colors.inputBackground)
+                            )
+                    }
+                }
                 HStack(spacing: DevtailTokens.Spacing.gapSmall) {
                     Text(pane.relativeCwd)
                         .font(DevtailTokens.Typography.monoSmall)
@@ -42,27 +55,17 @@ struct WorkspacePaneRow: View {
 
             Spacer(minLength: DevtailTokens.Spacing.gapSmall)
 
-            if !isEditing && pane.splitDirection != "none" {
+            if isHovering {
+                hoverActions
+            } else if pane.splitDirection != "none" {
                 splitDirectionBadge
-            }
-
-            if isEditing {
-                Button {
-                    onDelete()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(DevtailTokens.Typography.captionSmall)
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                }
-                .buttonStyle(.plain)
-                .help("Delete pane")
             }
         }
         .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
         .padding(.vertical, DevtailTokens.Spacing.gapSmall)
         .background(
             RoundedRectangle(cornerRadius: DevtailTokens.Radius.linkChip)
-                .fill(isHovering && isEditing
+                .fill(isHovering
                       ? DevtailTokens.Colors.hoverState
                       : DevtailTokens.Colors.pill)
         )
@@ -73,10 +76,46 @@ struct WorkspacePaneRow: View {
         )
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .onTapGesture {
-            if isEditing {
+        .contextMenu {
+            Button {
                 onEditTap()
+            } label: {
+                Label("Edit", systemImage: "pencil")
             }
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var hoverActions: some View {
+        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+            Button {
+                onEditTap()
+            } label: {
+                Image(systemName: "pencil")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Edit pane")
+
+            Button {
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Delete pane")
         }
     }
 

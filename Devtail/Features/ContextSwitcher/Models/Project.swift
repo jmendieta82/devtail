@@ -4,6 +4,11 @@
 //
 //  Core domain model: a development project the user works on.
 //
+//  Stack note: the project itself has no "stack" field — a project is a
+//  root directory that can contain multiple workspace panes, each with its
+//  own stack (frontend/TS, backend/Django, etc.). Stack lives on the
+//  WorkspacePane model.
+//
 
 import Foundation
 import SwiftData
@@ -15,7 +20,6 @@ final class Project {
     var notes: String?
     var colorRaw: String
     var environmentRaw: String
-    var stack: String?
     var createdAt: Date
     var updatedAt: Date
 
@@ -44,15 +48,13 @@ final class Project {
         name: String,
         notes: String? = nil,
         color: ProjectColor = .gray,
-        environment: ProjectEnvironment = .dev,
-        stack: String? = nil
+        environment: ProjectEnvironment = .dev
     ) {
         self.id = UUID()
         self.name = name
         self.notes = notes
         self.colorRaw = color.rawValue
         self.environmentRaw = environment.rawValue
-        self.stack = stack
         let now = Date.now
         self.createdAt = now
         self.updatedAt = now

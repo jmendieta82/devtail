@@ -31,8 +31,7 @@ final class MockProjectRepository: ProjectRepositoryProtocol {
         name: String,
         notes: String?,
         color: ProjectColor,
-        environment: ProjectEnvironment,
-        stack: String?
+        environment: ProjectEnvironment
     )?
     var lastUpdatedProject: Project?
 
@@ -42,16 +41,14 @@ final class MockProjectRepository: ProjectRepositoryProtocol {
         name: String,
         notes: String?,
         color: ProjectColor,
-        environment: ProjectEnvironment,
-        stack: String?
+        environment: ProjectEnvironment
     ) throws -> Project {
         createCallCount += 1
         lastCreatedFields = (
             name: name,
             notes: notes,
             color: color,
-            environment: environment,
-            stack: stack
+            environment: environment
         )
         if let errorToThrow {
             throw errorToThrow
@@ -63,8 +60,7 @@ final class MockProjectRepository: ProjectRepositoryProtocol {
             name: name,
             notes: notes,
             color: color,
-            environment: environment,
-            stack: stack
+            environment: environment
         )
     }
 

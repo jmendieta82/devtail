@@ -15,16 +15,20 @@ import Foundation
 struct ProjectStoreTests {
 
     private func makeStore(
-        projectRepo: MockProjectRepository = MockProjectRepository(),
-        linkRepo: MockQuickLinkRepository = MockQuickLinkRepository(),
-        paneRepo: MockWorkspacePaneRepository = MockWorkspacePaneRepository(),
-        launcher: MockWorkspaceLauncher = MockWorkspaceLauncher()
+        projectRepo: MockProjectRepository? = nil,
+        linkRepo: MockQuickLinkRepository? = nil,
+        paneRepo: MockWorkspacePaneRepository? = nil,
+        launcher: MockWorkspaceLauncher? = nil
     ) -> ProjectStore {
+        // Swift 6 rejects @MainActor-isolated initializers as default
+        // parameter values (those are evaluated in nonisolated context).
+        // We use nil defaults and construct inside the function body,
+        // which IS @MainActor because the enclosing Suite is.
         ProjectStore(
-            repository: projectRepo,
-            quickLinkRepository: linkRepo,
-            workspacePaneRepository: paneRepo,
-            launcher: launcher
+            repository: projectRepo ?? MockProjectRepository(),
+            quickLinkRepository: linkRepo ?? MockQuickLinkRepository(),
+            workspacePaneRepository: paneRepo ?? MockWorkspacePaneRepository(),
+            launcher: launcher ?? MockWorkspaceLauncher()
         )
     }
 
@@ -161,18 +165,20 @@ struct ProjectStoreTests {
         #expect(store.projects.count == 1)
     }
 
-    // MARK: - createProject seeds default pane
+    // MARK: - createProject does NOT seed any default pane
 
-    @Test("createProject seeds a default Main pane via workspacePaneRepository")
-    func createProjectSeedsDefaultPane() {
+    @Test("createProject does not auto-create any workspace pane")
+    func createProjectDoesNotSeedDefaultPane() {
         let projectRepo = MockProjectRepository()
         let paneRepo = MockWorkspacePaneRepository()
         let store = makeStore(projectRepo: projectRepo, paneRepo: paneRepo)
 
         store.createProject(name: "Devtail")
 
-        #expect(paneRepo.createCallCount == 1)
-        #expect(paneRepo.lastCreateLabel == "Main")
+        // Phase 2.5 decision: panes must be created intentionally by the
+        // user via NSOpenPanel pointing at a real subfolder. A seeded
+        // "Main" pane at "." would be a lie about the model.
+        #expect(paneRepo.createCallCount == 0)
     }
 
     // MARK: - Delegation
@@ -189,7 +195,7 @@ struct ProjectStoreTests {
 
     // MARK: - createProject with full fields
 
-    @Test("createProject passes color, environment, and stack to repository")
+    @Test("createProject passes color and environment to repository")
     func createProjectPassesAllFieldsToRepository() {
         let mock = MockProjectRepository()
         let store = makeStore(projectRepo: mock)
@@ -198,13 +204,11 @@ struct ProjectStoreTests {
             name: "Devtail",
             notes: nil,
             color: .purple,
-            environment: .prod,
-            stack: "Swift"
+            environment: .prod
         )
 
         #expect(mock.lastCreatedFields?.color == .purple)
         #expect(mock.lastCreatedFields?.environment == .prod)
-        #expect(mock.lastCreatedFields?.stack == "Swift")
     }
 
     // MARK: - updateProject
@@ -215,8 +219,7 @@ struct ProjectStoreTests {
         let seed = Project(
             name: "Original",
             color: .gray,
-            environment: .dev,
-            stack: nil
+            environment: .dev
         )
         mock.projectsToReturn = [seed]
         let store = makeStore(projectRepo: mock)
@@ -228,14 +231,12 @@ struct ProjectStoreTests {
             name: "Renamed",
             notes: nil,
             color: .blue,
-            environment: .staging,
-            stack: "TypeScript"
+            environment: .staging
         )
 
         #expect(target.name == "Renamed")
         #expect(target.color == .blue)
         #expect(target.environment == .staging)
-        #expect(target.stack == "TypeScript")
         #expect(mock.updateCallCount == 1)
         #expect(store.projects.count == 1)
         #expect(store.lastError == nil)
@@ -254,8 +255,7 @@ struct ProjectStoreTests {
             store.projects[0],
             name: "Renamed",
             color: .blue,
-            environment: .dev,
-            stack: nil
+            environment: .dev
         )
 
         #expect(store.lastError != nil)
@@ -278,8 +278,7 @@ struct ProjectStoreTests {
             store.projects[0],
             name: "Recovered",
             color: .green,
-            environment: .prod,
-            stack: nil
+            environment: .prod
         )
 
         #expect(store.lastError == nil)

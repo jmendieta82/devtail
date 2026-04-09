@@ -43,7 +43,7 @@ struct ProjectModelTests {
         #expect(p1.id != p2.id)
     }
 
-    // MARK: - New fields: color, environment, stack
+    // MARK: - Color and environment fields
 
     @Test("initializer defaults color to .gray when omitted")
     func initializerDefaultsColorToGray() {
@@ -59,25 +59,16 @@ struct ProjectModelTests {
         #expect(project.environment == .dev)
     }
 
-    @Test("initializer defaults stack to nil when omitted")
-    func initializerDefaultsStackToNil() {
-        let project = Project(name: "My Project")
-
-        #expect(project.stack == nil)
-    }
-
-    @Test("initializer assigns color, environment, and stack when provided")
+    @Test("initializer assigns color and environment when provided")
     func initializerAssignsNewFields() {
         let project = Project(
             name: "Devtail",
             notes: nil,
             color: .green,
-            environment: .prod,
-            stack: "Swift + SwiftUI"
+            environment: .prod
         )
 
         #expect(project.color == .green)
         #expect(project.environment == .prod)
-        #expect(project.stack == "Swift + SwiftUI")
     }
 }

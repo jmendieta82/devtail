@@ -44,30 +44,22 @@ struct DevtailApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New Project") {
                     NSApp.activate(ignoringOtherApps: true)
-                    openWindow(id: WindowID.projectForm, value: UUID?.none)
+                    openWindow(id: WindowID.dashboard, value: DashboardIntent.createProject)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
         }
 
-        Window("Devtail", id: WindowID.dashboard) {
-            DashboardRootView()
-                .preferredColorScheme(.dark)
-        }
-        .modelContainer(modelContainer)
-        .environment(projectStore)
-        .windowResizability(.contentSize)
-
-        WindowGroup("Project", id: WindowID.projectForm, for: UUID?.self) { $projectID in
-            ProjectFormView(projectID: projectID ?? nil)
+        WindowGroup("Devtail", id: WindowID.dashboard, for: DashboardIntent.self) { $intent in
+            DashboardRootView(initialIntent: intent ?? .none)
                 .preferredColorScheme(.dark)
         } defaultValue: {
-            nil
+            .none
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
         .windowResizability(.contentSize)
-        .defaultSize(width: 460, height: 580)
+        .defaultLaunchBehavior(.suppressed)
 
         Window("Settings", id: WindowID.settings) {
             ComingSoonView(title: "Settings")
@@ -79,7 +71,18 @@ struct DevtailApp: App {
 }
 
 enum WindowID {
-    static let dashboard   = "devtail.dashboard"
-    static let projectForm = "devtail.projectForm"
-    static let settings    = "devtail.settings"
+    static let dashboard = "devtail.dashboard"
+    static let settings  = "devtail.settings"
+}
+
+/// Why this exists: the dashboard window can be opened from multiple places
+/// (popup "Manage…" button, ⌘N keyboard shortcut, future deep links). Each
+/// caller may want the dashboard to land in a specific state — idle, with the
+/// create-project sheet already visible, or with the edit sheet for a given
+/// project. Using a Codable enum as the WindowGroup value lets SwiftUI
+/// natively carry that intent through `openWindow(id:value:)`.
+enum DashboardIntent: Codable, Hashable {
+    case none
+    case createProject
+    case editProject(UUID)
 }

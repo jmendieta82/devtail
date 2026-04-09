@@ -14,11 +14,18 @@ final class ProjectStore {
 
     private(set) var projects: [Project] = []
 
+    
     /// Generic `Error?` (not `ProjectError?`) because the repository may
     /// surface non-domain errors from SwiftData. Callers pattern-match via
     /// `lastError as? ProjectError` when they care about a specific case.
     /// See proposal §8.
     private(set) var lastError: Error?
+
+    /// Toggled while a `launchWorkspace` call is in flight. Lets the UI
+    /// show a "Launching..." state without owning the async lifecycle
+    /// itself — the store manages on/off around the Task that actually
+    /// calls the launcher.
+    private(set) var isLaunchingWorkspace: Bool = false
 
     private let repository: any ProjectRepositoryProtocol
     private let quickLinkRepository: any QuickLinkRepositoryProtocol
@@ -51,7 +58,6 @@ final class ProjectStore {
         notes: String? = nil,
         color: ProjectColor = .gray,
         environment: ProjectEnvironment = .dev,
-        stack: String? = nil,
         directoryPath: String = ""
     ) {
         do {
@@ -59,22 +65,17 @@ final class ProjectStore {
                 name: name,
                 notes: notes,
                 color: color,
-                environment: environment,
-                stack: stack
+                environment: environment
             )
             if !directoryPath.isEmpty {
                 project.directoryPath = directoryPath
                 try repository.update(project)
             }
-            // Seed a default "Main" pane for every new project.
-            _ = try? workspacePaneRepository.create(
-                label: "Main",
-                relativeCwd: ".",
-                command: "",
-                order: 0,
-                splitDirection: "none",
-                project: project
-            )
+            // Note: we do NOT seed a default "Main" pane. Panes are meant
+            // to point at actual subfolders (frontend, backend, …) that
+            // the user picks intentionally via NSOpenPanel. An auto-seeded
+            // "." pane would confuse the model and the auto-detection
+            // work planned for Phase 2.7.
             projects.append(project)
             lastError = nil
         } catch {
@@ -88,7 +89,6 @@ final class ProjectStore {
         notes: String? = nil,
         color: ProjectColor,
         environment: ProjectEnvironment,
-        stack: String?,
         directoryPath: String = ""
     ) {
         do {
@@ -96,7 +96,6 @@ final class ProjectStore {
             project.notes = notes
             project.color = color
             project.environment = environment
-            project.stack = (stack?.isEmpty == true) ? nil : stack
             project.directoryPath = directoryPath
             try repository.update(project)
 
@@ -171,6 +170,7 @@ final class ProjectStore {
         relativeCwd: String,
         command: String,
         splitDirection: String,
+        stack: String? = nil,
         to project: Project
     ) {
         do {
@@ -180,6 +180,7 @@ final class ProjectStore {
                 command: command,
                 order: 0, // repository computes actual order from existing panes
                 splitDirection: splitDirection,
+                stack: stack,
                 project: project
             )
             if let idx = projects.firstIndex(where: { $0.id == project.id }) {
@@ -196,13 +197,15 @@ final class ProjectStore {
         label: String,
         relativeCwd: String,
         command: String,
-        splitDirection: String
+        splitDirection: String,
+        stack: String?
     ) {
         do {
             pane.label = label
             pane.relativeCwd = relativeCwd
             pane.command = command
             pane.splitDirection = splitDirection
+            pane.stack = stack
             try workspacePaneRepository.update(pane)
             if let project = pane.project,
                let idx = projects.firstIndex(where: { $0.id == project.id }) {
@@ -231,8 +234,15 @@ final class ProjectStore {
     // MARK: - Workspace Launcher
 
     func launchWorkspace(for project: Project) {
+        // Guard against double-taps: if a launch is already in flight,
+        // ignore the new request. Without this the user could spawn
+        // multiple Ghostty windows by mashing the button.
+        guard !isLaunchingWorkspace else { return }
+
         let panes = project.workspacePanes.sorted { $0.order < $1.order }
+        isLaunchingWorkspace = true
         Task {
+            defer { isLaunchingWorkspace = false }
             do {
                 try await launcher.launch(project: project, panes: panes)
                 lastError = nil

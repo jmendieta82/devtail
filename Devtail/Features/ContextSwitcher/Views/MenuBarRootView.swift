@@ -34,17 +34,6 @@ struct MenuBarRootView: View {
                     .foregroundStyle(DevtailTokens.Colors.textPrimary)
                 Spacer()
                 TabHeader(selectedTab: $selectedTab)
-                Button {
-                    openCreateForm()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(DevtailTokens.Typography.bodyDefault)
-                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
-                        .frame(width: 22, height: 22)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("New project (⌘N)")
             }
             .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
             .padding(.top, DevtailTokens.Spacing.popoverPadding)
@@ -58,7 +47,7 @@ struct MenuBarRootView: View {
 
             // ─── Content ───
             if store.projects.isEmpty {
-                EmptyProjectsView(onCreate: openCreateForm)
+                EmptyProjectsView(onCreate: openDashboardForCreate)
                     .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
             } else {
                 ScrollView {
@@ -68,14 +57,13 @@ struct MenuBarRootView: View {
                                 name: project.name,
                                 color: project.color,
                                 environment: project.environment,
-                                stack: project.stack,
                                 isSelected: selectedProjectID == project.id,
                                 isInteractive: true,
                                 onTap: {
                                     selectedProjectIDString = project.id.uuidString
                                 },
-                                onEdit: { openEditForm(for: project.id) },
-                                onDelete: { store.deleteProject(project) }
+                                onEdit: nil,
+                                onDelete: nil
                             )
                         }
                     }
@@ -94,7 +82,17 @@ struct MenuBarRootView: View {
                 .padding(.top, DevtailTokens.Spacing.gapSmall)
 
             // ─── Footer ───
-            HStack {
+            HStack(spacing: DevtailTokens.Spacing.gapLarge) {
+                Button {
+                    openDashboard()
+                } label: {
+                    Label("Manage…", systemImage: "square.grid.2x2")
+                        .font(DevtailTokens.Typography.bodySmall)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                .help("Open the Devtail dashboard")
+
                 Button {
                     openWindow(id: WindowID.settings)
                 } label: {
@@ -129,19 +127,18 @@ struct MenuBarRootView: View {
         guard !trimmed.isEmpty else { return store.projects }
         let needle = trimmed.lowercased()
         return store.projects.filter { project in
-            project.name.lowercased().contains(needle) ||
-            (project.stack?.lowercased().contains(needle) ?? false)
+            project.name.lowercased().contains(needle)
         }
     }
 
-    private func openCreateForm() {
+    private func openDashboard() {
         NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: WindowID.projectForm, value: UUID?.none)
+        openWindow(id: WindowID.dashboard, value: DashboardIntent.none)
     }
 
-    private func openEditForm(for projectID: UUID) {
+    private func openDashboardForCreate() {
         NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: WindowID.projectForm, value: Optional(projectID))
+        openWindow(id: WindowID.dashboard, value: DashboardIntent.createProject)
     }
 
     private func clearSelectionIfStale(_ newProjects: [Project]) {
@@ -184,20 +181,17 @@ struct MenuBarRootView: View {
         store.createProject(
             name: "Devtail",
             color: .green,
-            environment: .dev,
-            stack: "Swift"
+            environment: .dev
         )
         store.createProject(
             name: "Side Project",
             color: .blue,
-            environment: .staging,
-            stack: "TypeScript"
+            environment: .staging
         )
         store.createProject(
             name: "Pixel",
             color: .purple,
-            environment: .prod,
-            stack: "Rust"
+            environment: .prod
         )
         return store
     }()

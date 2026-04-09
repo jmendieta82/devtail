@@ -49,19 +49,17 @@ struct ProjectRepositoryTests {
         }
     }
 
-    @Test("create persists color, environment, and stack when provided")
+    @Test("create persists color, environment, and notes when provided")
     func createPersistsAllOptionalFields() throws {
         let project = try repository.create(
             name: "Full Project",
             notes: "with notes",
             color: .blue,
-            environment: .staging,
-            stack: "Swift"
+            environment: .staging
         )
 
         #expect(project.color == .blue)
         #expect(project.environment == .staging)
-        #expect(project.stack == "Swift")
         #expect(project.notes == "with notes")
     }
 
@@ -123,24 +121,21 @@ struct ProjectRepositoryTests {
         #expect(refetched?.name == "Updated Name")
     }
 
-    @Test("update persists changes to color, environment, and stack")
-    func updatePersistsFieldChangesIncludingColorEnvironmentStack() throws {
+    @Test("update persists changes to color and environment")
+    func updatePersistsFieldChangesIncludingColorEnvironment() throws {
         let project = try repository.create(
             name: "Original",
             color: .gray,
-            environment: .dev,
-            stack: nil
+            environment: .dev
         )
 
         project.color = .purple
         project.environment = .prod
-        project.stack = "Rust"
         try repository.update(project)
 
         let refetched = try repository.findById(project.id)
         #expect(refetched?.color == .purple)
         #expect(refetched?.environment == .prod)
-        #expect(refetched?.stack == "Rust")
     }
 
     // MARK: - Group E: delete

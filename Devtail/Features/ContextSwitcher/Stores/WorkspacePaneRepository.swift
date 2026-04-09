@@ -19,6 +19,7 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         command: String,
         order: Int,
         splitDirection: String,
+        stack: String? = nil,
         project: Project
     ) throws -> WorkspacePane {
         let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -39,6 +40,7 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
             command: command,
             order: nextOrder,
             splitDirection: splitDirection,
+            stack: normalizedStack(stack),
             project: project
         )
         context.insert(pane)
@@ -64,6 +66,7 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         }
         pane.label = trimmedLabel
         pane.relativeCwd = trimmedCwd
+        pane.stack = normalizedStack(pane.stack)
         pane.updatedAt = .now
         try context.save()
     }
@@ -71,6 +74,15 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
     func delete(_ pane: WorkspacePane) throws {
         context.delete(pane)
         try context.save()
+    }
+
+    /// Trims whitespace and collapses empty strings to nil so the model
+    /// stays consistent (`nil` vs `""` are the same concept for the UI but
+    /// different for storage queries).
+    private func normalizedStack(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
