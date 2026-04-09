@@ -11,6 +11,12 @@ import SwiftUI
 
 struct WorkspacePaneRow: View {
     let pane: WorkspacePane
+    /// Optional git branch label resolved by the parent panel via
+    /// `GitBranchDetector`. Computed in the panel — not in the row —
+    /// because the row does not know the absolute project root and
+    /// shouldn't reach into the filesystem from a SwiftUI body. `nil`
+    /// when the pane's folder is not inside a git repo.
+    var branch: String? = nil
     /// When true, hover actions and the context menu are suppressed.
     /// The row still highlights on hover so the user gets feedback,
     /// but no edit/delete affordances are exposed.
@@ -62,6 +68,27 @@ struct WorkspacePaneRow: View {
                                 RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
                                     .fill(DevtailTokens.Colors.inputBackground)
                             )
+                    }
+                    if let branch, !branch.isEmpty {
+                        // Branch badge sits next to the stack badge.
+                        // Leading icon makes the meaning unambiguous —
+                        // a bare label like "main" could be confused
+                        // with a stack name.
+                        HStack(spacing: 2) {
+                            Image(systemName: "arrow.triangle.branch")
+                                .font(.system(size: 9, weight: .medium))
+                            Text(branch)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .font(DevtailTokens.Typography.captionSmall)
+                        .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                        .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
+                        .padding(.vertical, 1)
+                        .background(
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
+                                .fill(DevtailTokens.Colors.accentGreen.opacity(0.12))
+                        )
                     }
                 }
                 HStack(spacing: DevtailTokens.Spacing.gapSmall) {

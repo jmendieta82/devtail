@@ -28,6 +28,14 @@ struct WorkspacePanel: View {
     @State private var editingPaneID: UUID?
     @State private var isAddingPane: Bool = false
 
+    /// Stateless detector. Held as a `let` so SwiftUI doesn't recreate
+    /// it on every body eval. Branch resolution happens lazily inside
+    /// the row builder, once per pane per render — reading `.git/HEAD`
+    /// is sub-ms so caching is not worth the staleness risk (the user
+    /// could checkout a different branch in another terminal between
+    /// popover opens, and we want them to always see the truth).
+    private let gitBranchDetector = GitBranchDetector()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -64,6 +72,22 @@ struct WorkspacePanel: View {
 
     private var canLaunch: Bool {
         hasProjectRoot && !sortedPanes.isEmpty
+    }
+
+    /// Resolves the absolute folder URL for a pane (project root +
+    /// relative cwd) and asks the GitBranchDetector for its current
+    /// branch. Returns nil when there is no project root, when the
+    /// folder doesn't exist, or when no `.git` is found up the tree.
+    private func branch(for pane: WorkspacePane) -> String? {
+        guard hasProjectRoot else { return nil }
+        let rootURL = URL(fileURLWithPath: projectRoot)
+        let absoluteFolder: URL
+        if pane.relativeCwd == "." || pane.relativeCwd.isEmpty {
+            absoluteFolder = rootURL
+        } else {
+            absoluteFolder = rootURL.appendingPathComponent(pane.relativeCwd)
+        }
+        return gitBranchDetector.detectBranch(in: absoluteFolder)
     }
 
     // MARK: - Header
@@ -236,6 +260,7 @@ struct WorkspacePanel: View {
                     } else {
                         WorkspacePaneRow(
                             pane: pane,
+                            branch: branch(for: pane),
                             isReadOnly: isReadOnly,
                             onEditTap: { startEditingPane(pane.id) },
                             onDelete: { store.deleteWorkspacePane(pane) }
