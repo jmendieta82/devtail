@@ -165,20 +165,38 @@ struct ProjectStoreTests {
         #expect(store.projects.count == 1)
     }
 
-    // MARK: - createProject does NOT seed any default pane
+    // MARK: - Root pane auto-seed
 
-    @Test("createProject does not auto-create any workspace pane")
-    func createProjectDoesNotSeedDefaultPane() {
+    @Test("createProject WITHOUT directoryPath does NOT seed any pane")
+    func createProjectWithoutDirectoryPathDoesNotSeedPane() {
         let projectRepo = MockProjectRepository()
         let paneRepo = MockWorkspacePaneRepository()
         let store = makeStore(projectRepo: projectRepo, paneRepo: paneRepo)
 
         store.createProject(name: "Devtail")
 
-        // Phase 2.5 decision: panes must be created intentionally by the
-        // user via NSOpenPanel pointing at a real subfolder. A seeded
-        // "Main" pane at "." would be a lie about the model.
+        // Without a directoryPath, there is no real root to mirror —
+        // seeding a pane here WOULD be inventing data. Honest empty.
         #expect(paneRepo.createCallCount == 0)
+    }
+
+    @Test("createProject WITH directoryPath seeds a root pane named after the project")
+    func createProjectWithDirectoryPathSeedsRootPane() {
+        let projectRepo = MockProjectRepository()
+        let paneRepo = MockWorkspacePaneRepository()
+        let store = makeStore(projectRepo: projectRepo, paneRepo: paneRepo)
+
+        store.createProject(name: "Devtail", directoryPath: "/Users/dev/devtail")
+
+        // The user picked the root folder via NSOpenPanel — that pick
+        // IS intent, and the seeded pane mirrors it 1:1.
+        #expect(paneRepo.createCallCount == 1)
+        #expect(paneRepo.lastCreateLabel == "Devtail")
+        #expect(paneRepo.lastCreateRelativeCwd == ".")
+        #expect(paneRepo.lastCreateCommand == "")
+        #expect(paneRepo.lastCreateSplitDirection == "none")
+        #expect(paneRepo.lastCreateStack == nil)
+        #expect(paneRepo.lastCreateEnvironment == nil)
     }
 
     // MARK: - Delegation

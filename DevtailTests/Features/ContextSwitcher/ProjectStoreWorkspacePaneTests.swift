@@ -204,27 +204,34 @@ struct ProjectStoreWorkspacePaneTests {
         #expect(store.lastError as? WorkspacePaneError == .invalidLabel)
     }
 
-    // MARK: - createProject does NOT seed any default pane
+    // MARK: - Root pane auto-seed
 
-    @Test("createProject does not auto-create any workspace pane")
-    func createProjectDoesNotSeedDefaultPane() {
+    @Test("createProject without directoryPath does NOT seed any pane")
+    func createProjectWithoutDirectoryPathDoesNotSeedPane() {
         let (store, _, paneRepo, _) = makeStore()
 
         store.createProject(name: "Devtail")
 
-        // Phase 2.5 decision: see ProjectStoreTests for the rationale.
+        // No directoryPath → no honest root to mirror → no pane.
         #expect(paneRepo.createCallCount == 0)
     }
 
-    @Test("createProject with directoryPath assigns it to project.directoryPath")
+    @Test("createProject with directoryPath assigns it AND seeds a root pane")
     func createProjectWithDirectoryPath() {
-        let (store, projectRepo, _, _) = makeStore()
+        let (store, projectRepo, paneRepo, _) = makeStore()
 
         store.createProject(name: "Devtail", directoryPath: "/Users/dev/devtail")
 
-        // Verify that update was called on the project repository to persist directoryPath
+        // The project itself was updated to persist the directoryPath.
         #expect(projectRepo.updateCallCount == 1)
         #expect(store.projects.first?.directoryPath == "/Users/dev/devtail")
+
+        // AND a root pane was seeded mirroring that directoryPath.
+        // Label is the project name so multi-window setups read clearly.
+        #expect(paneRepo.createCallCount == 1)
+        #expect(paneRepo.lastCreateLabel == "Devtail")
+        #expect(paneRepo.lastCreateRelativeCwd == ".")
+        #expect(paneRepo.lastCreateSplitDirection == "none")
     }
 
     @Test("createProject without directoryPath does not call project repository update")

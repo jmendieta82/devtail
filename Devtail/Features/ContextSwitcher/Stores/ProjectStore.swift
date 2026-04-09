@@ -68,12 +68,32 @@ final class ProjectStore {
             if !directoryPath.isEmpty {
                 project.directoryPath = directoryPath
                 try repository.update(project)
+
+                // Seed a root pane mirroring the directoryPath the user
+                // just picked. The original Phase 2.5 decision was to
+                // NOT seed any default pane, on the rationale that
+                // panes should "point at real subfolders the user
+                // intentionally picked". Real usage proved that
+                // rationale was incomplete: the user already picks the
+                // project root via NSOpenPanel when creating the
+                // project, and forcing them to recreate that exact
+                // path as a pane afterwards is duplicate intent, not
+                // pure model. The pane below is named after the
+                // project so a stack of Ghostty windows shouts which
+                // project each one belongs to. We do NOT seed when
+                // directoryPath is empty — that case is honest "no
+                // root yet" and seeding a fake pane WOULD be a lie.
+                _ = try? workspacePaneRepository.create(
+                    label: name,
+                    relativeCwd: ".",
+                    command: "",
+                    order: 0,
+                    splitDirection: "none",
+                    stack: nil,
+                    environment: nil,
+                    project: project
+                )
             }
-            // Note: we do NOT seed a default "Main" pane. Panes are meant
-            // to point at actual subfolders (frontend, backend, …) that
-            // the user picks intentionally via NSOpenPanel. An auto-seeded
-            // "." pane would confuse the model and the auto-detection
-            // work planned for Phase 2.7.
             projects.append(project)
             lastError = nil
         } catch {
