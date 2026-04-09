@@ -264,6 +264,7 @@ struct WorkspacePanel: View {
                             pane: pane,
                             branch: branch(for: pane),
                             isReadOnly: isReadOnly,
+                            canDelete: sortedPanes.count > 1,
                             onEditTap: { startEditingPane(pane.id) },
                             onDelete: { store.deleteWorkspacePane(pane) }
                         )

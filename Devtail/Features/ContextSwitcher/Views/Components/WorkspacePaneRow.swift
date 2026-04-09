@@ -21,6 +21,12 @@ struct WorkspacePaneRow: View {
     /// The row still highlights on hover so the user gets feedback,
     /// but no edit/delete affordances are exposed.
     var isReadOnly: Bool = false
+    /// When false, the delete affordances (hover button + context menu
+    /// item) are disabled. The product invariant is "a workspace
+    /// always has at least one pane" — this is the UI half of that
+    /// rule (the repository enforces it as a hard error). The user
+    /// gets a tooltip explaining why deleting the last pane is blocked.
+    var canDelete: Bool = true
     let onEditTap: () -> Void
     let onDelete: () -> Void
 
@@ -45,6 +51,7 @@ struct WorkspacePaneRow: View {
             .onHover { isHovering = $0 }
             .applyContextMenuIfNeeded(
                 isEnabled: !isReadOnly,
+                canDelete: canDelete,
                 onEdit: onEditTap,
                 onDelete: onDelete
             )
@@ -143,12 +150,17 @@ struct WorkspacePaneRow: View {
             } label: {
                 Image(systemName: "trash")
                     .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    .foregroundStyle(canDelete
+                                     ? DevtailTokens.Colors.textSecondary
+                                     : DevtailTokens.Colors.textDisabled)
                     .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Delete pane")
+            .disabled(!canDelete)
+            .help(canDelete
+                  ? "Delete pane"
+                  : "Cannot delete the last pane — every workspace needs at least one")
         }
     }
 
@@ -177,6 +189,7 @@ private extension View {
     @ViewBuilder
     func applyContextMenuIfNeeded(
         isEnabled: Bool,
+        canDelete: Bool,
         onEdit: @escaping () -> Void,
         onDelete: @escaping () -> Void
     ) -> some View {
@@ -192,6 +205,7 @@ private extension View {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .disabled(!canDelete)
             }
         } else {
             self

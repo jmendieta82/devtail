@@ -163,13 +163,43 @@ struct WorkspacePaneRepositoryTests {
 
     // MARK: - delete
 
-    @Test("delete removes the pane from findByProject results")
+    @Test("delete removes the pane from findByProject results when other panes remain")
     func deleteRemovesPane() throws {
         let project = try makeProject()
-        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
-        try paneRepo.delete(pane)
+        let keepMe = try paneRepo.create(label: "Keep", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+        let deleteMe = try paneRepo.create(label: "Delete", relativeCwd: "api", command: "", order: 0, splitDirection: "right", project: project)
+
+        try paneRepo.delete(deleteMe)
+
         let remaining = try paneRepo.findByProject(project)
-        #expect(remaining.isEmpty)
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.id == keepMe.id)
+    }
+
+    @Test("delete throws cannotDeleteLastPane when removing the only pane of a project")
+    func deleteRefusesLastPane() throws {
+        let project = try makeProject()
+        let onlyPane = try paneRepo.create(
+            label: "Main",
+            relativeCwd: ".",
+            command: "",
+            order: 0,
+            splitDirection: "none",
+            project: project
+        )
+
+        // Product invariant: every workspace must have at least one
+        // pane. Removing the last pane would leave the launcher with
+        // nowhere to anchor — refused at the repository layer so no
+        // call site can bypass it.
+        #expect(throws: WorkspacePaneError.cannotDeleteLastPane) {
+            try paneRepo.delete(onlyPane)
+        }
+
+        // The pane is still there.
+        let remaining = try paneRepo.findByProject(project)
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.id == onlyPane.id)
     }
 
     @Test("cascade delete: deleting a project removes its panes")

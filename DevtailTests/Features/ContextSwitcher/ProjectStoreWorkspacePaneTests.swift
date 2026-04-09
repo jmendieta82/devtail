@@ -204,6 +204,21 @@ struct ProjectStoreWorkspacePaneTests {
         #expect(store.lastError as? WorkspacePaneError == .invalidLabel)
     }
 
+    @Test("deleteWorkspacePane surfaces cannotDeleteLastPane from the repository")
+    func deleteWorkspacePaneLastPaneRefused() {
+        let (store, _, paneRepo, _) = makeStore()
+        // Repository-layer rule: a workspace cannot be left without
+        // panes. The store has to surface that error verbatim so the
+        // UI can react (disabled button, alert, etc.).
+        paneRepo.errorToThrow = WorkspacePaneError.cannotDeleteLastPane
+        let project = Project(name: "Devtail", color: .green)
+        let pane = WorkspacePane(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+
+        store.deleteWorkspacePane(pane)
+
+        #expect(store.lastError as? WorkspacePaneError == .cannotDeleteLastPane)
+    }
+
     // MARK: - Root pane auto-seed
 
     @Test("createProject without directoryPath does NOT seed any pane")

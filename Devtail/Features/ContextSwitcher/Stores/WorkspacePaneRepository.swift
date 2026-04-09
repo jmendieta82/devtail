@@ -74,6 +74,15 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
     }
 
     func delete(_ pane: WorkspacePane) throws {
+        // Product invariant: a workspace must always have at least
+        // one pane. If this delete would leave the project with zero
+        // panes, refuse — the UI surfaces this as a disabled button
+        // with an explanatory tooltip, so the user understands why
+        // the action is not available rather than seeing it silently
+        // succeed and ending up with a launcher that can't anchor.
+        if let project = pane.project, project.workspacePanes.count <= 1 {
+            throw WorkspacePaneError.cannotDeleteLastPane
+        }
         context.delete(pane)
         try context.save()
     }
