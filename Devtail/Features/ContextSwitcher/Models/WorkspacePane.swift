@@ -7,8 +7,11 @@
 //
 //  Stack note: `stack` lives here (not on Project) because a project can
 //  contain multiple subfolders with different technologies (e.g. frontend
-//  TypeScript + backend Django). The editor UI for this field ships in
-//  Phase 2.5; auto-detection ships in Phase 2.7.
+//  TypeScript + backend Django). Same reasoning applies to `environment`:
+//  a single project can have one pane that points at dev and another that
+//  points at prod, so the environment is a property of the pane, not the
+//  project. Both fields are optional — a pane that does not need to advertise
+//  its environment simply leaves the badge empty.
 //
 
 import Foundation
@@ -23,9 +26,27 @@ final class WorkspacePane {
     var order: Int
     var splitDirection: String
     var stack: String?
+    /// Stored as a raw string mirror of `ProjectEnvironment` so SwiftData
+    /// can persist it. Optional because not every pane corresponds to a
+    /// runtime environment (a pane could be a tooling shell, a logs
+    /// monitor, a notes editor, etc.). Read/write through the `environment`
+    /// computed accessor — never touch `environmentRaw` directly from views.
+    var environmentRaw: String?
     var createdAt: Date
     var updatedAt: Date
     var project: Project?
+
+    /// Strongly-typed accessor over `environmentRaw`. Returns `nil` for
+    /// unset OR unrecognized raw values, so a manual edit of the SQLite
+    /// store with garbage cannot crash the app — it just renders as
+    /// "no environment" until the user picks a real value.
+    var environment: ProjectEnvironment? {
+        get {
+            guard let environmentRaw else { return nil }
+            return ProjectEnvironment(rawValue: environmentRaw)
+        }
+        set { environmentRaw = newValue?.rawValue }
+    }
 
     init(
         label: String,
@@ -34,6 +55,7 @@ final class WorkspacePane {
         order: Int,
         splitDirection: String,
         stack: String? = nil,
+        environment: ProjectEnvironment? = nil,
         project: Project?
     ) {
         self.id = UUID()
@@ -43,6 +65,7 @@ final class WorkspacePane {
         self.order = order
         self.splitDirection = splitDirection
         self.stack = stack
+        self.environmentRaw = environment?.rawValue
         self.project = project
         let now = Date.now
         self.createdAt = now

@@ -11,8 +11,12 @@
 //    - Empty / whitespace-only query → returns the input unchanged.
 //    - Otherwise the query is trimmed, lowercased, and tested as a
 //      substring against a per-project "haystack" built from the
-//      `name`, `directoryPath`, and `environment.rawValue` fields.
+//      `name` and `directoryPath` fields.
 //    - Input order is preserved for matching projects (no ranking).
+//
+//  Note: environment is no longer searched. It moved from Project to
+//  WorkspacePane in a later refactor, and pane-level filtering is a
+//  separate decision we've intentionally deferred.
 //
 //  Concurrency: marked Sendable. The engine has no state and never
 //  touches @MainActor data — `Project` instances flow in from the
@@ -54,8 +58,7 @@ struct ProjectFilterEngine: Sendable {
         // "def" should NOT match the query "cdef").
         [
             project.name,
-            project.directoryPath,
-            project.environment.rawValue
+            project.directoryPath
         ]
         .joined(separator: " ")
         .lowercased()

@@ -31,7 +31,7 @@ struct ProjectStoreQuickLinkTests {
     @Test("addQuickLink delegates to repository on success")
     func addQuickLinkSuccess() {
         let (store, _, linkRepo) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         store.addQuickLink(label: "GitHub", url: "https://github.com", to: project)
 
         #expect(linkRepo.createCallCount == 1)
@@ -44,7 +44,7 @@ struct ProjectStoreQuickLinkTests {
     func addQuickLinkError() {
         let (store, _, linkRepo) = makeStore()
         linkRepo.errorToThrow = QuickLinkError.invalidURL
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
 
         store.addQuickLink(label: "GitHub", url: "not a url", to: project)
 
@@ -54,7 +54,7 @@ struct ProjectStoreQuickLinkTests {
     @Test("updateQuickLink delegates and clears error on success")
     func updateQuickLinkSuccess() {
         let (store, _, linkRepo) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
 
         store.updateQuickLink(link, label: "GitHub Pro", url: "https://github.com/pro")
@@ -69,7 +69,7 @@ struct ProjectStoreQuickLinkTests {
     func updateQuickLinkError() {
         let (store, _, linkRepo) = makeStore()
         linkRepo.errorToThrow = QuickLinkError.invalidLabel
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
 
         store.updateQuickLink(link, label: "", url: "https://github.com")
@@ -80,7 +80,7 @@ struct ProjectStoreQuickLinkTests {
     @Test("deleteQuickLink delegates to repository")
     func deleteQuickLinkSuccess() {
         let (store, _, linkRepo) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
 
         store.deleteQuickLink(link)
@@ -94,7 +94,7 @@ struct ProjectStoreQuickLinkTests {
     func deleteQuickLinkError() {
         let (store, _, linkRepo) = makeStore()
         linkRepo.errorToThrow = QuickLinkError.invalidURL
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
 
         store.deleteQuickLink(link)

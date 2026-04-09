@@ -20,6 +20,7 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         order: Int,
         splitDirection: String,
         stack: String? = nil,
+        environment: ProjectEnvironment? = nil,
         project: Project
     ) throws -> WorkspacePane {
         let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,6 +42,7 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
             order: nextOrder,
             splitDirection: splitDirection,
             stack: normalizedStack(stack),
+            environment: environment,
             project: project
         )
         context.insert(pane)

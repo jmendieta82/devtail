@@ -242,14 +242,16 @@ struct WorkspacePanel: View {
                             initialCommand: pane.command,
                             initialSplitDirection: pane.splitDirection,
                             initialStack: pane.stack,
-                            onSave: { label, cwd, cmd, dir, stack in
+                            initialEnvironment: pane.environment,
+                            onSave: { label, cwd, cmd, dir, stack, env in
                                 store.updateWorkspacePane(
                                     pane,
                                     label: label,
                                     relativeCwd: cwd,
                                     command: cmd,
                                     splitDirection: dir,
-                                    stack: stack
+                                    stack: stack,
+                                    environment: env
                                 )
                                 editingPaneID = nil
                             },
@@ -271,7 +273,7 @@ struct WorkspacePanel: View {
                 if !isReadOnly && isAddingPane {
                     WorkspacePaneEditRow(
                         projectRoot: projectRoot,
-                        onSave: { label, cwd, cmd, dir, stack in
+                        onSave: { label, cwd, cmd, dir, stack, env in
                             if let project = currentProject {
                                 store.addWorkspacePane(
                                     label: label,
@@ -279,6 +281,7 @@ struct WorkspacePanel: View {
                                     command: cmd,
                                     splitDirection: dir,
                                     stack: stack,
+                                    environment: env,
                                     to: project
                                 )
                             }
@@ -398,7 +401,7 @@ struct WorkspacePanel: View {
             workspacePaneRepository: paneRepo,
             launcher: WorkspaceLauncher()
         )
-        store.createProject(name: "Devtail", color: .green, environment: .dev)
+        store.createProject(name: "Devtail", color: .green)
         return (store, store.projects[0].id)
     }()
     WorkspacePanel(projectID: projectID)

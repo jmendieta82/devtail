@@ -25,6 +25,7 @@ struct WorkspacePaneEditRow: View {
     let initialCommand: String
     let initialSplitDirection: String
     let initialStack: String?
+    let initialEnvironment: ProjectEnvironment?
 
     /// Stack auto-detection registry. Defaults to the production list,
     /// but is injectable so tests and previews can swap in deterministic
@@ -36,7 +37,8 @@ struct WorkspacePaneEditRow: View {
         _ relativeCwd: String,
         _ command: String,
         _ splitDirection: String,
-        _ stack: String?
+        _ stack: String?,
+        _ environment: ProjectEnvironment?
     ) -> Void
     let onCancel: () -> Void
 
@@ -45,6 +47,7 @@ struct WorkspacePaneEditRow: View {
     @State private var relativeCwd: String
     @State private var command: String
     @State private var splitDirection: String
+    @State private var environment: ProjectEnvironment?
     @State private var chooserError: String?
     @FocusState private var focusedField: Field?
 
@@ -59,8 +62,9 @@ struct WorkspacePaneEditRow: View {
         initialCommand: String = "",
         initialSplitDirection: String = "none",
         initialStack: String? = nil,
+        initialEnvironment: ProjectEnvironment? = nil,
         detectorRegistry: StackDetectorRegistry = .default,
-        onSave: @escaping (String, String, String, String, String?) -> Void,
+        onSave: @escaping (String, String, String, String, String?, ProjectEnvironment?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.projectRoot = projectRoot
@@ -69,6 +73,7 @@ struct WorkspacePaneEditRow: View {
         self.initialCommand = initialCommand
         self.initialSplitDirection = initialSplitDirection
         self.initialStack = initialStack
+        self.initialEnvironment = initialEnvironment
         self.detectorRegistry = detectorRegistry
         self.onSave = onSave
         self.onCancel = onCancel
@@ -77,6 +82,7 @@ struct WorkspacePaneEditRow: View {
         _relativeCwd = State(initialValue: initialRelativeCwd)
         _command = State(initialValue: initialCommand)
         _splitDirection = State(initialValue: initialSplitDirection)
+        _environment = State(initialValue: initialEnvironment)
     }
 
     var body: some View {
@@ -156,6 +162,15 @@ struct WorkspacePaneEditRow: View {
                     focus: .command,
                     onSubmit: { commitIfValid() }
                 )
+            }
+
+            // Environment picker (optional — defaults to None)
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                Text("ENVIRONMENT")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    .tracking(0.5)
+                EnvironmentPicker(selection: $environment)
             }
 
             // Split direction picker
@@ -374,14 +389,14 @@ struct WorkspacePaneEditRow: View {
     private func commitIfValid() {
         guard canSave else { return }
         let stackValue: String? = trimmedStack.isEmpty ? nil : trimmedStack
-        onSave(trimmedLabel, relativeCwd, command, splitDirection, stackValue)
+        onSave(trimmedLabel, relativeCwd, command, splitDirection, stackValue, environment)
     }
 }
 
 #Preview {
     WorkspacePaneEditRow(
         projectRoot: "/Users/dev/MRN_V2",
-        onSave: { _, _, _, _, _ in },
+        onSave: { _, _, _, _, _, _ in },
         onCancel: {}
     )
     .padding()

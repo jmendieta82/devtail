@@ -33,7 +33,7 @@ struct ProjectStoreWorkspacePaneTests {
     @Test("addWorkspacePane delegates to repository on success")
     func addWorkspacePaneSuccess() {
         let (store, _, paneRepo, _) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
 
         store.addWorkspacePane(
             label: "Main",
@@ -54,7 +54,7 @@ struct ProjectStoreWorkspacePaneTests {
     func addWorkspacePaneError() {
         let (store, _, paneRepo, _) = makeStore()
         paneRepo.errorToThrow = WorkspacePaneError.invalidSplitDirection
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
 
         store.addWorkspacePane(
             label: "Main",
@@ -69,10 +69,10 @@ struct ProjectStoreWorkspacePaneTests {
 
     // MARK: - updateWorkspacePane
 
-    @Test("updateWorkspacePane delegates and mutates all fields including stack")
+    @Test("updateWorkspacePane delegates and mutates all fields including stack and environment")
     func updateWorkspacePaneSuccess() {
         let (store, _, paneRepo, _) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let pane = WorkspacePane(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
 
         store.updateWorkspacePane(
@@ -81,7 +81,8 @@ struct ProjectStoreWorkspacePaneTests {
             relativeCwd: "api",
             command: "npm run dev",
             splitDirection: "right",
-            stack: "TypeScript"
+            stack: "TypeScript",
+            environment: .staging
         )
 
         #expect(paneRepo.updateCallCount == 1)
@@ -90,14 +91,78 @@ struct ProjectStoreWorkspacePaneTests {
         #expect(pane.command == "npm run dev")
         #expect(pane.splitDirection == "right")
         #expect(pane.stack == "TypeScript")
+        #expect(pane.environment == .staging)
         #expect(store.lastError == nil)
+    }
+
+    // MARK: - environment field on the pane
+
+    @Test("addWorkspacePane passes environment through to repository")
+    func addWorkspacePanePassesEnvironment() {
+        let (store, _, paneRepo, _) = makeStore()
+        let project = Project(name: "Devtail", color: .green)
+
+        store.addWorkspacePane(
+            label: "API",
+            relativeCwd: "api",
+            command: "npm run dev",
+            splitDirection: "right",
+            stack: "TypeScript",
+            environment: .prod,
+            to: project
+        )
+
+        #expect(paneRepo.lastCreateEnvironment == .prod)
+    }
+
+    @Test("addWorkspacePane defaults environment to nil when omitted")
+    func addWorkspacePaneEnvironmentDefaultsToNil() {
+        let (store, _, paneRepo, _) = makeStore()
+        let project = Project(name: "Devtail", color: .green)
+
+        store.addWorkspacePane(
+            label: "logs",
+            relativeCwd: "logs",
+            command: "tail -f app.log",
+            splitDirection: "down",
+            to: project
+        )
+
+        #expect(paneRepo.lastCreateEnvironment == nil)
+    }
+
+    @Test("updateWorkspacePane clears environment when nil is passed")
+    func updateWorkspacePaneClearsEnvironment() {
+        let (store, _, _, _) = makeStore()
+        let project = Project(name: "Devtail", color: .green)
+        let pane = WorkspacePane(
+            label: "API",
+            relativeCwd: "api",
+            command: "",
+            order: 0,
+            splitDirection: "none",
+            environment: .prod,
+            project: project
+        )
+
+        store.updateWorkspacePane(
+            pane,
+            label: "API",
+            relativeCwd: "api",
+            command: "",
+            splitDirection: "none",
+            stack: nil,
+            environment: nil
+        )
+
+        #expect(pane.environment == nil)
     }
 
     @Test("updateWorkspacePane captures error on failure")
     func updateWorkspacePaneError() {
         let (store, _, paneRepo, _) = makeStore()
         paneRepo.errorToThrow = WorkspacePaneError.invalidLabel
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let pane = WorkspacePane(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
 
         store.updateWorkspacePane(
@@ -117,7 +182,7 @@ struct ProjectStoreWorkspacePaneTests {
     @Test("deleteWorkspacePane delegates to repository and clears lastError")
     func deleteWorkspacePaneSuccess() {
         let (store, _, paneRepo, _) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let pane = WorkspacePane(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
 
         store.deleteWorkspacePane(pane)
@@ -131,7 +196,7 @@ struct ProjectStoreWorkspacePaneTests {
     func deleteWorkspacePaneError() {
         let (store, _, paneRepo, _) = makeStore()
         paneRepo.errorToThrow = WorkspacePaneError.invalidLabel
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let pane = WorkspacePane(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
 
         store.deleteWorkspacePane(pane)
@@ -177,7 +242,7 @@ struct ProjectStoreWorkspacePaneTests {
     @Test("launchWorkspace delegates to launcher with sorted panes")
     func launchWorkspaceDelegates() async {
         let (store, _, _, launcher) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         project.directoryPath = "/Users/dev/devtail"
         let pane1 = WorkspacePane(
             label: "Main", relativeCwd: ".", command: "claude",
@@ -204,7 +269,7 @@ struct ProjectStoreWorkspacePaneTests {
     func launchWorkspaceFailure() async {
         let (store, _, _, launcher) = makeStore()
         launcher.errorToThrow = WorkspaceLauncherError.ghosttyNotInstalled
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         project.directoryPath = "/Users/dev/devtail"
 
         store.launchWorkspace(for: project)
@@ -218,7 +283,7 @@ struct ProjectStoreWorkspacePaneTests {
     @Test("launchWorkspace clears isLaunchingWorkspace after success")
     func launchWorkspaceClearsFlagAfterSuccess() async {
         let (store, _, _, _) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         project.directoryPath = "/Users/dev/devtail"
 
         store.launchWorkspace(for: project)
@@ -237,7 +302,7 @@ struct ProjectStoreWorkspacePaneTests {
     func launchWorkspaceClearsFlagAfterFailure() async {
         let (store, _, _, launcher) = makeStore()
         launcher.errorToThrow = WorkspaceLauncherError.ghosttyNotInstalled
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         project.directoryPath = "/Users/dev/devtail"
 
         store.launchWorkspace(for: project)
@@ -252,7 +317,7 @@ struct ProjectStoreWorkspacePaneTests {
     @Test("launchWorkspace is a no-op while another launch is in flight")
     func launchWorkspaceIgnoresDoubleTap() async {
         let (store, _, _, launcher) = makeStore()
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         project.directoryPath = "/Users/dev/devtail"
 
         // First launch — fires the Task, flag goes true.

@@ -195,7 +195,7 @@ struct ProjectStoreTests {
 
     // MARK: - createProject with full fields
 
-    @Test("createProject passes color and environment to repository")
+    @Test("createProject passes color to repository")
     func createProjectPassesAllFieldsToRepository() {
         let mock = MockProjectRepository()
         let store = makeStore(projectRepo: mock)
@@ -203,12 +203,10 @@ struct ProjectStoreTests {
         store.createProject(
             name: "Devtail",
             notes: nil,
-            color: .purple,
-            environment: .prod
+            color: .purple
         )
 
         #expect(mock.lastCreatedFields?.color == .purple)
-        #expect(mock.lastCreatedFields?.environment == .prod)
     }
 
     // MARK: - updateProject
@@ -218,8 +216,7 @@ struct ProjectStoreTests {
         let mock = MockProjectRepository()
         let seed = Project(
             name: "Original",
-            color: .gray,
-            environment: .dev
+            color: .gray
         )
         mock.projectsToReturn = [seed]
         let store = makeStore(projectRepo: mock)
@@ -230,13 +227,11 @@ struct ProjectStoreTests {
             target,
             name: "Renamed",
             notes: nil,
-            color: .blue,
-            environment: .staging
+            color: .blue
         )
 
         #expect(target.name == "Renamed")
         #expect(target.color == .blue)
-        #expect(target.environment == .staging)
         #expect(mock.updateCallCount == 1)
         #expect(store.projects.count == 1)
         #expect(store.lastError == nil)
@@ -254,8 +249,7 @@ struct ProjectStoreTests {
         store.updateProject(
             store.projects[0],
             name: "Renamed",
-            color: .blue,
-            environment: .dev
+            color: .blue
         )
 
         #expect(store.lastError != nil)
@@ -277,8 +271,7 @@ struct ProjectStoreTests {
         store.updateProject(
             store.projects[0],
             name: "Recovered",
-            color: .green,
-            environment: .prod
+            color: .green
         )
 
         #expect(store.lastError == nil)

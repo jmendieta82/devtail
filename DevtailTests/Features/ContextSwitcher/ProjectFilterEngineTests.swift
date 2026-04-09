@@ -30,16 +30,16 @@ struct ProjectFilterEngineTests {
         let container = PersistenceController.makeContainer(inMemory: true)
         let context = container.mainContext
 
-        let devtail = Project(name: "Devtail", color: .green, environment: .dev)
+        let devtail = Project(name: "Devtail", color: .green)
         devtail.directoryPath = "/Users/dev/Code/Devtail"
 
-        let mrn = Project(name: "MRN_V2", color: .blue, environment: .staging)
+        let mrn = Project(name: "MRN_V2", color: .blue)
         mrn.directoryPath = "/Users/dev/Code/mrn-app"
 
-        let pixel = Project(name: "Pixel Dashboard", color: .purple, environment: .prod)
+        let pixel = Project(name: "Pixel Dashboard", color: .purple)
         pixel.directoryPath = "/Users/dev/Code/pixel"
 
-        let inclusion = Project(name: "Inclusion", color: .yellow, environment: .dev)
+        let inclusion = Project(name: "Inclusion", color: .amber)
         inclusion.directoryPath = "/Users/dev/work/inclusion-bienestar"
 
         for project in [devtail, mrn, pixel, inclusion] {
@@ -134,37 +134,6 @@ struct ProjectFilterEngineTests {
         #expect(result.first?.name == "Inclusion")
     }
 
-    // MARK: - Environment matching
-
-    @Test("matches by environment label (prod / staging / dev)")
-    func matchesByEnvironment() {
-        let projects = makeProjects()
-        let engine = ProjectFilterEngine()
-
-        let result = engine.filter(projects: projects, query: "staging")
-
-        // Only MRN_V2 is staging.
-        #expect(result.count == 1)
-        #expect(result.first?.name == "MRN_V2")
-    }
-
-    @Test("multiple projects can match the same environment")
-    func multipleProjectsSameEnvironment() {
-        let projects = makeProjects()
-        let engine = ProjectFilterEngine()
-
-        let result = engine.filter(projects: projects, query: "dev")
-
-        // Devtail AND Inclusion are dev. (Note: "dev" also appears in
-        // /Users/dev/... so we expect those project paths to match too —
-        // but the projects are still the same set since the engine
-        // operates on a per-project union of fields. Either way, this
-        // test asserts on the dev environment as the dominant signal.)
-        #expect(result.count >= 2)
-        #expect(result.contains { $0.name == "Devtail" })
-        #expect(result.contains { $0.name == "Inclusion" })
-    }
-
     // MARK: - No matches
 
     @Test("returns empty array when no project matches")
@@ -204,7 +173,7 @@ struct ProjectFilterEngineTests {
     @Test("project with empty directoryPath still matches by name")
     func emptyDirectoryPathStillMatchesByName() {
         let container = PersistenceController.makeContainer(inMemory: true)
-        let project = Project(name: "Bare", color: .gray, environment: .dev)
+        let project = Project(name: "Bare", color: .gray)
         // directoryPath stays "" (default)
         container.mainContext.insert(project)
 

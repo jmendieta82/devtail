@@ -22,7 +22,6 @@ struct ProjectFormView: View {
     @Environment(ProjectStore.self) private var store
 
     @State private var name: String = ""
-    @State private var environment: ProjectEnvironment = .dev
     @State private var color: ProjectColor = .gray
     @State private var directoryPath: String = ""
     @State private var showError: Bool = false
@@ -65,14 +64,6 @@ struct ProjectFormView: View {
                                     lineWidth: DevtailTokens.BorderWidth.default
                                 )
                         )
-                }
-
-                // Environment
-                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-                    Text("Environment")
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    EnvironmentPicker(selection: $environment)
                 }
 
                 // Color
@@ -125,7 +116,6 @@ struct ProjectFormView: View {
                 ProjectRowView(
                     name: trimmedName.isEmpty ? "Project name" : trimmedName,
                     color: color,
-                    environment: environment,
                     isSelected: false,
                     isInteractive: false,
                     onTap: nil,
@@ -177,7 +167,6 @@ struct ProjectFormView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { loadIfNeeded() }
         .onChange(of: name) { _, _ in recomputeDirty() }
-        .onChange(of: environment) { _, _ in recomputeDirty() }
         .onChange(of: color) { _, _ in recomputeDirty() }
         .onChange(of: directoryPath) { _, _ in recomputeDirty() }
     }
@@ -225,7 +214,6 @@ struct ProjectFormView: View {
         if let projectID,
            let project = store.projects.first(where: { $0.id == projectID }) {
             name = project.name
-            environment = project.environment
             color = project.color
             directoryPath = project.directoryPath
         }
@@ -241,7 +229,6 @@ struct ProjectFormView: View {
     private func currentSnapshot() -> FormSnapshot {
         FormSnapshot(
             name: name,
-            environment: environment,
             color: color,
             directoryPath: directoryPath
         )
@@ -271,7 +258,6 @@ struct ProjectFormView: View {
                 name: trimmedName,
                 notes: project.notes,
                 color: color,
-                environment: environment,
                 directoryPath: directoryPath
             )
         } else {
@@ -279,7 +265,6 @@ struct ProjectFormView: View {
             store.createProject(
                 name: trimmedName,
                 color: color,
-                environment: environment,
                 directoryPath: directoryPath
             )
         }
@@ -310,7 +295,6 @@ struct ProjectFormView: View {
 
     private func resetState() {
         name = ""
-        environment = .dev
         color = .gray
         directoryPath = ""
         showError = false
@@ -324,7 +308,6 @@ struct ProjectFormView: View {
 /// Equatable so dirty is a single `!=` away.
 private struct FormSnapshot: Equatable {
     let name: String
-    let environment: ProjectEnvironment
     let color: ProjectColor
     let directoryPath: String
 }
@@ -365,8 +348,7 @@ private struct FormSnapshot: Equatable {
         )
         store.createProject(
             name: "Devtail",
-            color: .green,
-            environment: .prod
+            color: .green
         )
         return (store, store.projects[0].id)
     }()

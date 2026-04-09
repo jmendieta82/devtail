@@ -81,7 +81,6 @@ struct MenuBarRootView: View {
                                 ProjectRowView(
                                     name: project.name,
                                     color: project.color,
-                                    environment: project.environment,
                                     isSelected: selectedProjectID == project.id,
                                     isKeyboardFocused: keyboardSelectedIndex == index,
                                     isInteractive: true,
@@ -327,18 +326,15 @@ struct MenuBarRootView: View {
         )
         store.createProject(
             name: "Devtail",
-            color: .green,
-            environment: .dev
+            color: .green
         )
         store.createProject(
             name: "Side Project",
-            color: .blue,
-            environment: .staging
+            color: .blue
         )
         store.createProject(
             name: "Pixel",
-            color: .purple,
-            environment: .prod
+            color: .purple
         )
         return store
     }()

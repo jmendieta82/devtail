@@ -177,7 +177,6 @@ struct DashboardRootView: View {
                     ProjectRowView(
                         name: project.name,
                         color: project.color,
-                        environment: project.environment,
                         isSelected: selectedProjectID == project.id,
                         isInteractive: true,
                         onTap: { requestSelection(project.id) },
@@ -322,12 +321,9 @@ struct DashboardRootView: View {
                 .padding(.top, 8)
 
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
-                HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-                    Text(project.name)
-                        .font(DevtailTokens.Typography.titleLarge)
-                        .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                    EnvironmentPill(environment: project.environment)
-                }
+                Text(project.name)
+                    .font(DevtailTokens.Typography.titleLarge)
+                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
 
                 HStack(spacing: DevtailTokens.Spacing.gapMedium) {
                     Text("\(project.quickLinks.count) link\(project.quickLinks.count == 1 ? "" : "s")")
@@ -571,9 +567,9 @@ enum DashboardMode: Equatable {
             workspacePaneRepository: paneRepo,
             launcher: WorkspaceLauncher()
         )
-        store.createProject(name: "Devtail", color: .green, environment: .dev)
-        store.createProject(name: "Side Project", color: .blue, environment: .staging)
-        store.createProject(name: "Pixel", color: .purple, environment: .prod)
+        store.createProject(name: "Devtail", color: .green)
+        store.createProject(name: "Side Project", color: .blue)
+        store.createProject(name: "Pixel", color: .purple)
         if let project = store.projects.first {
             store.addQuickLink(label: "GitHub", url: "https://github.com", to: project)
             store.addQuickLink(label: "Notion", url: "https://notion.so", to: project)

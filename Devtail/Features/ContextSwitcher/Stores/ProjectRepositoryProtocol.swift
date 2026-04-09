@@ -12,8 +12,7 @@ protocol ProjectRepositoryProtocol {
     func create(
         name: String,
         notes: String?,
-        color: ProjectColor,
-        environment: ProjectEnvironment
+        color: ProjectColor
     ) throws -> Project
     func findAll() throws -> [Project]
     func findById(_ id: UUID) throws -> Project?

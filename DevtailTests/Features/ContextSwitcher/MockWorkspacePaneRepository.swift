@@ -32,6 +32,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
     var lastCreateCommand: String?
     var lastCreateSplitDirection: String?
     var lastCreateStack: String?
+    var lastCreateEnvironment: ProjectEnvironment?
     var lastCreateProject: Project?
     var lastUpdatedPane: WorkspacePane?
     var lastDeletedPane: WorkspacePane?
@@ -45,6 +46,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         order: Int,
         splitDirection: String,
         stack: String?,
+        environment: ProjectEnvironment?,
         project: Project
     ) throws -> WorkspacePane {
         createCallCount += 1
@@ -53,6 +55,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         lastCreateCommand = command
         lastCreateSplitDirection = splitDirection
         lastCreateStack = stack
+        lastCreateEnvironment = environment
         lastCreateProject = project
         if let errorToThrow {
             throw errorToThrow
@@ -67,6 +70,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
             order: order,
             splitDirection: splitDirection,
             stack: stack,
+            environment: environment,
             project: project
         )
     }

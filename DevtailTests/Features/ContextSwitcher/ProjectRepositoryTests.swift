@@ -20,7 +20,12 @@ struct ProjectRepositoryTests {
 
     init() throws {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        container = try ModelContainer(for: Project.self, QuickLink.self, configurations: config)
+        container = try ModelContainer(
+            for: Project.self,
+                QuickLink.self,
+                WorkspacePane.self,
+            configurations: config
+        )
         context = ModelContext(container)
         repository = ProjectRepository(context: context)
     }
@@ -49,17 +54,15 @@ struct ProjectRepositoryTests {
         }
     }
 
-    @Test("create persists color, environment, and notes when provided")
+    @Test("create persists color and notes when provided")
     func createPersistsAllOptionalFields() throws {
         let project = try repository.create(
             name: "Full Project",
             notes: "with notes",
-            color: .blue,
-            environment: .staging
+            color: .blue
         )
 
         #expect(project.color == .blue)
-        #expect(project.environment == .staging)
         #expect(project.notes == "with notes")
     }
 
@@ -121,21 +124,18 @@ struct ProjectRepositoryTests {
         #expect(refetched?.name == "Updated Name")
     }
 
-    @Test("update persists changes to color and environment")
-    func updatePersistsFieldChangesIncludingColorEnvironment() throws {
+    @Test("update persists changes to color")
+    func updatePersistsColorChange() throws {
         let project = try repository.create(
             name: "Original",
-            color: .gray,
-            environment: .dev
+            color: .gray
         )
 
         project.color = .purple
-        project.environment = .prod
         try repository.update(project)
 
         let refetched = try repository.findById(project.id)
         #expect(refetched?.color == .purple)
-        #expect(refetched?.environment == .prod)
     }
 
     // MARK: - Group E: delete

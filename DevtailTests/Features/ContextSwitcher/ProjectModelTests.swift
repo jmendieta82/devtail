@@ -43,7 +43,7 @@ struct ProjectModelTests {
         #expect(p1.id != p2.id)
     }
 
-    // MARK: - Color and environment fields
+    // MARK: - Color field
 
     @Test("initializer defaults color to .gray when omitted")
     func initializerDefaultsColorToGray() {
@@ -52,23 +52,46 @@ struct ProjectModelTests {
         #expect(project.color == .gray)
     }
 
-    @Test("initializer defaults environment to .dev when omitted")
-    func initializerDefaultsEnvironmentToDev() {
-        let project = Project(name: "My Project")
-
-        #expect(project.environment == .dev)
-    }
-
-    @Test("initializer assigns color and environment when provided")
-    func initializerAssignsNewFields() {
+    @Test("initializer assigns color when provided")
+    func initializerAssignsColor() {
         let project = Project(
             name: "Devtail",
             notes: nil,
-            color: .green,
-            environment: .prod
+            color: .green
         )
 
         #expect(project.color == .green)
-        #expect(project.environment == .prod)
+    }
+
+    // MARK: - Environment moved to WorkspacePane
+
+    @Test("WorkspacePane defaults environment to nil when omitted")
+    func paneDefaultsEnvironmentToNil() {
+        let pane = WorkspacePane(
+            label: "frontend",
+            relativeCwd: "frontend",
+            command: "",
+            order: 0,
+            splitDirection: "none",
+            project: nil
+        )
+
+        #expect(pane.environment == nil)
+    }
+
+    @Test("WorkspacePane assigns environment when provided")
+    func paneAssignsEnvironment() {
+        let pane = WorkspacePane(
+            label: "backend",
+            relativeCwd: "backend",
+            command: "python manage.py runserver",
+            order: 1,
+            splitDirection: "down",
+            stack: "Django",
+            environment: .prod,
+            project: nil
+        )
+
+        #expect(pane.environment == .prod)
     }
 }

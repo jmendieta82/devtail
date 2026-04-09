@@ -19,7 +19,7 @@ struct WorkspaceLauncherScriptTests {
     // @Relationship back to Project. We use a non-persisted Project — the
     // function only reads label/cwd/command/order/splitDirection.
     private func makeProject() -> Project {
-        Project(name: "Test", color: .green, environment: .dev)
+        Project(name: "Test", color: .green)
     }
 
     private func pane(

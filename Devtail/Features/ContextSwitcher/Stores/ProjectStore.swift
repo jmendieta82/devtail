@@ -57,15 +57,13 @@ final class ProjectStore {
         name: String,
         notes: String? = nil,
         color: ProjectColor = .gray,
-        environment: ProjectEnvironment = .dev,
         directoryPath: String = ""
     ) {
         do {
             let project = try repository.create(
                 name: name,
                 notes: notes,
-                color: color,
-                environment: environment
+                color: color
             )
             if !directoryPath.isEmpty {
                 project.directoryPath = directoryPath
@@ -88,14 +86,12 @@ final class ProjectStore {
         name: String,
         notes: String? = nil,
         color: ProjectColor,
-        environment: ProjectEnvironment,
         directoryPath: String = ""
     ) {
         do {
             project.name = name
             project.notes = notes
             project.color = color
-            project.environment = environment
             project.directoryPath = directoryPath
             try repository.update(project)
 
@@ -171,6 +167,7 @@ final class ProjectStore {
         command: String,
         splitDirection: String,
         stack: String? = nil,
+        environment: ProjectEnvironment? = nil,
         to project: Project
     ) {
         do {
@@ -181,6 +178,7 @@ final class ProjectStore {
                 order: 0, // repository computes actual order from existing panes
                 splitDirection: splitDirection,
                 stack: stack,
+                environment: environment,
                 project: project
             )
             if let idx = projects.firstIndex(where: { $0.id == project.id }) {
@@ -198,7 +196,8 @@ final class ProjectStore {
         relativeCwd: String,
         command: String,
         splitDirection: String,
-        stack: String?
+        stack: String?,
+        environment: ProjectEnvironment? = nil
     ) {
         do {
             pane.label = label
@@ -206,6 +205,7 @@ final class ProjectStore {
             pane.command = command
             pane.splitDirection = splitDirection
             pane.stack = stack
+            pane.environment = environment
             try workspacePaneRepository.update(pane)
             if let project = pane.project,
                let idx = projects.firstIndex(where: { $0.id == project.id }) {

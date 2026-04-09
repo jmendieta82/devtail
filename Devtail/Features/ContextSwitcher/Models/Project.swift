@@ -4,10 +4,11 @@
 //
 //  Core domain model: a development project the user works on.
 //
-//  Stack note: the project itself has no "stack" field — a project is a
-//  root directory that can contain multiple workspace panes, each with its
-//  own stack (frontend/TS, backend/Django, etc.). Stack lives on the
-//  WorkspacePane model.
+//  Stack and environment note: neither field lives here. A project is a
+//  root directory that can contain multiple workspace panes, each pointing
+//  at a different subfolder, possibly with a different stack (frontend/TS,
+//  backend/Django, …) AND a different environment (dev / staging / prod).
+//  Both fields live on `WorkspacePane`.
 //
 
 import Foundation
@@ -19,7 +20,6 @@ final class Project {
     var name: String
     var notes: String?
     var colorRaw: String
-    var environmentRaw: String
     var createdAt: Date
     var updatedAt: Date
 
@@ -38,23 +38,15 @@ final class Project {
         set { colorRaw = newValue.rawValue }
     }
 
-    /// Environment this project points at (dev / staging / prod).
-    var environment: ProjectEnvironment {
-        get { ProjectEnvironment(rawValue: environmentRaw) ?? .dev }
-        set { environmentRaw = newValue.rawValue }
-    }
-
     init(
         name: String,
         notes: String? = nil,
-        color: ProjectColor = .gray,
-        environment: ProjectEnvironment = .dev
+        color: ProjectColor = .gray
     ) {
         self.id = UUID()
         self.name = name
         self.notes = notes
         self.colorRaw = color.rawValue
-        self.environmentRaw = environment.rawValue
         let now = Date.now
         self.createdAt = now
         self.updatedAt = now

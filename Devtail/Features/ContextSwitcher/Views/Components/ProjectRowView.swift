@@ -12,7 +12,6 @@ import SwiftUI
 struct ProjectRowView: View {
     let name: String
     let color: ProjectColor
-    let environment: ProjectEnvironment
     let isSelected: Bool
     /// Distinct from `isSelected`: this is the temporary cursor used
     /// while the user navigates the list with arrow keys, BEFORE they
@@ -42,7 +41,6 @@ struct ProjectRowView: View {
                     .font(DevtailTokens.Typography.caption)
                     .foregroundStyle(DevtailTokens.Colors.accentGreen)
             }
-            EnvironmentPill(environment: environment)
             if isInteractive && isHovered && hasActions {
                 rowActions
             }
@@ -143,19 +141,16 @@ struct ProjectRowView: View {
         ProjectRowView(
             name: "Devtail",
             color: .green,
-            environment: .dev,
             isSelected: false
         )
         ProjectRowView(
             name: "Side Project",
             color: .blue,
-            environment: .staging,
             isSelected: true
         )
         ProjectRowView(
             name: "Pixel",
             color: .purple,
-            environment: .prod,
             isSelected: false
         )
     }
@@ -168,7 +163,6 @@ struct ProjectRowView: View {
     ProjectRowView(
         name: "Live preview",
         color: .amber,
-        environment: .prod,
         isSelected: false,
         isInteractive: false
     )

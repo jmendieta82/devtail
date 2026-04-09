@@ -147,7 +147,7 @@ struct DetailPanel: View {
             workspacePaneRepository: paneRepo,
             launcher: WorkspaceLauncher()
         )
-        store.createProject(name: "Devtail", color: .green, environment: .dev)
+        store.createProject(name: "Devtail", color: .green)
         if let project = store.projects.first {
             store.addQuickLink(label: "GitHub", url: "https://github.com", to: project)
         }

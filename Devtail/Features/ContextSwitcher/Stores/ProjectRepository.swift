@@ -15,8 +15,7 @@ struct ProjectRepository: ProjectRepositoryProtocol {
     func create(
         name: String,
         notes: String? = nil,
-        color: ProjectColor = .gray,
-        environment: ProjectEnvironment = .dev
+        color: ProjectColor = .gray
     ) throws -> Project {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -26,8 +25,7 @@ struct ProjectRepository: ProjectRepositoryProtocol {
         let project = Project(
             name: trimmed,
             notes: notes,
-            color: color,
-            environment: environment
+            color: color
         )
         context.insert(project)
         try context.save()

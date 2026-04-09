@@ -16,7 +16,7 @@ struct QuickLinkModelTests {
 
     @Test("init assigns all fields")
     func initAssignsFields() {
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
 
         #expect(link.label == "GitHub")
@@ -27,7 +27,7 @@ struct QuickLinkModelTests {
 
     @Test("init generates unique id")
     func initGeneratesUniqueID() {
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let a = QuickLink(label: "A", url: "https://a.com", order: 0, project: project)
         let b = QuickLink(label: "B", url: "https://b.com", order: 1, project: project)
         #expect(a.id != b.id)
@@ -35,7 +35,7 @@ struct QuickLinkModelTests {
 
     @Test("init sets createdAt and updatedAt to the same instant")
     func initTimestamps() {
-        let project = Project(name: "Devtail", color: .green, environment: .dev)
+        let project = Project(name: "Devtail", color: .green)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
         #expect(link.createdAt == link.updatedAt)
     }

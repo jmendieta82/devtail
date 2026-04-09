@@ -62,7 +62,7 @@ struct QuickLinkChip: View {
 
 #Preview("View mode") {
     let chip: QuickLinkChip = {
-        let project = Project(name: "Preview", color: .blue, environment: .dev)
+        let project = Project(name: "Preview", color: .blue)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
         return QuickLinkChip(
             quickLink: link,
@@ -78,7 +78,7 @@ struct QuickLinkChip: View {
 
 #Preview("Edit mode") {
     let chip: QuickLinkChip = {
-        let project = Project(name: "Preview", color: .blue, environment: .dev)
+        let project = Project(name: "Preview", color: .blue)
         let link = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: project)
         return QuickLinkChip(
             quickLink: link,

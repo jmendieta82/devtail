@@ -69,6 +69,11 @@ struct WorkspacePaneRow: View {
                                     .fill(DevtailTokens.Colors.inputBackground)
                             )
                     }
+                    if let env = pane.environment {
+                        // Compact pill so it sits cleanly between the
+                        // stack and branch badges without dominating them.
+                        EnvironmentPill(environment: env, compact: true)
+                    }
                     if let branch, !branch.isEmpty {
                         // Branch badge sits next to the stack badge.
                         // Leading icon makes the meaning unambiguous —

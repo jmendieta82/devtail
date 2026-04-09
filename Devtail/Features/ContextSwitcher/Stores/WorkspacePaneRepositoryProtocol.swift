@@ -17,6 +17,7 @@ protocol WorkspacePaneRepositoryProtocol {
         order: Int,
         splitDirection: String,
         stack: String?,
+        environment: ProjectEnvironment?,
         project: Project
     ) throws -> WorkspacePane
     func findByProject(_ project: Project) throws -> [WorkspacePane]
