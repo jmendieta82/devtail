@@ -91,7 +91,12 @@ struct DetailPanel: View {
         let projectRepo = ProjectRepository(context: container.mainContext)
         let linkRepo = QuickLinkRepository(context: container.mainContext)
         let paneRepo = WorkspacePaneRepository(context: container.mainContext)
-        let store = ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo, workspacePaneRepository: paneRepo)
+        let store = ProjectStore(
+            repository: projectRepo,
+            quickLinkRepository: linkRepo,
+            workspacePaneRepository: paneRepo,
+            launcher: WorkspaceLauncher()
+        )
         store.createProject(name: "Devtail", color: .green, environment: .dev, stack: "Swift")
         if let project = store.projects.first {
             store.addQuickLink(label: "GitHub", url: "https://github.com", to: project)

@@ -18,16 +18,23 @@ struct WorkspacePanel: View {
     @State private var isEditingPanes: Bool = false
     @State private var isAddingPane: Bool = false
     @State private var editingPaneID: UUID?
+    @State private var isLaunching: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             content
+            if let launcherError = store.lastError as? WorkspaceLauncherError {
+                launchErrorBanner(launcherError)
+            }
         }
         .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
         .padding(.vertical, DevtailTokens.Spacing.gapMedium)
         .onChange(of: projectID) { _, _ in
             resetEditState()
+        }
+        .onChange(of: store.lastError as? WorkspaceLauncherError) { _, _ in
+            isLaunching = false
         }
     }
 
@@ -40,6 +47,13 @@ struct WorkspacePanel: View {
 
     private var sortedPanes: [WorkspacePane] {
         currentProject?.workspacePanes.sorted { $0.order < $1.order } ?? []
+    }
+
+    private var canLaunch: Bool {
+        guard let project = currentProject else { return false }
+        return !project.directoryPath
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
     }
 
     // MARK: - Header
@@ -58,19 +72,29 @@ struct WorkspacePanel: View {
             }
             Spacer()
             Button {
-                // Launch Workspace — disabled until Change 2
+                guard let project = currentProject else { return }
+                isLaunching = true
+                store.launchWorkspace(for: project)
             } label: {
                 HStack(spacing: DevtailTokens.Spacing.gapTiny) {
-                    Image(systemName: "play.fill")
+                    Image(systemName: isLaunching ? "hourglass" : "play.fill")
                         .font(DevtailTokens.Typography.captionSmall)
-                    Text("Launch")
+                    Text(isLaunching ? "Launching..." : "Launch")
                         .font(DevtailTokens.Typography.bodySmall)
                 }
-                .foregroundStyle(DevtailTokens.Colors.textDisabled)
+                .foregroundStyle(
+                    canLaunch
+                        ? DevtailTokens.Colors.accentGreen
+                        : DevtailTokens.Colors.textDisabled
+                )
             }
             .buttonStyle(.plain)
-            .disabled(true)
-            .help("Coming soon — workspace launcher")
+            .disabled(!canLaunch || isLaunching)
+            .help(
+                canLaunch
+                    ? "Launch workspace in Ghostty"
+                    : "Set a project directory first"
+            )
 
             if currentProject != nil {
                 Button(isEditingPanes ? "Done" : "Edit") {
@@ -207,6 +231,60 @@ struct WorkspacePanel: View {
         isAddingPane = false
         editingPaneID = nil
     }
+
+    @ViewBuilder
+    private func launchErrorBanner(_ error: WorkspaceLauncherError) -> some View {
+        HStack(alignment: .top, spacing: DevtailTokens.Spacing.gapSmall) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(DevtailTokens.Colors.accentOrange)
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                switch error {
+                case .projectHasNoDirectory:
+                    Text("No project directory set.")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                case .ghosttyNotInstalled:
+                    Text("Ghostty not installed.")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    Button("Download Ghostty") {
+                        if let url = URL(string: "https://ghostty.org") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                case .automationPermissionDenied:
+                    Text("Automation permission denied.")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    Button("Open System Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                case .appleScriptFailed(let message):
+                    Text("Launch failed: \(message)")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                        .lineLimit(3)
+                }
+            }
+            Spacer()
+        }
+        .padding(DevtailTokens.Spacing.gapSmall)
+        .background(DevtailTokens.Colors.popoverBackground.opacity(0.6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DevtailTokens.Colors.accentOrange.opacity(0.5), lineWidth: 1)
+        )
+        .padding(.top, DevtailTokens.Spacing.gapSmall)
+    }
 }
 
 #Preview("No selection") {
@@ -215,7 +293,12 @@ struct WorkspacePanel: View {
         let projectRepo = ProjectRepository(context: container.mainContext)
         let linkRepo = QuickLinkRepository(context: container.mainContext)
         let paneRepo = WorkspacePaneRepository(context: container.mainContext)
-        return ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo, workspacePaneRepository: paneRepo)
+        return ProjectStore(
+            repository: projectRepo,
+            quickLinkRepository: linkRepo,
+            workspacePaneRepository: paneRepo,
+            launcher: WorkspaceLauncher()
+        )
     }()
     WorkspacePanel(projectID: nil)
         .environment(store)
@@ -229,7 +312,12 @@ struct WorkspacePanel: View {
         let projectRepo = ProjectRepository(context: container.mainContext)
         let linkRepo = QuickLinkRepository(context: container.mainContext)
         let paneRepo = WorkspacePaneRepository(context: container.mainContext)
-        let store = ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo, workspacePaneRepository: paneRepo)
+        let store = ProjectStore(
+            repository: projectRepo,
+            quickLinkRepository: linkRepo,
+            workspacePaneRepository: paneRepo,
+            launcher: WorkspaceLauncher()
+        )
         store.createProject(name: "Devtail", color: .green, environment: .dev, stack: "Swift")
         return (store, store.projects[0].id)
     }()

@@ -17,9 +17,15 @@ struct ProjectStoreTests {
     private func makeStore(
         projectRepo: MockProjectRepository = MockProjectRepository(),
         linkRepo: MockQuickLinkRepository = MockQuickLinkRepository(),
-        paneRepo: MockWorkspacePaneRepository = MockWorkspacePaneRepository()
+        paneRepo: MockWorkspacePaneRepository = MockWorkspacePaneRepository(),
+        launcher: MockWorkspaceLauncher = MockWorkspaceLauncher()
     ) -> ProjectStore {
-        ProjectStore(repository: projectRepo, quickLinkRepository: linkRepo, workspacePaneRepository: paneRepo)
+        ProjectStore(
+            repository: projectRepo,
+            quickLinkRepository: linkRepo,
+            workspacePaneRepository: paneRepo,
+            launcher: launcher
+        )
     }
 
     // MARK: - Initial state

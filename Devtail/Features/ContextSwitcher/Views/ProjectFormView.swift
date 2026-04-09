@@ -307,7 +307,12 @@ struct ProjectFormView: View {
         let repository = ProjectRepository(context: container.mainContext)
         let linkRepository = QuickLinkRepository(context: container.mainContext)
         let paneRepository = WorkspacePaneRepository(context: container.mainContext)
-        return ProjectStore(repository: repository, quickLinkRepository: linkRepository, workspacePaneRepository: paneRepository)
+        return ProjectStore(
+            repository: repository,
+            quickLinkRepository: linkRepository,
+            workspacePaneRepository: paneRepository,
+            launcher: WorkspaceLauncher()
+        )
     }()
     ProjectFormView(projectID: nil)
         .environment(store)
@@ -319,7 +324,12 @@ struct ProjectFormView: View {
         let repository = ProjectRepository(context: container.mainContext)
         let linkRepository = QuickLinkRepository(context: container.mainContext)
         let paneRepository = WorkspacePaneRepository(context: container.mainContext)
-        let store = ProjectStore(repository: repository, quickLinkRepository: linkRepository, workspacePaneRepository: paneRepository)
+        let store = ProjectStore(
+            repository: repository,
+            quickLinkRepository: linkRepository,
+            workspacePaneRepository: paneRepository,
+            launcher: WorkspaceLauncher()
+        )
         store.createProject(
             name: "Devtail",
             color: .green,

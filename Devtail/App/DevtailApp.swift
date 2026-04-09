@@ -19,10 +19,12 @@ struct DevtailApp: App {
         let repository = ProjectRepository(context: container.mainContext)
         let quickLinkRepository = QuickLinkRepository(context: container.mainContext)
         let workspacePaneRepository = WorkspacePaneRepository(context: container.mainContext)
+        let launcher = WorkspaceLauncher()
         let store = ProjectStore(
             repository: repository,
             quickLinkRepository: quickLinkRepository,
-            workspacePaneRepository: workspacePaneRepository
+            workspacePaneRepository: workspacePaneRepository,
+            launcher: launcher
         )
         _modelContainer = State(initialValue: container)
         _projectStore = State(initialValue: store)

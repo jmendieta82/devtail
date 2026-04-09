@@ -23,15 +23,18 @@ final class ProjectStore {
     private let repository: any ProjectRepositoryProtocol
     private let quickLinkRepository: any QuickLinkRepositoryProtocol
     private let workspacePaneRepository: any WorkspacePaneRepositoryProtocol
+    private let launcher: any WorkspaceLauncherProtocol
 
     init(
         repository: any ProjectRepositoryProtocol,
         quickLinkRepository: any QuickLinkRepositoryProtocol,
-        workspacePaneRepository: any WorkspacePaneRepositoryProtocol
+        workspacePaneRepository: any WorkspacePaneRepositoryProtocol,
+        launcher: any WorkspaceLauncherProtocol
     ) {
         self.repository = repository
         self.quickLinkRepository = quickLinkRepository
         self.workspacePaneRepository = workspacePaneRepository
+        self.launcher = launcher
     }
 
     func loadProjects() {
@@ -222,6 +225,20 @@ final class ProjectStore {
             lastError = nil
         } catch {
             lastError = error
+        }
+    }
+
+    // MARK: - Workspace Launcher
+
+    func launchWorkspace(for project: Project) {
+        let panes = project.workspacePanes.sorted { $0.order < $1.order }
+        Task {
+            do {
+                try await launcher.launch(project: project, panes: panes)
+                lastError = nil
+            } catch {
+                lastError = error
+            }
         }
     }
 }
