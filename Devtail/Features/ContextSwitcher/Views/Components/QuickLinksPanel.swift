@@ -12,6 +12,11 @@ import SwiftData
 
 struct QuickLinksPanel: View {
     let projectID: UUID?
+    /// When true, the Edit/Done toggle is hidden and links are
+    /// pure-tap-to-open. The popover uses this to keep the surface
+    /// strictly consult-and-launch — actual link management lives in
+    /// the dashboard.
+    var isReadOnly: Bool = false
 
     @Environment(ProjectStore.self) private var store
 
@@ -53,7 +58,7 @@ struct QuickLinksPanel: View {
                     .foregroundStyle(DevtailTokens.Colors.textMuted)
             }
             Spacer()
-            if currentProject != nil {
+            if currentProject != nil && !isReadOnly {
                 Button(isEditingLinks ? "Done" : "Edit") {
                     if isEditingLinks {
                         isAddingLink = false
@@ -97,7 +102,9 @@ struct QuickLinksPanel: View {
             Text("No quick links yet")
                 .font(DevtailTokens.Typography.bodyDefault)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
-            Text("Enter edit mode to add your first link.")
+            Text(isReadOnly
+                 ? "Open Manage… to add links."
+                 : "Enter edit mode to add your first link.")
                 .font(DevtailTokens.Typography.caption)
                 .foregroundStyle(DevtailTokens.Colors.textTertiary)
         }

@@ -16,6 +16,12 @@ import SwiftData
 
 struct WorkspacePanel: View {
     let projectID: UUID?
+    /// When true, the panel renders a stripped-down view: no inline
+    /// editor, no add button, no hover actions on rows, no context
+    /// menu. The Launch button STAYS — read-only refers to *editing*
+    /// the workspace configuration, not to disabling the action that
+    /// makes the popover useful in the first place.
+    var isReadOnly: Bool = false
 
     @Environment(ProjectStore.self) private var store
 
@@ -76,8 +82,10 @@ struct WorkspacePanel: View {
             }
             Spacer()
 
-            // Secondary: add a new pane (icon-only, discreet).
-            if currentProject != nil {
+            // Secondary: add a new pane (icon-only, discreet). Hidden in
+            // read-only mode — adding a pane is editing, and the popover
+            // is meant for consult-and-launch only.
+            if currentProject != nil && !isReadOnly {
                 Button {
                     startAddingPane()
                 } label: {
@@ -98,13 +106,13 @@ struct WorkspacePanel: View {
                         ? "Add workspace pane"
                         : "Set a project directory first"
                 )
-            }
 
-            // Keep a visible gap between the secondary (add) and the
-            // primary CTA (Launch). A mis-click on Add should NOT fire
-            // Launch — Launch actually opens Ghostty and runs commands.
-            Spacer()
-                .frame(width: DevtailTokens.Spacing.gapLarge)
+                // Keep a visible gap between the secondary (add) and the
+                // primary CTA (Launch). A mis-click on Add should NOT fire
+                // Launch — Launch actually opens Ghostty and runs commands.
+                Spacer()
+                    .frame(width: DevtailTokens.Spacing.gapLarge)
+            }
 
             // Primary: launch workspace (prominent, green).
             Button {
@@ -189,7 +197,9 @@ struct WorkspacePanel: View {
             Text("No panes yet")
                 .font(DevtailTokens.Typography.bodyDefault)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
-            Text("Tap + to add your first pane.")
+            Text(isReadOnly
+                 ? "Open Manage… to add panes."
+                 : "Tap + to add your first pane.")
                 .font(DevtailTokens.Typography.caption)
                 .foregroundStyle(DevtailTokens.Colors.textTertiary)
         }
@@ -200,7 +210,7 @@ struct WorkspacePanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
                 ForEach(sortedPanes, id: \.id) { pane in
-                    if editingPaneID == pane.id {
+                    if !isReadOnly && editingPaneID == pane.id {
                         WorkspacePaneEditRow(
                             projectRoot: projectRoot,
                             initialLabel: pane.label,
@@ -226,13 +236,14 @@ struct WorkspacePanel: View {
                     } else {
                         WorkspacePaneRow(
                             pane: pane,
+                            isReadOnly: isReadOnly,
                             onEditTap: { startEditingPane(pane.id) },
                             onDelete: { store.deleteWorkspacePane(pane) }
                         )
                     }
                 }
 
-                if isAddingPane {
+                if !isReadOnly && isAddingPane {
                     WorkspacePaneEditRow(
                         projectRoot: projectRoot,
                         onSave: { label, cwd, cmd, dir, stack in

@@ -11,12 +11,40 @@ import SwiftUI
 
 struct WorkspacePaneRow: View {
     let pane: WorkspacePane
+    /// When true, hover actions and the context menu are suppressed.
+    /// The row still highlights on hover so the user gets feedback,
+    /// but no edit/delete affordances are exposed.
+    var isReadOnly: Bool = false
     let onEditTap: () -> Void
     let onDelete: () -> Void
 
     @State private var isHovering: Bool = false
 
     var body: some View {
+        rowContent
+            .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+            .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+            .background(
+                RoundedRectangle(cornerRadius: DevtailTokens.Radius.linkChip)
+                    .fill(isHovering
+                          ? DevtailTokens.Colors.hoverState
+                          : DevtailTokens.Colors.pill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DevtailTokens.Radius.linkChip)
+                    .stroke(DevtailTokens.Colors.borderSubtle,
+                            lineWidth: DevtailTokens.BorderWidth.default)
+            )
+            .contentShape(Rectangle())
+            .onHover { isHovering = $0 }
+            .applyContextMenuIfNeeded(
+                isEnabled: !isReadOnly,
+                onEdit: onEditTap,
+                onDelete: onDelete
+            )
+    }
+
+    private var rowContent: some View {
         HStack(spacing: DevtailTokens.Spacing.gapSmall) {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
                 HStack(spacing: DevtailTokens.Spacing.gapSmall) {
@@ -55,37 +83,10 @@ struct WorkspacePaneRow: View {
 
             Spacer(minLength: DevtailTokens.Spacing.gapSmall)
 
-            if isHovering {
+            if isHovering && !isReadOnly {
                 hoverActions
             } else if pane.splitDirection != "none" {
                 splitDirectionBadge
-            }
-        }
-        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
-        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
-        .background(
-            RoundedRectangle(cornerRadius: DevtailTokens.Radius.linkChip)
-                .fill(isHovering
-                      ? DevtailTokens.Colors.hoverState
-                      : DevtailTokens.Colors.pill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DevtailTokens.Radius.linkChip)
-                .stroke(DevtailTokens.Colors.borderSubtle,
-                        lineWidth: DevtailTokens.BorderWidth.default)
-        )
-        .contentShape(Rectangle())
-        .onHover { isHovering = $0 }
-        .contextMenu {
-            Button {
-                onEditTap()
-            } label: {
-                Label("Edit", systemImage: "pencil")
-            }
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Label("Delete", systemImage: "trash")
             }
         }
     }
@@ -129,5 +130,39 @@ struct WorkspacePaneRow: View {
                 RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
                     .fill(DevtailTokens.Colors.inputBackground)
             )
+    }
+}
+
+private extension View {
+    /// Attaches a context menu with Edit/Delete actions when `isEnabled`
+    /// is true; otherwise returns the view untouched. Extracted as an
+    /// extension so the call site reads as a single modifier instead
+    /// of inlining a verbose `if` branch in the view body. The reason
+    /// we condition the WHOLE modifier (instead of an empty body inside
+    /// `.contextMenu`) is that an empty context menu still claims the
+    /// right-click and renders an empty popup — only skipping the
+    /// modifier altogether truly disables it.
+    @ViewBuilder
+    func applyContextMenuIfNeeded(
+        isEnabled: Bool,
+        onEdit: @escaping () -> Void,
+        onDelete: @escaping () -> Void
+    ) -> some View {
+        if isEnabled {
+            self.contextMenu {
+                Button {
+                    onEdit()
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        } else {
+            self
+        }
     }
 }

@@ -68,7 +68,11 @@ struct MenuBarRootView: View {
 
                 Divider()
 
-                DetailPanel(projectID: selectedProjectID)
+                DetailPanel(
+                    projectID: selectedProjectID,
+                    isReadOnly: true,
+                    onEditProject: openDashboardForEdit
+                )
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -106,7 +110,11 @@ struct MenuBarRootView: View {
 
                 Divider()
 
-                DetailPanel(projectID: selectedProjectID)
+                DetailPanel(
+                    projectID: selectedProjectID,
+                    isReadOnly: true,
+                    onEditProject: openDashboardForEdit
+                )
             }
 
             Divider()
@@ -268,6 +276,16 @@ struct MenuBarRootView: View {
     private func openDashboardForCreate() {
         NSApp.activate(ignoringOtherApps: true)
         openWindow(id: WindowID.dashboard, value: DashboardIntent.createProject)
+    }
+
+    /// Opens the dashboard window with the given project pre-selected
+    /// in edit mode. Wired into the read-only DetailPanel's "Edit"
+    /// affordance — clicking it lifts the user out of the popover and
+    /// into the full editor surface where panes and links can be
+    /// modified properly.
+    private func openDashboardForEdit(_ projectID: UUID) {
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: WindowID.dashboard, value: DashboardIntent.editProject(projectID))
     }
 
     private func clearSelectionIfStale(_ newProjects: [Project]) {

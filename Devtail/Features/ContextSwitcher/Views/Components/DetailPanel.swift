@@ -17,7 +17,20 @@ enum DetailTab {
 
 struct DetailPanel: View {
     let projectID: UUID?
+    /// When true, the panel propagates read-only to its child panels
+    /// AND surfaces an "Edit" affordance in the tab bar that the
+    /// caller wires to open the dashboard for the selected project.
+    /// The popover is the only call site today, but the parameter
+    /// keeps the API honest if the dashboard ever wants to embed
+    /// DetailPanel later.
+    var isReadOnly: Bool = false
+    /// Invoked when the user taps the Edit button surfaced in
+    /// read-only mode. Receives the currently-selected project id —
+    /// callers typically open the dashboard via `DashboardIntent
+    /// .editProject(id)`. Ignored when `isReadOnly` is false.
+    var onEditProject: ((UUID) -> Void)? = nil
 
+    @Environment(ProjectStore.self) private var store
     @State private var selectedTab: DetailTab = .quickLinks
 
     var body: some View {
@@ -32,6 +45,11 @@ struct DetailPanel: View {
         }
     }
 
+    private var currentProject: Project? {
+        guard let projectID else { return nil }
+        return store.projects.first { $0.id == projectID }
+    }
+
     // MARK: - Tab bar
 
     private var tabBar: some View {
@@ -39,6 +57,31 @@ struct DetailPanel: View {
             tabButton(title: "QUICK LINKS", tab: .quickLinks)
             tabButton(title: "WORKSPACE", tab: .workspace)
             Spacer()
+
+            // Read-only callers (the menubar popover) get an inline
+            // Edit affordance that hands off to the dashboard. We put
+            // it on the right edge of the tab bar instead of building
+            // a dedicated header so we don't steal vertical space —
+            // the popover is tight and every row counts.
+            if isReadOnly,
+               let project = currentProject,
+               let onEditProject {
+                Button {
+                    onEditProject(project.id)
+                } label: {
+                    HStack(spacing: DevtailTokens.Spacing.gapTiny) {
+                        Image(systemName: "pencil")
+                            .font(DevtailTokens.Typography.captionSmall)
+                        Text("Edit")
+                            .font(DevtailTokens.Typography.captionSmall)
+                    }
+                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
+                    .padding(.vertical, 2)
+                }
+                .buttonStyle(.plain)
+                .help("Edit \(project.name) in the dashboard")
+            }
         }
         .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
         .padding(.top, DevtailTokens.Spacing.gapMedium)
@@ -78,9 +121,9 @@ struct DetailPanel: View {
     private var tabContent: some View {
         switch selectedTab {
         case .quickLinks:
-            QuickLinksPanel(projectID: projectID)
+            QuickLinksPanel(projectID: projectID, isReadOnly: isReadOnly)
         case .workspace:
-            WorkspacePanel(projectID: projectID)
+            WorkspacePanel(projectID: projectID, isReadOnly: isReadOnly)
         }
     }
 }
