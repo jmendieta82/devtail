@@ -14,6 +14,12 @@ struct ProjectRowView: View {
     let color: ProjectColor
     let environment: ProjectEnvironment
     let isSelected: Bool
+    /// Distinct from `isSelected`: this is the temporary cursor used
+    /// while the user navigates the list with arrow keys, BEFORE they
+    /// commit with Enter. Painted with a border-only highlight so it
+    /// can coexist with `isSelected` (the persistent project shown in
+    /// the detail panel) without visual collision.
+    var isKeyboardFocused: Bool = false
     var isInteractive: Bool = true
     var onTap: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
@@ -126,7 +132,9 @@ struct ProjectRowView: View {
     }
 
     private var rowBorder: Color {
-        isSelected ? Color.activeProjectBorder : Color.clear
+        if isSelected { return Color.activeProjectBorder }
+        if isKeyboardFocused { return DevtailTokens.Colors.textTertiary }
+        return Color.clear
     }
 }
 

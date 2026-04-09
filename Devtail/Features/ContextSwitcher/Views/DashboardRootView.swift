@@ -30,6 +30,11 @@ struct DashboardRootView: View {
     @State private var isFormDirty: Bool = false
     @State private var pendingSelection: UUID?
     @State private var didApplyInitialIntent: Bool = false
+    @State private var searchQuery: String = ""
+
+    /// Same engine instance as the menubar uses. Stateless, so a fresh
+    /// `let` is fine — SwiftUI will not recreate it on body re-renders.
+    private let filterEngine = ProjectFilterEngine()
 
     init(initialIntent: DashboardIntent = .none) {
         self.initialIntent = initialIntent
@@ -86,8 +91,16 @@ struct DashboardRootView: View {
         VStack(spacing: 0) {
             sidebarHeader
 
+            if !store.projects.isEmpty {
+                SearchField(text: $searchQuery)
+                    .padding(.horizontal, DevtailTokens.Spacing.sidebarItemPadding)
+                    .padding(.bottom, DevtailTokens.Spacing.gapMedium)
+            }
+
             if store.projects.isEmpty {
                 sidebarEmptyState
+            } else if hasNoSearchResults {
+                sidebarNoResultsState
             } else {
                 sidebarList
             }
@@ -106,14 +119,26 @@ struct DashboardRootView: View {
                 .foregroundStyle(DevtailTokens.Colors.textTertiary)
             Spacer()
             if !store.projects.isEmpty {
-                Text("\(store.projects.count)")
+                // When a search is active, show "matched/total" so the
+                // user can see at a glance how aggressive the filter is.
+                // No active query → just the total, like before.
+                Text(headerCountText)
                     .font(DevtailTokens.Typography.captionSmall)
                     .foregroundStyle(DevtailTokens.Colors.textMuted)
+                    .monospacedDigit()
             }
         }
         .padding(.horizontal, DevtailTokens.Spacing.sidebarItemPadding)
         .padding(.top, DevtailTokens.Spacing.gapSection)
         .padding(.bottom, DevtailTokens.Spacing.gapMedium)
+    }
+
+    private var headerCountText: String {
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return "\(store.projects.count)"
+        }
+        return "\(filteredProjects.count)/\(store.projects.count)"
     }
 
     private var sidebarEmptyState: some View {
@@ -146,7 +171,7 @@ struct DashboardRootView: View {
     private var sidebarList: some View {
         ScrollView {
             LazyVStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                ForEach(store.projects, id: \.id) { project in
+                ForEach(filteredProjects, id: \.id) { project in
                     ProjectRowView(
                         name: project.name,
                         color: project.color,
@@ -162,6 +187,37 @@ struct DashboardRootView: View {
             .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
             .padding(.bottom, DevtailTokens.Spacing.gapLarge)
         }
+    }
+
+    /// Sidebar empty state shown when the user typed a query that no
+    /// project matches. Mirrors the menubar's `noSearchResultsView`
+    /// shape but uses sidebar-friendly typography and includes a button
+    /// to clear the filter — the dashboard has more room than the
+    /// popover does, so we can afford the affordance.
+    private var sidebarNoResultsState: some View {
+        VStack(spacing: DevtailTokens.Spacing.gapMedium) {
+            Spacer()
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 24, weight: .light))
+                .foregroundStyle(DevtailTokens.Colors.textTertiary)
+            Text("No matches")
+                .font(DevtailTokens.Typography.bodyDefault)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            Text("\u{201C}\(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}")
+                .font(DevtailTokens.Typography.caption)
+                .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+            Button("Clear search") {
+                searchQuery = ""
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .padding(.top, DevtailTokens.Spacing.gapSmall)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var sidebarFooter: some View {
@@ -418,6 +474,24 @@ struct DashboardRootView: View {
     private var currentProject: Project? {
         guard let id = selectedProjectID else { return nil }
         return store.projects.first { $0.id == id }
+    }
+
+    /// Project list filtered through the shared engine. The selection
+    /// itself (`selectedProjectID`) is intentionally NOT cleared when
+    /// the filter hides a project — switching projects via search and
+    /// then clearing the search should bring the selection back into
+    /// view, not lose it.
+    private var filteredProjects: [Project] {
+        filterEngine.filter(projects: store.projects, query: searchQuery)
+    }
+
+    /// True when there ARE projects in the store but the active query
+    /// filtered them all out. Distinct from "no projects exist" which
+    /// is handled by `sidebarEmptyState`.
+    private var hasNoSearchResults: Bool {
+        !store.projects.isEmpty
+            && !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && filteredProjects.isEmpty
     }
 
     private func clearSelectionIfStale(_ newProjects: [Project]) {
