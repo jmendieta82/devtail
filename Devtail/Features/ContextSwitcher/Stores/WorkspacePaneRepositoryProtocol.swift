@@ -15,7 +15,7 @@ protocol WorkspacePaneRepositoryProtocol {
         relativeCwd: String,
         command: String,
         order: Int,
-        splitDirection: String,
+        layoutSlot: Int,
         stack: String?,
         environment: ProjectEnvironment?,
         project: Project

@@ -30,7 +30,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
     var lastCreateLabel: String?
     var lastCreateRelativeCwd: String?
     var lastCreateCommand: String?
-    var lastCreateSplitDirection: String?
+    var lastCreateLayoutSlot: Int?
     var lastCreateStack: String?
     var lastCreateEnvironment: ProjectEnvironment?
     var lastCreateProject: Project?
@@ -44,7 +44,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         relativeCwd: String,
         command: String,
         order: Int,
-        splitDirection: String,
+        layoutSlot: Int,
         stack: String?,
         environment: ProjectEnvironment?,
         project: Project
@@ -53,7 +53,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         lastCreateLabel = label
         lastCreateRelativeCwd = relativeCwd
         lastCreateCommand = command
-        lastCreateSplitDirection = splitDirection
+        lastCreateLayoutSlot = layoutSlot
         lastCreateStack = stack
         lastCreateEnvironment = environment
         lastCreateProject = project
@@ -68,7 +68,7 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
             relativeCwd: relativeCwd,
             command: command,
             order: order,
-            splitDirection: splitDirection,
+            layoutSlot: layoutSlot,
             stack: stack,
             environment: environment,
             project: project

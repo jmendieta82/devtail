@@ -12,6 +12,7 @@ import os.log
 private let logger = Logger(subsystem: "com.jamodev.Devtail", category: "persistence")
 
 enum PersistenceController {
+    // schema v2: layout-picker
     static func makeContainer(inMemory: Bool = false) -> ModelContainer {
         let schema = Schema([
             Project.self,

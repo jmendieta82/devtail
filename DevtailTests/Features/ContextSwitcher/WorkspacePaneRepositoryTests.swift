@@ -43,21 +43,22 @@ struct WorkspacePaneRepositoryTests {
             relativeCwd: ".",
             command: "",
             order: 0,
-            splitDirection: "none",
+            layoutSlot: 0,
             project: project
         )
         #expect(pane.label == "Main")
         #expect(pane.relativeCwd == ".")
         #expect(pane.order == 0)
+        #expect(pane.layoutSlot == 0)
         #expect(pane.project?.id == project.id)
     }
 
     @Test("create assigns incremental order regardless of passed order param")
     func createAssignsIncrementalOrder() throws {
         let project = try makeProject()
-        let a = try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
-        let b = try paneRepo.create(label: "B", relativeCwd: "api", command: "", order: 0, splitDirection: "right", project: project)
-        let c = try paneRepo.create(label: "C", relativeCwd: "web", command: "", order: 0, splitDirection: "down", project: project)
+        let a = try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
+        let b = try paneRepo.create(label: "B", relativeCwd: "api", command: "", order: 0, layoutSlot: 1, project: project)
+        let c = try paneRepo.create(label: "C", relativeCwd: "web", command: "", order: 0, layoutSlot: 2, project: project)
         #expect(a.order == 0)
         #expect(b.order == 1)
         #expect(c.order == 2)
@@ -67,7 +68,7 @@ struct WorkspacePaneRepositoryTests {
     func createInvalidLabel() throws {
         let project = try makeProject()
         #expect(throws: WorkspacePaneError.invalidLabel) {
-            try paneRepo.create(label: "   ", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+            try paneRepo.create(label: "   ", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
         }
     }
 
@@ -75,29 +76,34 @@ struct WorkspacePaneRepositoryTests {
     func createInvalidRelativeCwd() throws {
         let project = try makeProject()
         #expect(throws: WorkspacePaneError.invalidRelativeCwd) {
-            try paneRepo.create(label: "Main", relativeCwd: "  ", command: "", order: 0, splitDirection: "none", project: project)
+            try paneRepo.create(label: "Main", relativeCwd: "  ", command: "", order: 0, layoutSlot: 0, project: project)
         }
     }
 
-    @Test("create throws invalidSplitDirection for unknown direction")
-    func createInvalidSplitDirection() throws {
+    @Test("create throws invalidLayoutSlot for slot below -1")
+    func createInvalidLayoutSlot() throws {
         let project = try makeProject()
-        #expect(throws: WorkspacePaneError.invalidSplitDirection) {
-            try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "diagonal", project: project)
+        #expect(throws: WorkspacePaneError.invalidLayoutSlot) {
+            try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, layoutSlot: -2, project: project)
         }
     }
 
-    @Test("create accepts none, right, down as valid split directions")
-    func createAcceptsValidSplitDirections() throws {
+    @Test("create accepts -1 as the unassigned sentinel")
+    func createAcceptsSentinelSlot() throws {
         let project = try makeProject()
         #expect(throws: Never.self) {
-            try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+            try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: -1, project: project)
+        }
+    }
+
+    @Test("create accepts non-negative slot values")
+    func createAcceptsPositiveSlots() throws {
+        let project = try makeProject()
+        #expect(throws: Never.self) {
+            try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
         }
         #expect(throws: Never.self) {
-            try paneRepo.create(label: "B", relativeCwd: ".", command: "", order: 0, splitDirection: "right", project: project)
-        }
-        #expect(throws: Never.self) {
-            try paneRepo.create(label: "C", relativeCwd: ".", command: "", order: 0, splitDirection: "down", project: project)
+            try paneRepo.create(label: "B", relativeCwd: ".", command: "", order: 0, layoutSlot: 3, project: project)
         }
     }
 
@@ -105,7 +111,7 @@ struct WorkspacePaneRepositoryTests {
     func createAllowsEmptyCommand() throws {
         let project = try makeProject()
         #expect(throws: Never.self) {
-            try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+            try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
         }
     }
 
@@ -114,9 +120,9 @@ struct WorkspacePaneRepositoryTests {
     @Test("findByProject returns panes sorted by order ascending")
     func findByProjectSorted() throws {
         let project = try makeProject()
-        _ = try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
-        _ = try paneRepo.create(label: "B", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
-        _ = try paneRepo.create(label: "C", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+        _ = try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
+        _ = try paneRepo.create(label: "B", relativeCwd: ".", command: "", order: 0, layoutSlot: 1, project: project)
+        _ = try paneRepo.create(label: "C", relativeCwd: ".", command: "", order: 0, layoutSlot: 2, project: project)
         let result = try paneRepo.findByProject(project)
         #expect(result.map(\.order) == [0, 1, 2])
     }
@@ -133,7 +139,7 @@ struct WorkspacePaneRepositoryTests {
     @Test("update bumps updatedAt on success")
     func updateBumpsTimestamp() async throws {
         let project = try makeProject()
-        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
         let originalUpdatedAt = pane.updatedAt
         try await Task.sleep(nanoseconds: 1_000_000)
         pane.label = "Main updated"
@@ -144,7 +150,7 @@ struct WorkspacePaneRepositoryTests {
     @Test("update throws invalidLabel for empty label")
     func updateInvalidLabel() throws {
         let project = try makeProject()
-        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
         pane.label = ""
         #expect(throws: WorkspacePaneError.invalidLabel) {
             try paneRepo.update(pane)
@@ -154,9 +160,19 @@ struct WorkspacePaneRepositoryTests {
     @Test("update throws invalidRelativeCwd for empty cwd")
     func updateInvalidCwd() throws {
         let project = try makeProject()
-        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
         pane.relativeCwd = "  "
         #expect(throws: WorkspacePaneError.invalidRelativeCwd) {
+            try paneRepo.update(pane)
+        }
+    }
+
+    @Test("update throws invalidLayoutSlot for slot below -1")
+    func updateInvalidLayoutSlot() throws {
+        let project = try makeProject()
+        let pane = try paneRepo.create(label: "Main", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
+        pane.layoutSlot = -2
+        #expect(throws: WorkspacePaneError.invalidLayoutSlot) {
             try paneRepo.update(pane)
         }
     }
@@ -166,8 +182,8 @@ struct WorkspacePaneRepositoryTests {
     @Test("delete removes the pane from findByProject results when other panes remain")
     func deleteRemovesPane() throws {
         let project = try makeProject()
-        let keepMe = try paneRepo.create(label: "Keep", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
-        let deleteMe = try paneRepo.create(label: "Delete", relativeCwd: "api", command: "", order: 0, splitDirection: "right", project: project)
+        let keepMe = try paneRepo.create(label: "Keep", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
+        let deleteMe = try paneRepo.create(label: "Delete", relativeCwd: "api", command: "", order: 0, layoutSlot: 1, project: project)
 
         try paneRepo.delete(deleteMe)
 
@@ -184,45 +200,57 @@ struct WorkspacePaneRepositoryTests {
             relativeCwd: ".",
             command: "",
             order: 0,
-            splitDirection: "none",
+            layoutSlot: 0,
             project: project
         )
 
-        // Product invariant: every workspace must have at least one
-        // pane. Removing the last pane would leave the launcher with
-        // nowhere to anchor — refused at the repository layer so no
-        // call site can bypass it.
         #expect(throws: WorkspacePaneError.cannotDeleteLastPane) {
             try paneRepo.delete(onlyPane)
         }
 
-        // The pane is still there.
         let remaining = try paneRepo.findByProject(project)
         #expect(remaining.count == 1)
         #expect(remaining.first?.id == onlyPane.id)
     }
 
+    @Test("delete refuses last pane even when it is unassigned (layoutSlot == -1)")
+    func deleteRefusesLastPaneWhenUnassigned() throws {
+        let project = try makeProject()
+        let onlyPane = try paneRepo.create(
+            label: "Main",
+            relativeCwd: ".",
+            command: "",
+            order: 0,
+            layoutSlot: -1,
+            project: project
+        )
+
+        #expect(throws: WorkspacePaneError.cannotDeleteLastPane) {
+            try paneRepo.delete(onlyPane)
+        }
+    }
+
+    @Test("delete succeeds when at least two panes remain — unassigned can be deleted")
+    func deleteUnassignedWithOtherPaneRemaining() throws {
+        let project = try makeProject()
+        let assigned = try paneRepo.create(label: "Keep", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
+        let unassigned = try paneRepo.create(label: "Unassigned", relativeCwd: "api", command: "", order: 0, layoutSlot: -1, project: project)
+
+        try paneRepo.delete(unassigned)
+
+        let remaining = try paneRepo.findByProject(project)
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.id == assigned.id)
+    }
+
     @Test("cascade delete: deleting a project removes its panes")
     func cascadeDelete() throws {
         let project = try makeProject()
-        _ = try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
-        _ = try paneRepo.create(label: "B", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: project)
+        _ = try paneRepo.create(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
+        _ = try paneRepo.create(label: "B", relativeCwd: ".", command: "", order: 0, layoutSlot: 1, project: project)
         try projectRepo.delete(project)
         let descriptor = FetchDescriptor<WorkspacePane>()
         let remaining = try context.fetch(descriptor)
         #expect(remaining.isEmpty)
-    }
-
-    // MARK: - isValidSplitDirection helper
-
-    @Test("isValidSplitDirection helper edge cases")
-    func isValidSplitDirectionHelper() {
-        #expect(isValidSplitDirection("none") == true)
-        #expect(isValidSplitDirection("right") == true)
-        #expect(isValidSplitDirection("down") == true)
-        #expect(isValidSplitDirection("diagonal") == false)
-        #expect(isValidSplitDirection("") == false)
-        #expect(isValidSplitDirection("NONE") == false)
-        #expect(isValidSplitDirection("left") == false)
     }
 }

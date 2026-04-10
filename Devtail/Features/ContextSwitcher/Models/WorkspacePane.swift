@@ -3,7 +3,8 @@
 //  Devtail
 //
 //  SwiftData model for a single workspace pane in a project's terminal layout.
-//  splitDirection is stored as a String sentinel: "none" | "right" | "down".
+//  layoutSlot tracks which slot in the project's WorkspaceLayout this pane
+//  occupies. -1 is the sentinel for "unassigned".
 //
 //  Stack note: `stack` lives here (not on Project) because a project can
 //  contain multiple subfolders with different technologies (e.g. frontend
@@ -24,7 +25,7 @@ final class WorkspacePane {
     var relativeCwd: String
     var command: String
     var order: Int
-    var splitDirection: String
+    var layoutSlot: Int
     var stack: String?
     /// Stored as a raw string mirror of `ProjectEnvironment` so SwiftData
     /// can persist it. Optional because not every pane corresponds to a
@@ -53,7 +54,7 @@ final class WorkspacePane {
         relativeCwd: String,
         command: String,
         order: Int,
-        splitDirection: String,
+        layoutSlot: Int,
         stack: String? = nil,
         environment: ProjectEnvironment? = nil,
         project: Project?
@@ -63,7 +64,7 @@ final class WorkspacePane {
         self.relativeCwd = relativeCwd
         self.command = command
         self.order = order
-        self.splitDirection = splitDirection
+        self.layoutSlot = layoutSlot
         self.stack = stack
         self.environmentRaw = environment?.rawValue
         self.project = project

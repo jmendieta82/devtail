@@ -72,7 +72,7 @@ struct ProjectModelTests {
             relativeCwd: "frontend",
             command: "",
             order: 0,
-            splitDirection: "none",
+            layoutSlot: 0,
             project: nil
         )
 
@@ -86,7 +86,7 @@ struct ProjectModelTests {
             relativeCwd: "backend",
             command: "python manage.py runserver",
             order: 1,
-            splitDirection: "down",
+            layoutSlot: 1,
             stack: "Django",
             environment: .prod,
             project: nil

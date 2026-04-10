@@ -39,9 +39,15 @@ struct WorkspacePanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+            if currentProject != nil {
+                layoutSection
+            }
             content
             if let launcherError = store.lastError as? WorkspaceLauncherError {
                 launchErrorBanner(launcherError)
+            }
+            if let project = currentProject, hasUnassignedPanes(project) {
+                unassignedPanesBanner(project)
             }
         }
         .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
@@ -74,6 +80,14 @@ struct WorkspacePanel: View {
         hasProjectRoot && !sortedPanes.isEmpty
     }
 
+    private func hasUnassignedPanes(_ project: Project) -> Bool {
+        project.workspacePanes.contains { $0.layoutSlot == -1 }
+    }
+
+    private func unassignedCount(_ project: Project) -> Int {
+        project.workspacePanes.filter { $0.layoutSlot == -1 }.count
+    }
+
     /// Resolves the absolute folder URL for a pane (project root +
     /// relative cwd) and asks the GitBranchDetector for its current
     /// branch. Returns nil when there is no project root, when the
@@ -88,6 +102,10 @@ struct WorkspacePanel: View {
             absoluteFolder = rootURL.appendingPathComponent(pane.relativeCwd)
         }
         return gitBranchDetector.detectBranch(in: absoluteFolder)
+    }
+
+    private func paneLabel(for slot: Int, in project: Project) -> String {
+        project.workspacePanes.first { $0.layoutSlot == slot }?.label ?? "—"
     }
 
     // MARK: - Header
@@ -106,9 +124,6 @@ struct WorkspacePanel: View {
             }
             Spacer()
 
-            // Secondary: add a new pane (icon-only, discreet). Hidden in
-            // read-only mode — adding a pane is editing, and the popover
-            // is meant for consult-and-launch only.
             if currentProject != nil && !isReadOnly {
                 Button {
                     startAddingPane()
@@ -131,14 +146,10 @@ struct WorkspacePanel: View {
                         : "Set a project directory first"
                 )
 
-                // Keep a visible gap between the secondary (add) and the
-                // primary CTA (Launch). A mis-click on Add should NOT fire
-                // Launch — Launch actually opens Ghostty and runs commands.
                 Spacer()
                     .frame(width: DevtailTokens.Spacing.gapLarge)
             }
 
-            // Primary: launch workspace (prominent, green).
             Button {
                 guard let project = currentProject else { return }
                 store.launchWorkspace(for: project)
@@ -170,6 +181,108 @@ struct WorkspacePanel: View {
             return "Add at least one workspace pane first"
         }
         return "Launch workspace in Ghostty"
+    }
+
+    // MARK: - Layout section
+
+    @ViewBuilder
+    private var layoutSection: some View {
+        if let project = currentProject {
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
+                Text("LAYOUT")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    .tracking(0.5)
+
+                WorkspaceLayoutPicker(
+                    layout: Binding(
+                        get: { project.layout },
+                        set: { _ in }
+                    ),
+                    onChange: { newLayout in
+                        store.setLayout(for: project, layout: newLayout)
+                    }
+                )
+
+                WorkspaceLayoutThumbnail(
+                    layout: project.layout,
+                    size: CGSize(width: 200, height: 130),
+                    slotLabels: slotLabels(for: project),
+                    onSlotMenu: { slot in
+                        AnyView(slotMenu(slot: slot, project: project))
+                    }
+                )
+            }
+            .padding(.bottom, DevtailTokens.Spacing.gapMedium)
+        }
+    }
+
+    private func slotLabels(for project: Project) -> [Int: String] {
+        var labels: [Int: String] = [:]
+        for slot in 0 ..< project.layout.slotCount {
+            labels[slot] = paneLabel(for: slot, in: project)
+        }
+        return labels
+    }
+
+    @ViewBuilder
+    private func slotMenu(slot: Int, project: Project) -> some View {
+        let currentLabel = paneLabel(for: slot, in: project)
+        Menu {
+            ForEach(sortedPanes, id: \.id) { pane in
+                Button(pane.label) {
+                    store.assignPaneToSlot(pane: pane, slot: slot)
+                }
+            }
+            // Slot 0 OMITS the "Unassigned" option — it is the anchor slot
+            // and cannot be left empty without breaking the launcher.
+            if slot != 0 {
+                Divider()
+                Button("Unassigned") {
+                    if let pane = project.workspacePanes.first(where: { $0.layoutSlot == slot }) {
+                        store.assignPaneToSlot(pane: pane, slot: -1)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(currentLabel)
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+            }
+            .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
+            .padding(.vertical, DevtailTokens.Spacing.gapTiny)
+            .background(DevtailTokens.Colors.inputBackground.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+        }
+        .menuStyle(.borderlessButton)
+    }
+
+    // MARK: - Unassigned panes banner
+
+    @ViewBuilder
+    private func unassignedPanesBanner(_ project: Project) -> some View {
+        let count = unassignedCount(project)
+        HStack(alignment: .top, spacing: DevtailTokens.Spacing.gapSmall) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(DevtailTokens.Colors.accentOrange)
+            Text("\(count) pane\(count == 1 ? "" : "s") not assigned to a slot. Assign them using the layout dropdowns above.")
+                .font(DevtailTokens.Typography.caption)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            Spacer()
+        }
+        .padding(DevtailTokens.Spacing.gapSmall)
+        .background(DevtailTokens.Colors.popoverBackground.opacity(0.6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DevtailTokens.Colors.accentOrange.opacity(0.5), lineWidth: 1)
+        )
+        .padding(.top, DevtailTokens.Spacing.gapSmall)
     }
 
     // MARK: - Content
@@ -240,16 +353,14 @@ struct WorkspacePanel: View {
                             initialLabel: pane.label,
                             initialRelativeCwd: pane.relativeCwd,
                             initialCommand: pane.command,
-                            initialSplitDirection: pane.splitDirection,
                             initialStack: pane.stack,
                             initialEnvironment: pane.environment,
-                            onSave: { label, cwd, cmd, dir, stack, env in
+                            onSave: { label, cwd, cmd, stack, env in
                                 store.updateWorkspacePane(
                                     pane,
                                     label: label,
                                     relativeCwd: cwd,
                                     command: cmd,
-                                    splitDirection: dir,
                                     stack: stack,
                                     environment: env
                                 )
@@ -274,13 +385,12 @@ struct WorkspacePanel: View {
                 if !isReadOnly && isAddingPane {
                     WorkspacePaneEditRow(
                         projectRoot: projectRoot,
-                        onSave: { label, cwd, cmd, dir, stack, env in
+                        onSave: { label, cwd, cmd, stack, env in
                             if let project = currentProject {
                                 store.addWorkspacePane(
                                     label: label,
                                     relativeCwd: cwd,
                                     command: cmd,
-                                    splitDirection: dir,
                                     stack: stack,
                                     environment: env,
                                     to: project
@@ -354,6 +464,11 @@ struct WorkspacePanel: View {
                     .foregroundStyle(DevtailTokens.Colors.accentGreen)
                 case .appleScriptFailed(let message):
                     Text("Launch failed: \(message)")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                        .lineLimit(3)
+                case .layoutHasUnassignedSlots(let missing):
+                    Text("Cannot launch: slots \(missing.map(String.init).joined(separator: ", ")) have no pane assigned.")
                         .font(DevtailTokens.Typography.caption)
                         .foregroundStyle(DevtailTokens.Colors.textSecondary)
                         .lineLimit(3)

@@ -24,6 +24,7 @@ final class Project {
     var updatedAt: Date
 
     var directoryPath: String = ""
+    var layoutRaw: String = WorkspaceLayout.full.rawValue
 
     @Relationship(deleteRule: .cascade, inverse: \QuickLink.project)
     var quickLinks: [QuickLink] = []
@@ -36,6 +37,14 @@ final class Project {
     var color: ProjectColor {
         get { ProjectColor(rawValue: colorRaw) ?? .gray }
         set { colorRaw = newValue.rawValue }
+    }
+
+    /// The terminal layout for this project's workspace.
+    /// Falls back to `.full` on invalid raw values so corrupted stored
+    /// data cannot crash the app — it just renders a single-pane layout.
+    var layout: WorkspaceLayout {
+        get { WorkspaceLayout(rawValue: layoutRaw) ?? .full }
+        set { layoutRaw = newValue.rawValue }
     }
 
     init(

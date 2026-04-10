@@ -2,9 +2,9 @@
 //  WorkspaceLauncherScriptTests.swift
 //  DevtailTests
 //
-//  Golden-string tests for the buildLaunchScript(_:_:) pure function.
-//  Verifies the native Ghostty AppleScript dictionary output — no System
-//  Events keystroke simulation.
+//  Golden-string tests for the buildLaunchScript(directoryPath:layout:panesBySlot:)
+//  pure function. Verifies the native Ghostty AppleScript dictionary output for
+//  all 4 layouts and validates the pre-flight slot-coverage check.
 //
 
 import Testing
@@ -12,12 +12,9 @@ import Foundation
 @testable import Devtail
 
 @MainActor
-@Suite("WorkspaceLauncher — buildLaunchScript (native Ghostty AppleScript)")
+@Suite("WorkspaceLauncher — buildLaunchScript (layout-driven)")
 struct WorkspaceLauncherScriptTests {
 
-    // Helper: a Project instance is required because WorkspacePane has a
-    // @Relationship back to Project. We use a non-persisted Project — the
-    // function only reads label/cwd/command/order/splitDirection.
     private func makeProject() -> Project {
         Project(name: "Test", color: .green)
     }
@@ -25,167 +22,223 @@ struct WorkspaceLauncherScriptTests {
     private func pane(
         _ cwd: String,
         _ cmd: String,
-        order: Int = 0,
-        split: String = "none",
+        slot: Int,
         label: String = "Main"
     ) -> WorkspacePane {
         WorkspacePane(
             label: label,
             relativeCwd: cwd,
             command: cmd,
-            order: order,
-            splitDirection: split,
+            order: slot,
+            layoutSlot: slot,
             project: makeProject()
         )
     }
 
-    // MARK: - Empty & single-pane cases
+    // MARK: - Full layout
 
-    @Test("0 panes → only activate Ghostty, no window creation")
-    func zeroPanes() {
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: [])
+    @Test("Full layout — one window, zero splits")
+    func fullLayout() throws {
+        let p = pane(".", "claude", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p]
+        )
         #expect(script.contains("tell application \"Ghostty\""))
         #expect(script.contains("activate"))
-        #expect(script.contains("end tell"))
-        #expect(!script.contains("new window"))
-        #expect(!script.contains("new surface configuration"))
+        #expect(script.contains("new window with configuration cfg0"))
+        #expect(script.contains("set term0 to focused terminal of selected tab of win"))
+        #expect(script.contains("input text \"claude\" to term0"))
         #expect(!script.contains("split"))
+        #expect(!script.contains("focus term0"))
     }
 
-    @Test("1 pane, empty command, cwd=. → new window at root, no input text")
-    func onePaneEmpty() {
-        let panes = [pane(".", "")]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-        #expect(script.contains("new surface configuration"))
-        #expect(script.contains("set initial working directory of mainCfg to \"/tmp/proj\""))
-        #expect(script.contains("new window with configuration mainCfg"))
-        #expect(script.contains("set term0 to focused terminal of selected tab of win"))
+    @Test("Full layout — no command produces no input text")
+    func fullLayoutNoCommand() throws {
+        let p = pane(".", "", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p]
+        )
         #expect(!script.contains("input text"))
         #expect(!script.contains("send key"))
     }
 
-    @Test("1 pane, command=claude, cwd=. → window + input text + enter")
-    func onePaneClaude() {
-        let panes = [pane(".", "claude")]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-        #expect(script.contains("set initial working directory of mainCfg to \"/tmp/proj\""))
-        #expect(script.contains("input text \"claude\" to term0"))
-        #expect(script.contains("send key \"enter\" to term0"))
-    }
+    // MARK: - HalvesVertical layout
 
-    @Test("1 pane, cwd=./frontend → resolved absolute path in initial working directory")
-    func onePaneWithCwd() {
-        let panes = [pane("./frontend", "ng serve")]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-        #expect(script.contains("set initial working directory of mainCfg to \"/tmp/proj/frontend\""))
-        #expect(script.contains("input text \"ng serve\" to term0"))
-    }
-
-    @Test("1 pane, cwd=./sub, empty command → window created with resolved path, no input")
-    func onePaneCdOnly() {
-        let panes = [pane("./sub", "")]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-        #expect(script.contains("set initial working directory of mainCfg to \"/tmp/proj/sub\""))
-        #expect(!script.contains("input text"))
-    }
-
-    // MARK: - Multi-pane splits
-
-    @Test("2 panes (right split) → window + split right + both configs + focus term0")
-    func twoPanesRight() {
-        let panes = [
-            pane(".", "claude", order: 0),
-            pane("./frontend", "ng serve", order: 1, split: "right")
-        ]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-
-        // Main window
-        #expect(script.contains("set initial working directory of mainCfg to \"/tmp/proj\""))
-        #expect(script.contains("input text \"claude\" to term0"))
-
-        // Split right from term0 → term1 with frontend config
+    @Test("HalvesVertical — split term0 direction right to produce term1")
+    func halvesVerticalLayout() throws {
+        let slot0 = pane(".", "claude", slot: 0)
+        let slot1 = pane("./frontend", "ng serve", slot: 1)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .halvesVertical,
+            panesBySlot: [0: slot0, 1: slot1]
+        )
+        #expect(script.contains("set initial working directory of cfg0 to \"/tmp/proj\""))
         #expect(script.contains("set cfg1 to new surface configuration"))
         #expect(script.contains("set initial working directory of cfg1 to \"/tmp/proj/frontend\""))
         #expect(script.contains("set term1 to split term0 direction right with configuration cfg1"))
-
-        // Defensive cd fallback + command
         #expect(script.contains("input text \"cd /tmp/proj/frontend\" to term1"))
         #expect(script.contains("input text \"ng serve\" to term1"))
-
-        // Focus back on main
         #expect(script.contains("focus term0"))
+        #expect(!script.contains("split term1"))
     }
 
-    @Test("3 panes (right + down) → 2 splits with correct chain + all commands")
-    func threePanesRightDown() {
-        let panes = [
-            pane(".", "claude", order: 0),
-            pane("./frontend", "ng serve", order: 1, split: "right"),
-            pane("./backend", "npm run start:dev", order: 2, split: "down")
-        ]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
+    // MARK: - MainSideStack layout
 
-        // Main window at root
-        #expect(script.contains("set initial working directory of mainCfg to \"/tmp/proj\""))
-        #expect(script.contains("input text \"claude\" to term0"))
-
-        // Pane 1: split right from term0
-        #expect(script.contains("set initial working directory of cfg1 to \"/tmp/proj/frontend\""))
+    @Test("MainSideStack — two sequential splits: term0→right→term1, term1→down→term2")
+    func mainSideStackLayout() throws {
+        let slot0 = pane(".", "claude", slot: 0)
+        let slot1 = pane("./api", "npm run dev", slot: 1)
+        let slot2 = pane("./front", "ng serve", slot: 2)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .mainSideStack,
+            panesBySlot: [0: slot0, 1: slot1, 2: slot2]
+        )
         #expect(script.contains("set term1 to split term0 direction right with configuration cfg1"))
-        #expect(script.contains("input text \"cd /tmp/proj/frontend\" to term1"))
-        #expect(script.contains("input text \"ng serve\" to term1"))
-
-        // Pane 2: split DOWN from term1 (not term0 — chain from previous)
-        #expect(script.contains("set initial working directory of cfg2 to \"/tmp/proj/backend\""))
         #expect(script.contains("set term2 to split term1 direction down with configuration cfg2"))
-        #expect(script.contains("input text \"cd /tmp/proj/backend\" to term2"))
-        #expect(script.contains("input text \"npm run start:dev\" to term2"))
-
-        // Final focus back on main
+        #expect(script.contains("input text \"cd /tmp/proj/api\" to term1"))
+        #expect(script.contains("input text \"npm run dev\" to term1"))
+        #expect(script.contains("input text \"cd /tmp/proj/front\" to term2"))
+        #expect(script.contains("input text \"ng serve\" to term2"))
         #expect(script.contains("focus term0"))
     }
 
-    // MARK: - Content handling
+    // MARK: - Quarters layout (non-sequential sources — the critical test)
+
+    @Test("Quarters — non-sequential splits: term0→right→term1, term0→down→term2, term1→down→term3")
+    func quartersLayout() throws {
+        let slot0 = pane(".", "", slot: 0)
+        let slot1 = pane("./api", "npm start", slot: 1)
+        let slot2 = pane("./front", "ng serve", slot: 2)
+        let slot3 = pane("./logs", "tail -f app.log", slot: 3)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .quarters,
+            panesBySlot: [0: slot0, 1: slot1, 2: slot2, 3: slot3]
+        )
+
+        // Step 1: term0 → right → term1
+        #expect(script.contains("set term1 to split term0 direction right with configuration cfg1"))
+
+        // Step 2: term0 → down → term2 (NOT term1 — non-sequential)
+        #expect(script.contains("set term2 to split term0 direction down with configuration cfg2"))
+
+        // Step 3: term1 → down → term3 (NOT term2)
+        #expect(script.contains("set term3 to split term1 direction down with configuration cfg3"))
+
+        // Content phase
+        #expect(script.contains("input text \"cd /tmp/proj/api\" to term1"))
+        #expect(script.contains("input text \"npm start\" to term1"))
+        #expect(script.contains("input text \"cd /tmp/proj/front\" to term2"))
+        #expect(script.contains("input text \"ng serve\" to term2"))
+        #expect(script.contains("input text \"cd /tmp/proj/logs\" to term3"))
+        #expect(script.contains("focus term0"))
+    }
+
+    @Test("Quarters — term2 splits from term0, not term1 (source order assertion)")
+    func quartersSourceOrder() throws {
+        let slots: [Int: WorkspacePane] = [
+            0: pane(".", "", slot: 0),
+            1: pane("./a", "", slot: 1),
+            2: pane("./b", "", slot: 2),
+            3: pane("./c", "", slot: 3)
+        ]
+        let script = try buildLaunchScript(
+            directoryPath: "/p",
+            layout: .quarters,
+            panesBySlot: slots
+        )
+        // term2 MUST reference term0 as source — not term1
+        let lines = script.components(separatedBy: "\n")
+        let term2Line = lines.first { $0.contains("set term2 to split") }
+        #expect(term2Line?.contains("split term0 direction down") == true)
+
+        // term3 MUST reference term1 as source — not term2
+        let term3Line = lines.first { $0.contains("set term3 to split") }
+        #expect(term3Line?.contains("split term1 direction down") == true)
+    }
+
+    // MARK: - Pre-validation: layoutHasUnassignedSlots
+
+    @Test("Missing slot 1 in halvesVertical throws layoutHasUnassignedSlots([1])")
+    func missingSlotHalves() {
+        let slot0 = pane(".", "", slot: 0)
+        #expect(throws: WorkspaceLauncherError.layoutHasUnassignedSlots(missing: [1])) {
+            try buildLaunchScript(
+                directoryPath: "/tmp/proj",
+                layout: .halvesVertical,
+                panesBySlot: [0: slot0]
+            )
+        }
+    }
+
+    @Test("Quarters with only slot 0 throws layoutHasUnassignedSlots([1, 2, 3])")
+    func missingSlots123() {
+        let slot0 = pane(".", "", slot: 0)
+        #expect(throws: WorkspaceLauncherError.layoutHasUnassignedSlots(missing: [1, 2, 3])) {
+            try buildLaunchScript(
+                directoryPath: "/tmp/proj",
+                layout: .quarters,
+                panesBySlot: [0: slot0]
+            )
+        }
+    }
+
+    @Test("Quarters with slot 2 missing throws layoutHasUnassignedSlots([2])")
+    func missingSlot2() {
+        let slot0 = pane(".", "", slot: 0)
+        let slot1 = pane("./a", "", slot: 1)
+        let slot3 = pane("./c", "", slot: 3)
+        #expect(throws: WorkspaceLauncherError.layoutHasUnassignedSlots(missing: [2])) {
+            try buildLaunchScript(
+                directoryPath: "/tmp/proj",
+                layout: .quarters,
+                panesBySlot: [0: slot0, 1: slot1, 3: slot3]
+            )
+        }
+    }
+
+    // MARK: - Content escaping
 
     @Test("Command with shell meta chars passes through verbatim")
-    func specialChars() {
-        let panes = [pane(".", "claude --resume && echo done")]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
+    func specialChars() throws {
+        let p = pane(".", "claude --resume && echo done", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p]
+        )
         #expect(script.contains("input text \"claude --resume && echo done\" to term0"))
     }
 
-    @Test("Whitespace is trimmed from command")
-    func trimsWhitespace() {
-        let panes = [pane("./api", "  npm start  ")]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-        #expect(script.contains("input text \"npm start\" to term0"))
-    }
-
     @Test("Command with double quote is escaped")
-    func escapesDoubleQuote() {
-        let panes = [pane(".", #"echo "hello""#)]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-        // The literal "hello" inside the command should be escaped as \"hello\"
+    func escapesDoubleQuote() throws {
+        let p = pane(".", #"echo "hello""#, slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p]
+        )
         #expect(script.contains(#"input text "echo \"hello\"" to term0"#))
     }
 
-    // MARK: - Split direction handling
-
-    @Test("Split=none on non-first pane → skipped, no split emitted")
-    func noneSplitSkipped() {
-        let panes = [
-            pane(".", "claude", order: 0),
-            pane("./api", "npm start", order: 1, split: "none")
-        ]
-        let script = buildLaunchScript(directoryPath: "/tmp/proj", panes: panes)
-        // Pane 1 is skipped because split direction is "none"
-        #expect(!script.contains("split term0 direction"))
-        #expect(!script.contains("term1"))
-        // No focus term0 needed since there's effectively 1 pane
-        #expect(!script.contains("focus term0"))
+    @Test("Whitespace is trimmed from command")
+    func trimsWhitespace() throws {
+        let p = pane("./api", "  npm start  ", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p]
+        )
+        #expect(script.contains("input text \"npm start\" to term0"))
     }
 
-    // MARK: - Path resolution
+    // MARK: - Path resolution (unchanged helpers)
 
     @Test("resolvedPath with '.' returns root unchanged")
     func resolvedPathRoot() {

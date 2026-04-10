@@ -194,7 +194,7 @@ struct ProjectStoreTests {
         #expect(paneRepo.lastCreateLabel == "Devtail")
         #expect(paneRepo.lastCreateRelativeCwd == ".")
         #expect(paneRepo.lastCreateCommand == "")
-        #expect(paneRepo.lastCreateSplitDirection == "none")
+        #expect(paneRepo.lastCreateLayoutSlot == 0)
         #expect(paneRepo.lastCreateStack == nil)
         #expect(paneRepo.lastCreateEnvironment == nil)
     }

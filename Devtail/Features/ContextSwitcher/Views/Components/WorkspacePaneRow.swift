@@ -4,7 +4,7 @@
 //
 //  Read-only row displaying a workspace pane. Hover reveals edit/delete
 //  action icons — no more "edit mode" toggle on the parent. Shows label,
-//  stack (if set), relativeCwd, command and split direction badge.
+//  stack (if set), relativeCwd, and command.
 //
 
 import SwiftUI
@@ -124,8 +124,6 @@ struct WorkspacePaneRow: View {
 
             if isHovering && !isReadOnly {
                 hoverActions
-            } else if pane.splitDirection != "none" {
-                splitDirectionBadge
             }
         }
     }
@@ -164,17 +162,6 @@ struct WorkspacePaneRow: View {
         }
     }
 
-    private var splitDirectionBadge: some View {
-        Text(pane.splitDirection == "right" ? "→" : "↓")
-            .font(DevtailTokens.Typography.captionSmall)
-            .foregroundStyle(DevtailTokens.Colors.textMuted)
-            .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
-            .padding(.vertical, DevtailTokens.Spacing.gapTiny)
-            .background(
-                RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
-                    .fill(DevtailTokens.Colors.inputBackground)
-            )
-    }
 }
 
 private extension View {

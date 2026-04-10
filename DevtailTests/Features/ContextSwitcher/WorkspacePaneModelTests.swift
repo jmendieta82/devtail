@@ -22,14 +22,14 @@ struct WorkspacePaneModelTests {
             relativeCwd: ".",
             command: "npm start",
             order: 0,
-            splitDirection: "right",
+            layoutSlot: 1,
             project: project
         )
         #expect(pane.label == "Main")
         #expect(pane.relativeCwd == ".")
         #expect(pane.command == "npm start")
         #expect(pane.order == 0)
-        #expect(pane.splitDirection == "right")
+        #expect(pane.layoutSlot == 1)
         #expect(pane.project?.id == project.id)
     }
 
@@ -40,18 +40,17 @@ struct WorkspacePaneModelTests {
             relativeCwd: ".",
             command: "",
             order: 0,
-            splitDirection: "none",
+            layoutSlot: 0,
             project: nil
         )
-        // UUID is always non-nil; verify it is a valid UUID by round-tripping
         let uuidString = pane.id.uuidString
         #expect(UUID(uuidString: uuidString) != nil)
     }
 
     @Test("initializer generates unique id per instance")
     func initializerGeneratesUniqueIDs() {
-        let a = WorkspacePane(label: "A", relativeCwd: ".", command: "", order: 0, splitDirection: "none", project: nil)
-        let b = WorkspacePane(label: "B", relativeCwd: ".", command: "", order: 1, splitDirection: "none", project: nil)
+        let a = WorkspacePane(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: nil)
+        let b = WorkspacePane(label: "B", relativeCwd: ".", command: "", order: 1, layoutSlot: 1, project: nil)
         #expect(a.id != b.id)
     }
 
@@ -62,7 +61,7 @@ struct WorkspacePaneModelTests {
             relativeCwd: ".",
             command: "",
             order: 0,
-            splitDirection: "none",
+            layoutSlot: 0,
             project: nil
         )
         #expect(pane.createdAt == pane.updatedAt)
@@ -76,9 +75,22 @@ struct WorkspacePaneModelTests {
             relativeCwd: ".",
             command: "",
             order: 0,
-            splitDirection: "none",
+            layoutSlot: 0,
             project: project
         )
         #expect(pane.project?.id == project.id)
+    }
+
+    @Test("layoutSlot -1 (unassigned sentinel) is stored as-is")
+    func layoutSlotSentinel() {
+        let pane = WorkspacePane(
+            label: "Main",
+            relativeCwd: ".",
+            command: "",
+            order: 0,
+            layoutSlot: -1,
+            project: nil
+        )
+        #expect(pane.layoutSlot == -1)
     }
 }

@@ -8,13 +8,32 @@
 
 import Foundation
 
+// MARK: - ProjectLayoutError
+
+enum ProjectLayoutError: Error, Equatable {
+    case projectNotFound
+    case paneNotFound
+    case slotOutOfRange(slot: Int, max: Int)
+
+    static func == (lhs: ProjectLayoutError, rhs: ProjectLayoutError) -> Bool {
+        switch (lhs, rhs) {
+        case (.projectNotFound, .projectNotFound): return true
+        case (.paneNotFound, .paneNotFound): return true
+        case (.slotOutOfRange(let s1, let m1), .slotOutOfRange(let s2, let m2)):
+            return s1 == s2 && m1 == m2
+        default: return false
+        }
+    }
+}
+
+// MARK: - ProjectStore
+
 @MainActor
 @Observable
 final class ProjectStore {
 
     private(set) var projects: [Project] = []
 
-    
     /// Generic `Error?` (not `ProjectError?`) because the repository may
     /// surface non-domain errors from SwiftData. Callers pattern-match via
     /// `lastError as? ProjectError` when they care about a specific case.
@@ -67,6 +86,7 @@ final class ProjectStore {
             )
             if !directoryPath.isEmpty {
                 project.directoryPath = directoryPath
+                project.layout = .full
                 try repository.update(project)
 
                 // Seed a root pane mirroring the directoryPath the user
@@ -88,7 +108,7 @@ final class ProjectStore {
                     relativeCwd: ".",
                     command: "",
                     order: 0,
-                    splitDirection: "none",
+                    layoutSlot: 0,
                     stack: nil,
                     environment: nil,
                     project: project
@@ -185,7 +205,7 @@ final class ProjectStore {
         label: String,
         relativeCwd: String,
         command: String,
-        splitDirection: String,
+        layoutSlot: Int = -1,
         stack: String? = nil,
         environment: ProjectEnvironment? = nil,
         to project: Project
@@ -196,7 +216,7 @@ final class ProjectStore {
                 relativeCwd: relativeCwd,
                 command: command,
                 order: 0, // repository computes actual order from existing panes
-                splitDirection: splitDirection,
+                layoutSlot: layoutSlot,
                 stack: stack,
                 environment: environment,
                 project: project
@@ -215,7 +235,6 @@ final class ProjectStore {
         label: String,
         relativeCwd: String,
         command: String,
-        splitDirection: String,
         stack: String?,
         environment: ProjectEnvironment? = nil
     ) {
@@ -223,7 +242,6 @@ final class ProjectStore {
             pane.label = label
             pane.relativeCwd = relativeCwd
             pane.command = command
-            pane.splitDirection = splitDirection
             pane.stack = stack
             pane.environment = environment
             try workspacePaneRepository.update(pane)
@@ -243,6 +261,57 @@ final class ProjectStore {
             try workspacePaneRepository.delete(pane)
             if let project,
                let idx = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[idx] = project
+            }
+            lastError = nil
+        } catch {
+            lastError = error
+        }
+    }
+
+    // MARK: - Layout Management
+
+    /// Changes the layout for a project, displacing any panes whose
+    /// `layoutSlot` falls outside the new layout's valid range to -1
+    /// (unassigned). No panes are deleted.
+    func setLayout(for project: Project, layout newLayout: WorkspaceLayout) {
+        do {
+            project.layout = newLayout
+            for pane in project.workspacePanes where pane.layoutSlot >= newLayout.slotCount {
+                pane.layoutSlot = -1
+                try workspacePaneRepository.update(pane)
+            }
+            try repository.update(project)
+            if let idx = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[idx] = project
+            }
+            lastError = nil
+        } catch {
+            lastError = error
+        }
+    }
+
+    /// Assigns a pane to a specific slot within its project's layout.
+    /// If another pane already occupies the target slot, it is displaced
+    /// to -1 (unassigned). Validates that the slot is within the layout's
+    /// valid range (0 ..< slotCount), or equals -1 (unassigned sentinel).
+    func assignPaneToSlot(pane: WorkspacePane, slot: Int) {
+        do {
+            guard let project = pane.project else {
+                throw ProjectLayoutError.paneNotFound
+            }
+            guard slot == -1 || slot < project.layout.slotCount else {
+                throw ProjectLayoutError.slotOutOfRange(slot: slot, max: project.layout.slotCount)
+            }
+            if slot >= 0 {
+                for other in project.workspacePanes where other.id != pane.id && other.layoutSlot == slot {
+                    other.layoutSlot = -1
+                    try workspacePaneRepository.update(other)
+                }
+            }
+            pane.layoutSlot = slot
+            try workspacePaneRepository.update(pane)
+            if let idx = projects.firstIndex(where: { $0.id == project.id }) {
                 projects[idx] = project
             }
             lastError = nil

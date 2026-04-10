@@ -8,8 +8,8 @@
 //  inside the project root — otherwise an inline error is shown.
 //
 //  Fields, in order: Label, Stack/tech, Directory (read-only + picker),
-//  Command (optional), Split direction. Save is disabled until label and
-//  relativeCwd are both populated and the split direction is valid.
+//  Command (optional), Environment. Slot assignment is handled by the
+//  layout picker in WorkspacePanel — not here.
 //
 
 import SwiftUI
@@ -23,7 +23,6 @@ struct WorkspacePaneEditRow: View {
     let initialLabel: String
     let initialRelativeCwd: String
     let initialCommand: String
-    let initialSplitDirection: String
     let initialStack: String?
     let initialEnvironment: ProjectEnvironment?
 
@@ -36,7 +35,6 @@ struct WorkspacePaneEditRow: View {
         _ label: String,
         _ relativeCwd: String,
         _ command: String,
-        _ splitDirection: String,
         _ stack: String?,
         _ environment: ProjectEnvironment?
     ) -> Void
@@ -46,7 +44,6 @@ struct WorkspacePaneEditRow: View {
     @State private var stack: String
     @State private var relativeCwd: String
     @State private var command: String
-    @State private var splitDirection: String
     @State private var environment: ProjectEnvironment?
     @State private var chooserError: String?
     @FocusState private var focusedField: Field?
@@ -60,18 +57,16 @@ struct WorkspacePaneEditRow: View {
         initialLabel: String = "",
         initialRelativeCwd: String = "",
         initialCommand: String = "",
-        initialSplitDirection: String = "none",
         initialStack: String? = nil,
         initialEnvironment: ProjectEnvironment? = nil,
         detectorRegistry: StackDetectorRegistry = .default,
-        onSave: @escaping (String, String, String, String, String?, ProjectEnvironment?) -> Void,
+        onSave: @escaping (String, String, String, String?, ProjectEnvironment?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.projectRoot = projectRoot
         self.initialLabel = initialLabel
         self.initialRelativeCwd = initialRelativeCwd
         self.initialCommand = initialCommand
-        self.initialSplitDirection = initialSplitDirection
         self.initialStack = initialStack
         self.initialEnvironment = initialEnvironment
         self.detectorRegistry = detectorRegistry
@@ -81,7 +76,6 @@ struct WorkspacePaneEditRow: View {
         _stack = State(initialValue: initialStack ?? "")
         _relativeCwd = State(initialValue: initialRelativeCwd)
         _command = State(initialValue: initialCommand)
-        _splitDirection = State(initialValue: initialSplitDirection)
         _environment = State(initialValue: initialEnvironment)
     }
 
@@ -171,21 +165,6 @@ struct WorkspacePaneEditRow: View {
                     .foregroundStyle(DevtailTokens.Colors.textTertiary)
                     .tracking(0.5)
                 EnvironmentPicker(selection: $environment)
-            }
-
-            // Split direction picker
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
-                Text("SPLIT")
-                    .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    .tracking(0.5)
-                Picker("Split direction", selection: $splitDirection) {
-                    Text("No split").tag("none")
-                    Text("Split right").tag("right")
-                    Text("Split down").tag("down")
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
             }
 
             // Actions
@@ -291,9 +270,6 @@ struct WorkspacePaneEditRow: View {
         let rootComponents = rootURL.pathComponents
         let chosenComponents = chosenStandardized.pathComponents
 
-        // The chosen path must start with the root path AND be inside it
-        // (not the root itself — a pane pointing at the root is allowed,
-        // the user might have a single-folder project).
         guard chosenComponents.count >= rootComponents.count,
               Array(chosenComponents.prefix(rootComponents.count)) == rootComponents
         else {
@@ -301,7 +277,6 @@ struct WorkspacePaneEditRow: View {
             return
         }
 
-        // Compute the relative components. Empty → the root itself → ".".
         let relativeComponents = Array(chosenComponents.dropFirst(rootComponents.count))
         let computed = relativeComponents.isEmpty
             ? "."
@@ -310,15 +285,10 @@ struct WorkspacePaneEditRow: View {
         chooserError = nil
         relativeCwd = computed
 
-        // Auto-fill label only when the user has not typed one. We respect
-        // an explicit label the user entered before picking the folder.
         if label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             label = chosen.lastPathComponent
         }
 
-        // Kick off stack auto-detection. The detector IO suspends the
-        // main actor (it doesn't block it), so the editor stays responsive
-        // while we sniff the folder. Result is filled in inside the Task.
         runStackDetection(at: chosenStandardized)
     }
 
@@ -326,14 +296,6 @@ struct WorkspacePaneEditRow: View {
     /// and, on success, fills in `stack` and `command` — but only when
     /// those fields are still empty. Anything the user already typed is
     /// preserved verbatim, matching how the label auto-fill works above.
-    ///
-    /// Concurrency note: this uses `Task { }` (NOT `Task.detached`) so
-    /// the closure inherits the @MainActor isolation of the View. The
-    /// `await registry.detectBestMatch(...)` suspends the main actor
-    /// during the actual filesystem IO — the detectors are `Sendable`
-    /// and run on the cooperative pool — so the UI stays responsive.
-    /// `Task.detached` is the wrong tool here: it would copy the View
-    /// struct and mutations would not reach the real `@State` storage.
     private func runStackDetection(at folder: URL) {
         let registry = detectorRegistry
         Task {
@@ -357,8 +319,6 @@ struct WorkspacePaneEditRow: View {
             return "No folder selected"
         }
         if relativeCwd == "." {
-            // Root itself — show the project folder name rather than a
-            // cryptic ".".
             let last = URL(fileURLWithPath: projectRoot).lastPathComponent
             return last.isEmpty ? "." : "\(last)/"
         }
@@ -382,21 +342,20 @@ struct WorkspacePaneEditRow: View {
     private var canSave: Bool {
         !trimmedLabel.isEmpty
             && !relativeCwd.isEmpty
-            && isValidSplitDirection(splitDirection)
             && chooserError == nil
     }
 
     private func commitIfValid() {
         guard canSave else { return }
         let stackValue: String? = trimmedStack.isEmpty ? nil : trimmedStack
-        onSave(trimmedLabel, relativeCwd, command, splitDirection, stackValue, environment)
+        onSave(trimmedLabel, relativeCwd, command, stackValue, environment)
     }
 }
 
 #Preview {
     WorkspacePaneEditRow(
         projectRoot: "/Users/dev/MRN_V2",
-        onSave: { _, _, _, _, _, _ in },
+        onSave: { _, _, _, _, _ in },
         onCancel: {}
     )
     .padding()

@@ -14,7 +14,6 @@
 
 import Testing
 import Foundation
-import SwiftData
 @testable import Devtail
 
 @Suite("ProjectFilterEngine")
@@ -23,13 +22,10 @@ struct ProjectFilterEngineTests {
 
     // MARK: - Fixture helpers
 
-    /// Builds an in-memory ModelContainer + a few projects with the
-    /// fields we want to match against. Reused across tests to keep
-    /// each one focused on the assertion, not the setup.
+    /// Builds a few Project instances with the fields we want to match
+    /// against. No ModelContainer needed — ProjectFilterEngine is a pure
+    /// function that only reads `name` and `directoryPath`.
     private func makeProjects() -> [Project] {
-        let container = PersistenceController.makeContainer(inMemory: true)
-        let context = container.mainContext
-
         let devtail = Project(name: "Devtail", color: .green)
         devtail.directoryPath = "/Users/dev/Code/Devtail"
 
@@ -41,10 +37,6 @@ struct ProjectFilterEngineTests {
 
         let inclusion = Project(name: "Inclusion", color: .amber)
         inclusion.directoryPath = "/Users/dev/work/inclusion-bienestar"
-
-        for project in [devtail, mrn, pixel, inclusion] {
-            context.insert(project)
-        }
 
         return [devtail, mrn, pixel, inclusion]
     }
@@ -172,10 +164,8 @@ struct ProjectFilterEngineTests {
 
     @Test("project with empty directoryPath still matches by name")
     func emptyDirectoryPathStillMatchesByName() {
-        let container = PersistenceController.makeContainer(inMemory: true)
         let project = Project(name: "Bare", color: .gray)
         // directoryPath stays "" (default)
-        container.mainContext.insert(project)
 
         let engine = ProjectFilterEngine()
         let result = engine.filter(projects: [project], query: "bare")

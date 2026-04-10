@@ -3,7 +3,7 @@
 //  Devtail
 //
 //  SwiftData-backed CRUD for WorkspacePane. Validates label, relativeCwd,
-//  and splitDirection. Computes monotonically increasing order on create.
+//  and layoutSlot. Computes monotonically increasing order on create.
 //
 
 import Foundation
@@ -18,7 +18,7 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         relativeCwd: String,
         command: String,
         order: Int,
-        splitDirection: String,
+        layoutSlot: Int,
         stack: String? = nil,
         environment: ProjectEnvironment? = nil,
         project: Project
@@ -31,8 +31,8 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         guard !trimmedCwd.isEmpty else {
             throw WorkspacePaneError.invalidRelativeCwd
         }
-        guard isValidSplitDirection(splitDirection) else {
-            throw WorkspacePaneError.invalidSplitDirection
+        guard layoutSlot >= -1 else {
+            throw WorkspacePaneError.invalidLayoutSlot
         }
         let nextOrder = (project.workspacePanes.map { $0.order }.max() ?? -1) + 1
         let pane = WorkspacePane(
@@ -40,7 +40,7 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
             relativeCwd: trimmedCwd,
             command: command,
             order: nextOrder,
-            splitDirection: splitDirection,
+            layoutSlot: layoutSlot,
             stack: normalizedStack(stack),
             environment: environment,
             project: project
@@ -63,8 +63,8 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         guard !trimmedCwd.isEmpty else {
             throw WorkspacePaneError.invalidRelativeCwd
         }
-        guard isValidSplitDirection(pane.splitDirection) else {
-            throw WorkspacePaneError.invalidSplitDirection
+        guard pane.layoutSlot >= -1 else {
+            throw WorkspacePaneError.invalidLayoutSlot
         }
         pane.label = trimmedLabel
         pane.relativeCwd = trimmedCwd
@@ -95,10 +95,4 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
-}
-
-/// Returns true for the three valid split direction sentinels.
-/// File-scope so it is accessible in tests via @testable import Devtail.
-func isValidSplitDirection(_ value: String) -> Bool {
-    value == "none" || value == "right" || value == "down"
 }

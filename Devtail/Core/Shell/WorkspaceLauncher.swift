@@ -4,7 +4,7 @@
 //
 //  Opens Ghostty at a project's root directory and drives it via Ghostty's
 //  native AppleScript dictionary (available since Ghostty 1.3) to recreate
-//  the project's WorkspacePane layout (splits + per-pane cd + command).
+//  the project's WorkspaceLayout (slots + per-pane cd + command).
 //
 //  Sandbox-safe: uses NSAppleScript with the apple-events entitlement.
 //  No System Events / keystroke simulation — all commands go through the
@@ -21,6 +21,7 @@ enum WorkspaceLauncherError: Error, Equatable {
     case ghosttyNotInstalled
     case automationPermissionDenied
     case appleScriptFailed(String)
+    case layoutHasUnassignedSlots(missing: [Int])
 
     static func == (lhs: WorkspaceLauncherError, rhs: WorkspaceLauncherError) -> Bool {
         switch (lhs, rhs) {
@@ -28,6 +29,7 @@ enum WorkspaceLauncherError: Error, Equatable {
         case (.ghosttyNotInstalled, .ghosttyNotInstalled): return true
         case (.automationPermissionDenied, .automationPermissionDenied): return true
         case (.appleScriptFailed(let a), .appleScriptFailed(let b)): return a == b
+        case (.layoutHasUnassignedSlots(let a), .layoutHasUnassignedSlots(let b)): return a == b
         default: return false
         }
     }
@@ -46,82 +48,83 @@ protocol WorkspaceLauncherProtocol {
 /// AppleScript dictionary (Ghostty 1.3+).
 ///
 /// Algorithm:
-///   1. Activate Ghostty (launches it if not running).
-///   2. Create a surface configuration with `initial working directory`
-///      set to the resolved absolute path of pane 0, then `new window`.
-///   3. Capture the first terminal reference from the new window.
-///   4. For every subsequent pane:
-///      - Create a configuration with its absolute cwd
-///      - `split` from the previous terminal in the requested direction
-///      - Send `cd <abs>` + enter as a defensive fallback (the preview API
-///        may or may not honor `initial working directory` on splits)
-///      - Send the pane command + enter (if non-empty)
-///   5. Focus pane 0 at the end so the user lands on the main pane.
+///   Phase A — Topology: for each SplitStep in layout.splitSequence, emit
+///   a `split term<sourceSlot> direction <dir>` call that binds the result
+///   to `term<newSlot>`. This produces non-sequential splits (Quarters: term2
+///   splits from term0, term3 splits from term1) that a sequential chain
+///   cannot express.
+///
+///   Phase B — Content: after ALL splits are done, iterate each slot in
+///   order and emit the defensive cd + command for that slot's pane.
 ///
 /// - Parameters:
 ///   - directoryPath: The project's absolute root path.
-///   - panes: The WorkspacePane list, already sorted by `order` (caller
-///     must pre-sort).
+///   - layout: The WorkspaceLayout defining slot count and split topology.
+///   - panesBySlot: A dictionary mapping slot index → WorkspacePane. Every
+///     slot in 0 ..< layout.slotCount MUST have an entry; throws otherwise.
 /// - Returns: AppleScript source code ready for NSAppleScript.
-func buildLaunchScript(directoryPath: String, panes: [WorkspacePane]) -> String {
-    var lines: [String] = []
+/// - Throws: `WorkspaceLauncherError.layoutHasUnassignedSlots` if any slot
+///   in 0 ..< layout.slotCount has no pane.
+func buildLaunchScript(
+    directoryPath: String,
+    layout: WorkspaceLayout,
+    panesBySlot: [Int: WorkspacePane]
+) throws -> String {
+    // Pre-validation: every slot must be filled before emitting any script.
+    let missing = (0 ..< layout.slotCount).filter { panesBySlot[$0] == nil }
+    guard missing.isEmpty else {
+        throw WorkspaceLauncherError.layoutHasUnassignedSlots(missing: missing)
+    }
 
+    var lines: [String] = []
     lines.append("tell application \"Ghostty\"")
     lines.append("    activate")
 
-    // Empty case: just activate the app, no windows spawned.
-    if panes.isEmpty {
-        lines.append("end tell")
-        return lines.joined(separator: "\n")
-    }
+    // Slot 0 — the initial window.
+    let pane0 = panesBySlot[0]!
+    let path0 = resolvedPath(rootPath: directoryPath, relativeCwd: pane0.relativeCwd)
 
-    // Pane 0 — the initial window with the project root cwd.
-    let pane0 = panes[0]
-    let pane0Path = resolvedPath(rootPath: directoryPath, relativeCwd: pane0.relativeCwd)
-
-    lines.append("    set mainCfg to new surface configuration")
-    lines.append("    set initial working directory of mainCfg to \"\(pane0Path)\"")
-    lines.append("    set win to new window with configuration mainCfg")
+    lines.append("    set cfg0 to new surface configuration")
+    lines.append("    set initial working directory of cfg0 to \"\(path0)\"")
+    lines.append("    set win to new window with configuration cfg0")
     lines.append("    set term0 to focused terminal of selected tab of win")
 
-    // Pane 0 command (optional).
-    let pane0Cmd = pane0.command.trimmingCharacters(in: .whitespacesAndNewlines)
-    if !pane0Cmd.isEmpty {
-        lines.append("    input text \"\(escape(pane0Cmd))\" to term0")
-        lines.append("    send key \"enter\" to term0")
-    }
-
-    // Panes 1...N — splits from the previous terminal.
-    var previousVar = "term0"
-    for (index, pane) in panes.enumerated().dropFirst() {
-        let direction = pane.splitDirection
-        guard direction == "right" || direction == "down" else { continue }
-
-        let termVar = "term\(index)"
-        let cfgVar = "cfg\(index)"
+    // Phase A — Topology: emit all splits in the layout-defined order.
+    for step in layout.splitSequence {
+        let srcVar  = "term\(step.sourceSlot)"
+        let newVar  = "term\(step.newSlot)"
+        let cfgVar  = "cfg\(step.newSlot)"
+        let pane    = panesBySlot[step.newSlot]!
         let absPath = resolvedPath(rootPath: directoryPath, relativeCwd: pane.relativeCwd)
 
         lines.append("    set \(cfgVar) to new surface configuration")
         lines.append("    set initial working directory of \(cfgVar) to \"\(absPath)\"")
-        lines.append("    set \(termVar) to split \(previousVar) direction \(direction) with configuration \(cfgVar)")
+        lines.append("    set \(newVar) to split \(srcVar) direction \(step.direction.rawValue) with configuration \(cfgVar)")
+    }
 
-        // Defensive cd fallback — `initial working directory` on splits is
-        // not 100% confirmed in the preview API. If it works, cd is a no-op.
-        lines.append("    input text \"cd \(absPath)\" to \(termVar)")
-        lines.append("    send key \"enter\" to \(termVar)")
+    // Phase B — Content: emit cd + command for each slot in order.
+    // Slot 0 gets no cd (it was set via initial working directory on the
+    // new window). Slots 1+ get a defensive cd in case the split API does
+    // not honor `initial working directory`.
+    for slot in 0 ..< layout.slotCount {
+        let termVar = "term\(slot)"
+        let pane    = panesBySlot[slot]!
+        let absPath = resolvedPath(rootPath: directoryPath, relativeCwd: pane.relativeCwd)
 
-        // Pane command (optional).
+        if slot != 0 {
+            lines.append("    input text \"cd \(absPath)\" to \(termVar)")
+            lines.append("    send key \"enter\" to \(termVar)")
+        }
+
         let cmd = pane.command.trimmingCharacters(in: .whitespacesAndNewlines)
         if !cmd.isEmpty {
             lines.append("    input text \"\(escape(cmd))\" to \(termVar)")
             lines.append("    send key \"enter\" to \(termVar)")
         }
-
-        previousVar = termVar
     }
 
-    // Focus pane 0 so the user starts on the main terminal.
-    if panes.count > 1 {
+    // Focus slot 0 so the user starts on the main terminal.
+    if layout.slotCount > 1 {
         lines.append("    focus term0")
     }
 
@@ -180,11 +183,19 @@ struct WorkspaceLauncher: WorkspaceLauncherProtocol {
             throw WorkspaceLauncherError.ghosttyNotInstalled
         }
 
-        // 3. Build the script. `tell application "Ghostty" to activate`
-        //    will launch Ghostty if it isn't already running — we don't
-        //    need NSWorkspace.openApplication anymore.
-        let sorted = panes.sorted { $0.order < $1.order }
-        let source = buildLaunchScript(directoryPath: root, panes: sorted)
+        // 3. Build a slot-indexed dictionary from the pane list, skipping
+        //    unassigned panes (layoutSlot == -1). The buildLaunchScript
+        //    function will throw if any required slot is missing.
+        var panesBySlot: [Int: WorkspacePane] = [:]
+        for pane in panes where pane.layoutSlot >= 0 {
+            panesBySlot[pane.layoutSlot] = pane
+        }
+
+        let source = try buildLaunchScript(
+            directoryPath: root,
+            layout: project.layout,
+            panesBySlot: panesBySlot
+        )
 
         // 4. Run the script off the main thread.
         try await runScript(source)
