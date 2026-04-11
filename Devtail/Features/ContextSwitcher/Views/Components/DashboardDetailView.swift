@@ -17,6 +17,17 @@ struct DashboardDetailView: View {
     }
 
     var body: some View {
+        if let editingPane = sortedPanes.first(where: { $0.id == editingPaneID }) {
+            paneEditMode(for: editingPane)
+        } else if isAddingPane {
+            paneAddMode
+        } else {
+            browsingMode
+        }
+    }
+
+    @ViewBuilder
+    private var browsingMode: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
                 heroHeader
@@ -25,6 +36,103 @@ struct DashboardDetailView: View {
                 quickLinksSection
             }
             .padding(DevtailTokens.Spacing.dashboardPadding)
+        }
+    }
+
+    // MARK: - Pane Edit Mode (full-screen form)
+
+    @ViewBuilder
+    private func paneEditMode(for pane: WorkspacePane) -> some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
+            paneEditHeader(title: "Edit pane", subtitle: pane.label)
+
+            WorkspacePaneEditRow(
+                projectRoot: project.directoryPath,
+                initialLabel: pane.label,
+                initialRelativeCwd: pane.relativeCwd,
+                initialCommand: pane.command,
+                initialStack: pane.stack,
+                initialEnvironment: pane.environment,
+                onSave: { label, cwd, command, stack, env in
+                    store.updateWorkspacePane(
+                        pane,
+                        label: label,
+                        relativeCwd: cwd,
+                        command: command,
+                        stack: stack,
+                        environment: env
+                    )
+                    editingPaneID = nil
+                },
+                onCancel: { editingPaneID = nil }
+            )
+
+            Spacer(minLength: 0)
+        }
+        .padding(DevtailTokens.Spacing.dashboardPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private var paneAddMode: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
+            paneEditHeader(title: "New pane", subtitle: project.name)
+
+            WorkspacePaneEditRow(
+                projectRoot: project.directoryPath,
+                onSave: { label, cwd, command, stack, env in
+                    store.addWorkspacePane(
+                        label: label,
+                        relativeCwd: cwd,
+                        command: command,
+                        stack: stack,
+                        environment: env,
+                        to: project
+                    )
+                    isAddingPane = false
+                },
+                onCancel: { isAddingPane = false }
+            )
+
+            Spacer(minLength: 0)
+        }
+        .padding(DevtailTokens.Spacing.dashboardPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private func paneEditHeader(title: String, subtitle: String) -> some View {
+        HStack(spacing: DevtailTokens.Spacing.gapMedium) {
+            Button {
+                editingPaneID = nil
+                isAddingPane = false
+            } label: {
+                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                    Image(systemName: "chevron.left")
+                    Text("Back")
+                }
+                .font(DevtailTokens.Typography.bodySmall)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+                .background(
+                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                        .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Back to workspace")
+
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                Text(title)
+                    .font(DevtailTokens.Typography.projectTitle)
+                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                Text(subtitle)
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+            }
+
+            Spacer()
         }
     }
 
@@ -150,60 +258,19 @@ struct DashboardDetailView: View {
             } else {
                 VStack(spacing: DevtailTokens.Spacing.gapMedium) {
                     ForEach(sortedPanes, id: \.id) { pane in
-                        if editingPaneID == pane.id {
-                            WorkspacePaneEditRow(
-                                projectRoot: project.directoryPath,
-                                initialLabel: pane.label,
-                                initialRelativeCwd: pane.relativeCwd,
-                                initialCommand: pane.command,
-                                initialStack: pane.stack,
-                                initialEnvironment: pane.environment,
-                                onSave: { label, cwd, command, stack, env in
-                                    store.updateWorkspacePane(
-                                        pane,
-                                        label: label,
-                                        relativeCwd: cwd,
-                                        command: command,
-                                        stack: stack,
-                                        environment: env
-                                    )
-                                    editingPaneID = nil
-                                },
-                                onCancel: { editingPaneID = nil }
-                            )
-                        } else {
-                            PaneCard(
-                                pane: pane,
-                                branch: branchDetector.detectBranch(
-                                    in: URL(fileURLWithPath: project.directoryPath)
-                                        .appendingPathComponent(pane.relativeCwd)
-                                ),
-                                slotLabel: pane.layoutSlot >= 0 ? "Slot \(pane.layoutSlot + 1)" : nil,
-                                canDelete: sortedPanes.count > 1,
-                                onEdit: { editingPaneID = pane.id },
-                                onDelete: { store.deleteWorkspacePane(pane) }
-                            )
-                        }
+                        PaneCard(
+                            pane: pane,
+                            branch: branchDetector.detectBranch(
+                                in: URL(fileURLWithPath: project.directoryPath)
+                                    .appendingPathComponent(pane.relativeCwd)
+                            ),
+                            slotLabel: pane.layoutSlot >= 0 ? "Slot \(pane.layoutSlot + 1)" : nil,
+                            canDelete: sortedPanes.count > 1,
+                            onEdit: { editingPaneID = pane.id },
+                            onDelete: { store.deleteWorkspacePane(pane) }
+                        )
                     }
                 }
-            }
-
-            if isAddingPane {
-                WorkspacePaneEditRow(
-                    projectRoot: project.directoryPath,
-                    onSave: { label, cwd, command, stack, env in
-                        store.addWorkspacePane(
-                            label: label,
-                            relativeCwd: cwd,
-                            command: command,
-                            stack: stack,
-                            environment: env,
-                            to: project
-                        )
-                        isAddingPane = false
-                    },
-                    onCancel: { isAddingPane = false }
-                )
             }
 
             Button { isAddingPane = true } label: {
