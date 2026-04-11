@@ -1,9 +1,11 @@
 import SwiftUI
 
 /// Pane row for the popover accordion.
-/// Full-width horizontal layout: label on the left, optional branch on the right.
+/// Full-width horizontal layout: label + optional stack badge on the left,
+/// optional branch on the right.
 struct PaneChip: View {
     let label: String
+    var stack: String? = nil
     var branch: String? = nil
 
     var body: some View {
@@ -13,6 +15,18 @@ struct PaneChip: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(DevtailTokens.Colors.textPrimary)
                 .lineLimit(1)
+
+            if let stack, !stack.isEmpty {
+                Text(stack)
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
+                    .padding(.vertical, 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
+                            .fill(DevtailTokens.Colors.accentGreen.opacity(DevtailTokens.ActiveState.badgeBgOpacity))
+                    )
+            }
 
             Spacer(minLength: 0)
 

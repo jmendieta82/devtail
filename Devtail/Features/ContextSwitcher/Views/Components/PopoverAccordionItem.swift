@@ -69,6 +69,7 @@ struct PopoverAccordionItem: View {
                     ForEach(sortedPanes, id: \.id) { pane in
                         PaneChip(
                             label: pane.label,
+                            stack: pane.stack,
                             branch: branches[pane.id]
                         )
                     }

@@ -149,7 +149,7 @@ enum DevtailTokens {
 
     enum Sizes {
         // === Popover ===
-        static let popoverWidth: CGFloat         = 360
+        static let popoverWidth: CGFloat         = 400
         static let popoverMaxHeight: CGFloat     = 480
         static let popoverHeight: CGFloat        = 480  // alias for popoverMaxHeight
 
