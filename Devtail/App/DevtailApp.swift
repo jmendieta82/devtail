@@ -56,11 +56,11 @@ struct DevtailApp: App {
 
         Window("Devtail", id: WindowID.dashboard) {
             DashboardRootView()
-                .environment(dashboardIntent)
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
         .environment(activityMonitor)
+        .environment(dashboardIntent)
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
