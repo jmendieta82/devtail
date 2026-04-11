@@ -10,9 +10,10 @@ struct PaneChip: View {
 
     var body: some View {
         HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-            Text(label)
+            Text(label.uppercased())
                 .font(DevtailTokens.Typography.captionSmall)
                 .fontWeight(.semibold)
+                .tracking(0.5)
                 .foregroundStyle(DevtailTokens.Colors.textPrimary)
                 .lineLimit(1)
 
