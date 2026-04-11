@@ -13,6 +13,7 @@ import SwiftData
 struct MenuBarRootView: View {
     @Environment(ProjectStore.self) private var store
     @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
+    @Environment(DashboardIntentHolder.self) private var intentHolder
     @Environment(\.openWindow) private var openWindow
 
     @State private var searchQuery: String = ""
@@ -224,16 +225,18 @@ struct MenuBarRootView: View {
 
     private func openDashboard() {
         NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: WindowID.dashboard, value: DashboardIntent.none)
+        openWindow(id: WindowID.dashboard)
     }
 
     private func openDashboardForCreate() {
         NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: WindowID.dashboard, value: DashboardIntent.createProject)
+        intentHolder.pending = .createProject
+        openWindow(id: WindowID.dashboard)
     }
 
     private func openDashboardForProject(_ projectID: UUID) {
         NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: WindowID.dashboard, value: DashboardIntent.editProject(projectID))
+        intentHolder.pending = .editProject(projectID)
+        openWindow(id: WindowID.dashboard)
     }
 }

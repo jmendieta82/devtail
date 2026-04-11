@@ -13,6 +13,7 @@ struct DevtailApp: App {
     @State private var modelContainer: ModelContainer
     @State private var projectStore: ProjectStore
     @State private var activityMonitor = WorkspaceActivityMonitor()
+    @State private var dashboardIntent = DashboardIntentHolder()
     @Environment(\.openWindow) private var openWindow
 
     init() {
@@ -41,20 +42,21 @@ struct DevtailApp: App {
         .modelContainer(modelContainer)
         .environment(projectStore)
         .environment(activityMonitor)
+        .environment(dashboardIntent)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Project") {
                     NSApp.activate(ignoringOtherApps: true)
-                    openWindow(id: WindowID.dashboard, value: DashboardIntent.createProject)
+                    dashboardIntent.pending = .createProject
+                    openWindow(id: WindowID.dashboard)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
         }
 
-        WindowGroup("Devtail", id: WindowID.dashboard, for: DashboardIntent.self) { $intent in
-            DashboardRootView(initialIntent: intent ?? .none)
-        } defaultValue: {
-            .none
+        Window("Devtail", id: WindowID.dashboard) {
+            DashboardRootView()
+                .environment(dashboardIntent)
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
@@ -76,13 +78,15 @@ enum WindowID {
     static let settings  = "devtail.settings"
 }
 
-/// Why this exists: the dashboard window can be opened from multiple places
-/// (popup "Manage…" button, ⌘N keyboard shortcut, future deep links). Each
-/// caller may want the dashboard to land in a specific state — idle, with the
-/// create-project sheet already visible, or with the edit sheet for a given
-/// project. Using a Codable enum as the WindowGroup value lets SwiftUI
-/// natively carry that intent through `openWindow(id:value:)`.
-enum DashboardIntent: Codable, Hashable {
+/// Intent the dashboard window should apply the next time it appears
+/// or receives a new focus. Callers set `pending` before calling
+/// `openWindow(id:)`; the dashboard reads it in `.task` and clears it.
+@MainActor @Observable
+final class DashboardIntentHolder {
+    var pending: DashboardIntent = .none
+}
+
+enum DashboardIntent: Equatable {
     case none
     case createProject
     case editProject(UUID)

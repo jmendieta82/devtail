@@ -17,21 +17,15 @@ import SwiftData
 struct DashboardRootView: View {
     @Environment(ProjectStore.self) private var store
     @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
-
-    let initialIntent: DashboardIntent
+    @Environment(DashboardIntentHolder.self) private var intentHolder
 
     @State private var selectedProjectID: UUID?
     @State private var mode: DashboardMode = .browsing
     @State private var isFormDirty: Bool = false
     @State private var pendingSelection: UUID?
-    @State private var didApplyInitialIntent: Bool = false
     @State private var searchQuery: String = ""
 
     private let filterEngine = ProjectFilterEngine()
-
-    init(initialIntent: DashboardIntent = .none) {
-        self.initialIntent = initialIntent
-    }
 
     var body: some View {
         NavigationSplitView {
@@ -57,7 +51,10 @@ struct DashboardRootView: View {
         .toolbar(removing: .title)
         .task {
             store.loadProjects()
-            applyInitialIntentIfNeeded()
+            consumePendingIntent()
+        }
+        .onChange(of: intentHolder.pending) { _, _ in
+            consumePendingIntent()
         }
         .onChange(of: store.projects) { _, newProjects in
             clearSelectionIfStale(newProjects)
@@ -380,10 +377,13 @@ struct DashboardRootView: View {
         }
     }
 
-    private func applyInitialIntentIfNeeded() {
-        guard !didApplyInitialIntent else { return }
-        didApplyInitialIntent = true
-        switch initialIntent {
+    /// Consumes a pending intent stored in the shared DashboardIntentHolder.
+    /// Triggered on `.task` (first appearance) and on `onChange` of the holder.
+    private func consumePendingIntent() {
+        let intent = intentHolder.pending
+        guard intent != .none else { return }
+        intentHolder.pending = .none
+        switch intent {
         case .none:
             break
         case .createProject:
