@@ -1,0 +1,271 @@
+import SwiftUI
+
+/// Scrollable detail view for the dashboard.
+/// Contains hero header, layout section, panes section, and quick links.
+struct DashboardDetailView: View {
+    let project: Project
+    @Environment(ProjectStore.self) private var store
+    @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
+
+    @State private var editingPaneID: UUID? = nil
+    @State private var isAddingPane: Bool = false
+
+    private let branchDetector = GitBranchDetector()
+
+    private var sortedPanes: [WorkspacePane] {
+        (project.workspacePanes ?? []).sorted { $0.order < $1.order }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
+                heroHeader
+                layoutSection
+                panesSection
+                quickLinksSection
+            }
+            .padding(DevtailTokens.Spacing.dashboardPadding)
+        }
+    }
+
+    // MARK: - Section A: Hero Header
+
+    @ViewBuilder
+    private var heroHeader: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
+                HStack(spacing: DevtailTokens.Spacing.gapMedium) {
+                    ColorDot(
+                        color: project.color,
+                        size: DevtailTokens.Sizes.projectDotLarge
+                    )
+                    .overlay(alignment: .bottomTrailing) {
+                        ActivityDot(isActive: activityMonitor.isActive(projectID: project.id))
+                    }
+
+                    Text(project.name)
+                        .font(DevtailTokens.Typography.projectTitle)
+                        .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                }
+
+                if !project.directoryPath.isEmpty {
+                    Text(project.directoryPath)
+                        .font(DevtailTokens.Typography.mono)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                if activityMonitor.isActive(projectID: project.id) {
+                    Text("Active")
+                        .font(DevtailTokens.Typography.captionSmall)
+                        .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+                        .padding(.vertical, DevtailTokens.Spacing.gapTiny)
+                        .background(
+                            DevtailTokens.Colors.accentGreen.opacity(
+                                DevtailTokens.ActiveState.badgeBgOpacity
+                            )
+                        )
+                        .clipShape(Capsule())
+                }
+            }
+
+            Spacer()
+
+            Button {
+                launchWorkspace()
+            } label: {
+                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                    Image(systemName: store.isLaunchingWorkspace ? "hourglass" : "play.fill")
+                    Text(store.isLaunchingWorkspace ? "Launching..." : "Launch")
+                }
+                .font(DevtailTokens.Typography.bodySemibold)
+                .foregroundStyle(.white)
+                .padding(.horizontal, DevtailTokens.Spacing.gapXLarge)
+                .frame(height: DevtailTokens.Sizes.launchButtonHeight)
+                .background(DevtailTokens.Colors.accentGreen)
+                .clipShape(RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
+                .glassEffect(.regular.interactive())
+            }
+            .buttonStyle(.plain)
+            .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
+            .help("Launch workspace in Ghostty")
+        }
+    }
+
+    // MARK: - Section B: Layout
+
+    @ViewBuilder
+    private var layoutSection: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
+            SectionHeader(
+                title: "LAYOUT",
+                guide: "Choose how your terminal panes are arranged when you launch this workspace."
+            )
+
+            WorkspaceLayoutPicker(
+                selected: project.layout,
+                onSelect: { layout in
+                    store.setLayout(for: project, layout: layout)
+                }
+            )
+
+            WorkspaceLayoutThumbnail(
+                layout: project.layout,
+                size: CGSize(
+                    width: DevtailTokens.Sizes.layoutPreviewWidth,
+                    height: DevtailTokens.Sizes.layoutPreviewHeight
+                ),
+                slotLabels: slotLabels(for: project),
+                onSlotMenu: { slot in
+                    slotMenuContent(for: slot)
+                }
+            )
+
+            SectionHeader(guide: "Assign each pane to a slot. Unassigned panes won't open.")
+        }
+    }
+
+    // MARK: - Section C: Panes
+
+    @ViewBuilder
+    private var panesSection: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
+            SectionHeader(
+                title: "PANES",
+                guide: "Terminal sessions that will open when you launch this workspace."
+            )
+
+            if sortedPanes.isEmpty {
+                emptyPanesView
+            } else {
+                VStack(spacing: DevtailTokens.Spacing.gapMedium) {
+                    ForEach(sortedPanes) { pane in
+                        if editingPaneID == pane.id {
+                            WorkspacePaneEditRow(
+                                projectRoot: project.directoryPath,
+                                existingPane: pane,
+                                onSave: { label, cwd, command, stack, env in
+                                    store.updateWorkspacePane(
+                                        pane,
+                                        label: label,
+                                        relativeCwd: cwd,
+                                        command: command,
+                                        stack: stack,
+                                        environment: env
+                                    )
+                                    editingPaneID = nil
+                                },
+                                onCancel: { editingPaneID = nil }
+                            )
+                        } else {
+                            PaneCard(
+                                pane: pane,
+                                branch: branchDetector.detectBranch(
+                                    in: URL(fileURLWithPath: project.directoryPath)
+                                        .appendingPathComponent(pane.relativeCwd)
+                                ),
+                                slotLabel: pane.layoutSlot >= 0 ? "Slot \(pane.layoutSlot + 1)" : nil,
+                                canDelete: sortedPanes.count > 1,
+                                onEdit: { editingPaneID = pane.id },
+                                onDelete: { store.deleteWorkspacePane(pane) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            if isAddingPane {
+                WorkspacePaneEditRow(
+                    projectRoot: project.directoryPath,
+                    existingPane: nil,
+                    onSave: { label, cwd, command, stack, env in
+                        store.addWorkspacePane(
+                            to: project,
+                            label: label,
+                            relativeCwd: cwd,
+                            command: command,
+                            stack: stack,
+                            environment: env
+                        )
+                        isAddingPane = false
+                    },
+                    onCancel: { isAddingPane = false }
+                )
+            }
+
+            Button { isAddingPane = true } label: {
+                Label("Add pane", systemImage: "plus")
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                    .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                            .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(project.directoryPath.isEmpty)
+            .help("Add a new terminal pane")
+        }
+    }
+
+    // MARK: - Section D: Quick Links
+
+    @ViewBuilder
+    private var quickLinksSection: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
+            SectionHeader(
+                title: "QUICK LINKS",
+                guide: "Bookmarks to URLs, files, or folders you access frequently for this project."
+            )
+
+            QuickLinksPanel(projectID: project.id)
+        }
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private var emptyPanesView: some View {
+        VStack(spacing: DevtailTokens.Spacing.gapLarge) {
+            Label(
+                "No panes yet. Add your first terminal pane to get started.",
+                systemImage: "info.circle"
+            )
+            .font(DevtailTokens.Typography.caption)
+            .foregroundStyle(DevtailTokens.Colors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(DevtailTokens.Spacing.gapSection)
+    }
+
+    private func slotLabels(for project: Project) -> [Int: String] {
+        var labels: [Int: String] = [:]
+        for pane in sortedPanes where pane.layoutSlot >= 0 {
+            labels[pane.layoutSlot] = pane.label
+        }
+        return labels
+    }
+
+    @ViewBuilder
+    private func slotMenuContent(for slot: Int) -> some View {
+        ForEach(sortedPanes) { pane in
+            Button(pane.label) {
+                store.assignPaneToSlot(pane: pane, slot: slot)
+            }
+        }
+    }
+
+    private func launchWorkspace() {
+        Task {
+            await store.launchWorkspace(for: project)
+            activityMonitor.markLaunched(
+                projectID: project.id,
+                directoryPath: project.directoryPath
+            )
+        }
+    }
+}
