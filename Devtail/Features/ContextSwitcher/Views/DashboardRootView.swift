@@ -46,7 +46,11 @@ struct DashboardRootView: View {
         }
         .frame(
             minWidth: DevtailTokens.Sizes.dashboardWidth,
-            minHeight: DevtailTokens.Sizes.dashboardHeight
+            idealWidth: DevtailTokens.Sizes.dashboardWidth,
+            maxWidth: DevtailTokens.Sizes.dashboardWidth,
+            minHeight: DevtailTokens.Sizes.dashboardHeight,
+            idealHeight: DevtailTokens.Sizes.dashboardHeight,
+            maxHeight: DevtailTokens.Sizes.dashboardHeight
         )
         .containerBackground(.thinMaterial, for: .window)
         .navigationTitle("")
