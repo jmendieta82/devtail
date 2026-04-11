@@ -52,7 +52,7 @@ struct DashboardRootView: View {
             idealHeight: DevtailTokens.Sizes.dashboardHeight,
             maxHeight: DevtailTokens.Sizes.dashboardHeight
         )
-        .containerBackground(.thinMaterial, for: .window)
+        .containerBackground(dashboardBackground, for: .window)
         .navigationTitle("")
         .toolbar(removing: .title)
         .task {
@@ -79,6 +79,24 @@ struct DashboardRootView: View {
         } message: { _ in
             Text("You have unsaved changes in the project form. Switching projects will lose them.")
         }
+    }
+
+    // MARK: - Background
+
+    /// Dark gradient backdrop for the dashboard window.
+    /// Top-left to bottom-right: near-black → deep indigo → accent teal.
+    /// Gives the window a distinctive, futuristic look without relying on
+    /// the system's translucent material (which picks up desktop noise).
+    private var dashboardBackground: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 0.05, green: 0.05, blue: 0.09),
+                Color(red: 0.08, green: 0.09, blue: 0.18),
+                Color(red: 0.06, green: 0.14, blue: 0.22)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     // MARK: - Sidebar
