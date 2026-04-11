@@ -123,7 +123,9 @@ struct DashboardDetailView: View {
             .buttonStyle(.plain)
             .help("Back to workspace")
 
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: DevtailTokens.Spacing.gapTiny) {
                 Text(title)
                     .font(DevtailTokens.Typography.projectTitle)
                     .foregroundStyle(DevtailTokens.Colors.textPrimary)
@@ -131,8 +133,6 @@ struct DashboardDetailView: View {
                     .font(DevtailTokens.Typography.caption)
                     .foregroundStyle(DevtailTokens.Colors.textTertiary)
             }
-
-            Spacer()
         }
     }
 
