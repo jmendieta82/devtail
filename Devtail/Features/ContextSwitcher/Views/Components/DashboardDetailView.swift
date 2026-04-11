@@ -4,11 +4,15 @@ import SwiftUI
 /// Contains hero header, layout section, panes section, and quick links.
 struct DashboardDetailView: View {
     let project: Project
+    let onEditProject: (UUID) -> Void
+    let onDeleteProject: (Project) -> Void
+
     @Environment(ProjectStore.self) private var store
     @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
 
     @State private var editingPaneID: UUID? = nil
     @State private var isAddingPane: Bool = false
+    @State private var showDeleteConfirmation: Bool = false
 
     private let branchDetector = GitBranchDetector()
 
@@ -184,25 +188,77 @@ struct DashboardDetailView: View {
 
             Spacer()
 
-            Button {
-                launchWorkspace()
-            } label: {
-                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                    Image(systemName: store.isLaunchingWorkspace ? "hourglass" : "play.fill")
-                    Text(store.isLaunchingWorkspace ? "Launching..." : "Launch")
+            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                Button {
+                    launchWorkspace()
+                } label: {
+                    HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                        Image(systemName: store.isLaunchingWorkspace ? "hourglass" : "play.fill")
+                        Text(store.isLaunchingWorkspace ? "Launching..." : "Launch")
+                    }
+                    .font(DevtailTokens.Typography.bodySemibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapXLarge)
+                    .frame(height: DevtailTokens.Sizes.launchButtonHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                            .fill(DevtailTokens.Colors.accentGreen)
+                    )
                 }
-                .font(DevtailTokens.Typography.bodySemibold)
-                .foregroundStyle(.white)
-                .padding(.horizontal, DevtailTokens.Spacing.gapXLarge)
-                .frame(height: DevtailTokens.Sizes.launchButtonHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                        .fill(DevtailTokens.Colors.accentGreen)
-                )
+                .buttonStyle(.plain)
+                .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
+                .help("Launch workspace in Ghostty")
+
+                Menu {
+                    Button {
+                        onEditProject(project.id)
+                    } label: {
+                        Label("Edit project", systemImage: "pencil")
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("Delete project…", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(DevtailTokens.Typography.bodySemibold)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                        .frame(
+                            width: DevtailTokens.Sizes.launchButtonHeight,
+                            height: DevtailTokens.Sizes.launchButtonHeight
+                        )
+                        .contentShape(
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                                .stroke(
+                                    DevtailTokens.Colors.borderSubtle,
+                                    lineWidth: DevtailTokens.BorderWidth.default
+                                )
+                        }
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Project actions")
             }
-            .buttonStyle(.plain)
-            .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
-            .help("Launch workspace in Ghostty")
+        }
+        .confirmationDialog(
+            "Delete \(project.name)?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete project", role: .destructive) {
+                onDeleteProject(project)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete the project and all its workspace panes and quick links. This cannot be undone.")
         }
     }
 

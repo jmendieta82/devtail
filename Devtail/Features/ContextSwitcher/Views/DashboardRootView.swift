@@ -287,7 +287,11 @@ struct DashboardRootView: View {
     @ViewBuilder
     private var browsingContent: some View {
         if let project = currentProject {
-            DashboardDetailView(project: project)
+            DashboardDetailView(
+                project: project,
+                onEditProject: { id in startEditing(id) },
+                onDeleteProject: { project in store.deleteProject(project) }
+            )
         } else {
             noSelectionState
         }
