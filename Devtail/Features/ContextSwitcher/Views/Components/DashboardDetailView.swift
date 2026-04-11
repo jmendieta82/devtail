@@ -189,48 +189,15 @@ struct DashboardDetailView: View {
             Spacer()
 
             HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                // Edit project (outlined)
                 Button {
-                    launchWorkspace()
+                    onEditProject(project.id)
                 } label: {
-                    HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                        Image(systemName: store.isLaunchingWorkspace ? "hourglass" : "play.fill")
-                        Text(store.isLaunchingWorkspace ? "Launching..." : "Launch")
-                    }
-                    .font(DevtailTokens.Typography.bodySemibold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, DevtailTokens.Spacing.gapXLarge)
-                    .frame(height: DevtailTokens.Sizes.launchButtonHeight)
-                    .background(
-                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                            .fill(DevtailTokens.Colors.accentGreen)
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
-                .help("Launch workspace in Ghostty")
-
-                Menu {
-                    Button {
-                        onEditProject(project.id)
-                    } label: {
-                        Label("Edit project", systemImage: "pencil")
-                    }
-
-                    Divider()
-
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label("Delete project…", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(DevtailTokens.Typography.bodySemibold)
+                    Label("Edit", systemImage: "pencil")
+                        .font(DevtailTokens.Typography.bodySmall)
                         .foregroundStyle(DevtailTokens.Colors.textSecondary)
-                        .frame(
-                            width: DevtailTokens.Sizes.launchButtonHeight,
-                            height: DevtailTokens.Sizes.launchButtonHeight
-                        )
+                        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                        .frame(height: DevtailTokens.Sizes.launchButtonHeight)
                         .contentShape(
                             RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
                         )
@@ -242,10 +209,55 @@ struct DashboardDetailView: View {
                                 )
                         }
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("Project actions")
+                .buttonStyle(.plain)
+                .help("Edit project name, color, and path")
+
+                // Delete project (outlined, destructive accent)
+                Button {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                        .font(DevtailTokens.Typography.bodySmall)
+                        .foregroundStyle(Color.red.opacity(0.85))
+                        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                        .frame(height: DevtailTokens.Sizes.launchButtonHeight)
+                        .contentShape(
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                                .stroke(
+                                    Color.red.opacity(0.35),
+                                    lineWidth: DevtailTokens.BorderWidth.default
+                                )
+                        }
+                }
+                .buttonStyle(.plain)
+                .help("Delete this project")
+
+                // Launch (primary)
+                Button {
+                    launchWorkspace()
+                } label: {
+                    HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                        Image(systemName: store.isLaunchingWorkspace ? "hourglass" : "play.fill")
+                        Text(store.isLaunchingWorkspace ? "Launching..." : "Launch")
+                    }
+                    .font(DevtailTokens.Typography.bodySemibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapXLarge)
+                    .frame(height: DevtailTokens.Sizes.launchButtonHeight)
+                    .contentShape(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                    )
+                    .background(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                            .fill(DevtailTokens.Colors.accentGreen)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
+                .help("Launch workspace in Ghostty")
             }
         }
         .confirmationDialog(
