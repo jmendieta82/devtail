@@ -73,6 +73,10 @@ struct PaneCard: View {
                         .foregroundStyle(DevtailTokens.Colors.textSecondary)
                         .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
                         .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+                        .frame(minHeight: DevtailTokens.Sizes.actionButtonSize)
+                        .contentShape(
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
+                        )
                         .overlay {
                             RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
                                 .stroke(
@@ -94,6 +98,10 @@ struct PaneCard: View {
                         )
                         .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
                         .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+                        .frame(minHeight: DevtailTokens.Sizes.actionButtonSize)
+                        .contentShape(
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
+                        )
                         .overlay {
                             RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
                                 .stroke(

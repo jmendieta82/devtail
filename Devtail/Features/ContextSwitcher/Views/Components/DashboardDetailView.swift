@@ -115,7 +115,10 @@ struct DashboardDetailView: View {
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
                 .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
                 .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-                .background(
+                .contentShape(
+                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                )
+                .overlay(
                     RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
                         .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
                 )
@@ -279,6 +282,9 @@ struct DashboardDetailView: View {
                     .foregroundStyle(DevtailTokens.Colors.textSecondary)
                     .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
                     .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+                    .contentShape(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                    )
                     .overlay {
                         RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
                             .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
