@@ -42,7 +42,7 @@ struct WorkspaceLayoutThumbnail: View {
     private func drawLayout(in context: GraphicsContext, size: CGSize) {
         let gap: CGFloat = 2
         let cornerRadius: CGFloat = 2
-        let fillColor = Color(red: 0.267, green: 0.267, blue: 0.267)  // ~#444
+        let fillColor = Color(nsColor: .quaternaryLabelColor)
 
         let rects = slotRects(in: size, gap: gap)
         for rect in rects {
