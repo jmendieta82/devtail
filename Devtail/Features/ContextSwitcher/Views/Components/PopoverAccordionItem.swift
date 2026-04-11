@@ -14,7 +14,7 @@ struct PopoverAccordionItem: View {
     var isLaunching: Bool = false
 
     private var sortedPanes: [WorkspacePane] {
-        (project.workspacePanes ?? []).sorted { $0.order < $1.order }
+        project.workspacePanes.sorted { $0.order < $1.order }
     }
 
     var body: some View {
@@ -66,7 +66,7 @@ struct PopoverAccordionItem: View {
         VStack(spacing: DevtailTokens.Spacing.gapLarge) {
             if !sortedPanes.isEmpty {
                 FlowLayout(spacing: DevtailTokens.Spacing.gapMedium) {
-                    ForEach(sortedPanes) { pane in
+                    ForEach(sortedPanes, id: \.id) { pane in
                         PaneChip(
                             label: pane.label,
                             branch: branches[pane.id]

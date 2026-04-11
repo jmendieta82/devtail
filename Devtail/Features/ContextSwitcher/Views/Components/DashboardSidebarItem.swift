@@ -8,7 +8,7 @@ struct DashboardSidebarItem: View {
     let isActive: Bool
 
     private var paneCount: Int {
-        project.workspacePanes?.count ?? 0
+        project.workspacePanes.count
     }
 
     var body: some View {

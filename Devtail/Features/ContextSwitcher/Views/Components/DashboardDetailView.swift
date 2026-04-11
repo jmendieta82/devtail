@@ -13,7 +13,7 @@ struct DashboardDetailView: View {
     private let branchDetector = GitBranchDetector()
 
     private var sortedPanes: [WorkspacePane] {
-        (project.workspacePanes ?? []).sorted { $0.order < $1.order }
+        project.workspacePanes.sorted { $0.order < $1.order }
     }
 
     var body: some View {
@@ -141,11 +141,15 @@ struct DashboardDetailView: View {
                 emptyPanesView
             } else {
                 VStack(spacing: DevtailTokens.Spacing.gapMedium) {
-                    ForEach(sortedPanes) { pane in
+                    ForEach(sortedPanes, id: \.id) { pane in
                         if editingPaneID == pane.id {
                             WorkspacePaneEditRow(
                                 projectRoot: project.directoryPath,
-                                existingPane: pane,
+                                initialLabel: pane.label,
+                                initialRelativeCwd: pane.relativeCwd,
+                                initialCommand: pane.command,
+                                initialStack: pane.stack,
+                                initialEnvironment: pane.environment,
                                 onSave: { label, cwd, command, stack, env in
                                     store.updateWorkspacePane(
                                         pane,
@@ -179,15 +183,14 @@ struct DashboardDetailView: View {
             if isAddingPane {
                 WorkspacePaneEditRow(
                     projectRoot: project.directoryPath,
-                    existingPane: nil,
                     onSave: { label, cwd, command, stack, env in
                         store.addWorkspacePane(
-                            to: project,
                             label: label,
                             relativeCwd: cwd,
                             command: command,
                             stack: stack,
-                            environment: env
+                            environment: env,
+                            to: project
                         )
                         isAddingPane = false
                     },
@@ -250,22 +253,31 @@ struct DashboardDetailView: View {
         return labels
     }
 
-    @ViewBuilder
-    private func slotMenuContent(for slot: Int) -> some View {
-        ForEach(sortedPanes) { pane in
-            Button(pane.label) {
-                store.assignPaneToSlot(pane: pane, slot: slot)
+    private func slotMenuContent(for slot: Int) -> AnyView {
+        let currentLabel = slotLabels(for: project)[slot] ?? "—"
+        return AnyView(
+            Menu {
+                ForEach(sortedPanes, id: \.id) { pane in
+                    Button(pane.label) {
+                        store.assignPaneToSlot(pane: pane, slot: slot)
+                    }
+                }
+            } label: {
+                Text(currentLabel)
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                    .lineLimit(1)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
             }
-        }
+            .menuStyle(.borderlessButton)
+        )
     }
 
     private func launchWorkspace() {
-        Task {
-            await store.launchWorkspace(for: project)
-            activityMonitor.markLaunched(
-                projectID: project.id,
-                directoryPath: project.directoryPath
-            )
-        }
+        store.launchWorkspace(for: project)
+        activityMonitor.markLaunched(
+            projectID: project.id,
+            directoryPath: project.directoryPath
+        )
     }
 }

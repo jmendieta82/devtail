@@ -57,8 +57,8 @@ struct PaneCard: View {
                 .lineLimit(1)
 
             // Line 3: Command (if present)
-            if let command = pane.command, !command.isEmpty {
-                Text(command)
+            if !pane.command.isEmpty {
+                Text(pane.command)
                     .font(DevtailTokens.Typography.mono)
                     .foregroundStyle(DevtailTokens.Colors.textTertiary)
                     .lineLimit(1)

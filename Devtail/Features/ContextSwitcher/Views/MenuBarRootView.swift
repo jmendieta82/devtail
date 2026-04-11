@@ -131,13 +131,11 @@ struct MenuBarRootView: View {
     // MARK: - Launch
 
     private func launchWorkspace(for project: Project) {
-        Task {
-            await store.launchWorkspace(for: project)
-            activityMonitor.markLaunched(
-                projectID: project.id,
-                directoryPath: project.directoryPath
-            )
-        }
+        store.launchWorkspace(for: project)
+        activityMonitor.markLaunched(
+            projectID: project.id,
+            directoryPath: project.directoryPath
+        )
     }
 
     // MARK: - Branch detection
@@ -146,7 +144,7 @@ struct MenuBarRootView: View {
         guard !project.directoryPath.isEmpty else { return [:] }
         let root = URL(fileURLWithPath: project.directoryPath)
         var branches: [UUID: String] = [:]
-        for pane in (project.workspacePanes ?? []) {
+        for pane in project.workspacePanes {
             let paneDir = root.appendingPathComponent(pane.relativeCwd)
             if let branch = branchDetector.detectBranch(in: paneDir) {
                 branches[pane.id] = branch
