@@ -82,16 +82,6 @@ struct MenuBarRootView: View {
             }
             .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
             .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-
-            // ─── New project link ───
-            Button { openDashboardForCreate() } label: {
-                Label("New project", systemImage: "plus")
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
-            }
-            .buttonStyle(.plain)
-            .padding(.bottom, DevtailTokens.Spacing.gapMedium)
-            .help("Create a new project")
         }
         .frame(width: DevtailTokens.Sizes.popoverWidth)
         .task { store.loadProjects() }
