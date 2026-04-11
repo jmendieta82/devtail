@@ -34,7 +34,6 @@ struct DevtailApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuBarRootView()
-                .preferredColorScheme(.dark)
         } label: {
             Image(systemName: "terminal.fill")
         }
@@ -54,7 +53,6 @@ struct DevtailApp: App {
 
         WindowGroup("Devtail", id: WindowID.dashboard, for: DashboardIntent.self) { $intent in
             DashboardRootView(initialIntent: intent ?? .none)
-                .preferredColorScheme(.dark)
         } defaultValue: {
             .none
         }
@@ -66,7 +64,6 @@ struct DevtailApp: App {
 
         Window("Settings", id: WindowID.settings) {
             ComingSoonView(title: "Settings")
-                .preferredColorScheme(.dark)
         }
         .windowResizability(.contentSize)
         .defaultSize(width: 400, height: 300)
