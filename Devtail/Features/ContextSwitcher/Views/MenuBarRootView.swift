@@ -2,9 +2,9 @@
 //  MenuBarRootView.swift
 //  Devtail
 //
-//  Root view rendered inside the MenuBarExtra popover. Tabs header,
-//  conditional search, master-detail layout (project list + QuickLinksPanel),
-//  footer with Settings and Quit.
+//  Root view rendered inside the MenuBarExtra popover.
+//  Single-column accordion layout — expand a project to see its panes
+//  and launch. Zero configuration; all editing lives in the Dashboard.
 //
 
 import SwiftUI
@@ -12,118 +12,56 @@ import SwiftData
 
 struct MenuBarRootView: View {
     @Environment(ProjectStore.self) private var store
+    @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
     @Environment(\.openWindow) private var openWindow
 
-    @State private var selectedTab: ContextSwitcherTab = .projects
     @State private var searchQuery: String = ""
-
-    /// Index into `filteredProjects` representing the keyboard cursor.
-    /// `nil` means "no row currently focused by keyboard" — in that case
-    /// the first ↓ key press selects index 0. Reset whenever the
-    /// filtered list changes so we never point at a stale row.
+    @State private var expandedProjectID: UUID? = nil
     @State private var keyboardSelectedIndex: Int? = nil
 
-    /// Stateless filter engine shared with the dashboard. Held as a
-    /// constant so SwiftUI does not recreate it on every body eval.
     private let filterEngine = ProjectFilterEngine()
-
-    /// Stored as String because @AppStorage doesn't support UUID? natively.
-    /// Read via the `selectedProjectID` computed property.
-    @AppStorage("devtail.selectedProjectID") private var selectedProjectIDString: String = ""
-
-    private var selectedProjectID: UUID? {
-        UUID(uuidString: selectedProjectIDString)
-    }
+    private let branchDetector = GitBranchDetector()
 
     var body: some View {
         VStack(spacing: 0) {
-            // ─── Header ───
-            HStack(alignment: .center, spacing: DevtailTokens.Spacing.gapMedium) {
-                Text("Devtail")
-                    .font(DevtailTokens.Typography.titleMedium)
-                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                Spacer()
-                TabHeader(selectedTab: $selectedTab)
-            }
-            .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
-            .padding(.top, DevtailTokens.Spacing.popoverPadding)
-
-            // ─── Search (only when not empty) ───
+            // ─── Search ───
             if !store.projects.isEmpty {
                 SearchField(text: $searchQuery)
                     .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
-                    .padding(.top, DevtailTokens.Spacing.gapMedium)
+                    .padding(.top, DevtailTokens.Spacing.popoverPadding)
             }
 
             // ─── Content ───
             if store.projects.isEmpty {
                 EmptyProjectsView(onCreate: openDashboardForCreate)
-                    .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
+                    .padding(DevtailTokens.Spacing.popoverPadding)
             } else if hasNoSearchResults {
-                // Search active but the filter killed every project. We
-                // keep the same vertical footprint as the populated list
-                // so the popover doesn't jump in size as the user types.
                 noSearchResultsView
-                    .frame(height: DevtailTokens.Sizes.projectListHeight)
-
-                Divider()
-
-                DetailPanel(
-                    projectID: selectedProjectID,
-                    isReadOnly: true,
-                    onEditProject: openDashboardForEdit
-                )
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                            ForEach(Array(filteredProjects.enumerated()), id: \.element.id) { index, project in
-                                ProjectRowView(
-                                    name: project.name,
-                                    color: project.color,
-                                    isSelected: selectedProjectID == project.id,
-                                    isKeyboardFocused: keyboardSelectedIndex == index,
-                                    isInteractive: true,
-                                    onTap: {
-                                        selectedProjectIDString = project.id.uuidString
-                                    },
-                                    onEdit: nil,
-                                    onDelete: nil
-                                )
-                                .id(project.id)
-                            }
-                        }
-                        .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
-                        .padding(.top, DevtailTokens.Spacing.gapMedium)
-                        .padding(.bottom, DevtailTokens.Spacing.gapMedium)
-                    }
-                    .frame(height: DevtailTokens.Sizes.projectListHeight)
-                    .onChange(of: keyboardSelectedIndex) { _, newIndex in
-                        guard let newIndex,
-                              filteredProjects.indices.contains(newIndex) else { return }
-                        withAnimation(.easeOut(duration: 0.12)) {
-                            proxy.scrollTo(filteredProjects[newIndex].id, anchor: .center)
+                ScrollView {
+                    LazyVStack(spacing: DevtailTokens.Spacing.gapMedium) {
+                        ForEach(filteredProjects) { project in
+                            PopoverAccordionItem(
+                                project: project,
+                                isExpanded: expandedProjectID == project.id,
+                                isActive: activityMonitor.isActive(projectID: project.id),
+                                branches: resolveBranches(for: project),
+                                onToggle: { toggleExpand(project.id) },
+                                onLaunch: { launchWorkspace(for: project) },
+                                onOpenDashboard: { openDashboardForProject(project.id) },
+                                isLaunching: store.isLaunchingWorkspace
+                            )
                         }
                     }
+                    .padding(DevtailTokens.Spacing.popoverPadding)
                 }
-
-                Divider()
-
-                DetailPanel(
-                    projectID: selectedProjectID,
-                    isReadOnly: true,
-                    onEditProject: openDashboardForEdit
-                )
             }
 
             Divider()
-                .padding(.top, DevtailTokens.Spacing.gapSmall)
 
             // ─── Footer ───
             HStack(spacing: DevtailTokens.Spacing.gapLarge) {
-                Button {
-                    openDashboard()
-                } label: {
+                Button { openDashboard() } label: {
                     Label("Manage…", systemImage: "square.grid.2x2")
                         .font(DevtailTokens.Typography.bodySmall)
                 }
@@ -131,39 +69,33 @@ struct MenuBarRootView: View {
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
                 .help("Open the Devtail dashboard")
 
-                Button {
-                    openWindow(id: WindowID.settings)
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                        .font(DevtailTokens.Typography.bodySmall)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(DevtailTokens.Colors.textSecondary)
-
                 Spacer()
 
-                Button("Quit") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(DevtailTokens.Colors.textSecondary)
-                .keyboardShortcut("q", modifiers: .command)
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    .keyboardShortcut("q", modifiers: .command)
             }
             .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
             .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+
+            // ─── New project link ───
+            Button { openDashboardForCreate() } label: {
+                Label("New project", systemImage: "plus")
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, DevtailTokens.Spacing.gapMedium)
+            .help("Create a new project")
         }
         .frame(width: DevtailTokens.Sizes.popoverWidth)
-        .background(DevtailTokens.Colors.popoverBackground)
         .task { store.loadProjects() }
-        .onChange(of: store.projects) { _, newProjects in
-            clearSelectionIfStale(newProjects)
-            // Filtered list mirrors the source — collapse the cursor.
+        .task { await activityMonitor.refresh() }
+        .onChange(of: store.projects) { _, _ in
             keyboardSelectedIndex = nil
         }
         .onChange(of: searchQuery) { _, _ in
-            // Any change to the query collapses the cursor: even if a
-            // row was selected, its index in the *new* filtered list
-            // is meaningless. Down-arrow re-anchors at index 0.
             keyboardSelectedIndex = nil
         }
         .focusable()
@@ -184,12 +116,47 @@ struct MenuBarRootView: View {
         }
     }
 
+    // MARK: - Accordion
+
+    private func toggleExpand(_ projectID: UUID) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if expandedProjectID == projectID {
+                expandedProjectID = nil
+            } else {
+                expandedProjectID = projectID
+            }
+        }
+    }
+
+    // MARK: - Launch
+
+    private func launchWorkspace(for project: Project) {
+        Task {
+            await store.launchWorkspace(for: project)
+            activityMonitor.markLaunched(
+                projectID: project.id,
+                directoryPath: project.directoryPath
+            )
+        }
+    }
+
+    // MARK: - Branch detection
+
+    private func resolveBranches(for project: Project) -> [UUID: String] {
+        guard !project.directoryPath.isEmpty else { return [:] }
+        let root = URL(fileURLWithPath: project.directoryPath)
+        var branches: [UUID: String] = [:]
+        for pane in (project.workspacePanes ?? []) {
+            let paneDir = root.appendingPathComponent(pane.relativeCwd)
+            if let branch = branchDetector.detectBranch(in: paneDir) {
+                branches[pane.id] = branch
+            }
+        }
+        return branches
+    }
+
     // MARK: - Keyboard navigation
 
-    /// Moves the keyboard cursor by `delta` rows, clamping at the ends
-    /// of the filtered list. Pressing ↓ from "no cursor" lands on row 0;
-    /// pressing ↑ from "no cursor" lands on the last row (matches how
-    /// most native macOS lists behave when first opened).
     private func moveKeyboardCursor(by delta: Int) {
         let count = filteredProjects.count
         guard count > 0 else { return }
@@ -203,24 +170,21 @@ struct MenuBarRootView: View {
         keyboardSelectedIndex = next
     }
 
-    /// Commits the keyboard cursor to the persistent selection. If no
-    /// row is cursored, Enter is a no-op (we don't want to randomly
-    /// open the first project just because the user hit Return without
-    /// navigating first).
     private func commitKeyboardSelection() -> KeyPress.Result {
         guard let index = keyboardSelectedIndex,
               filteredProjects.indices.contains(index) else {
             return .ignored
         }
         let project = filteredProjects[index]
-        selectedProjectIDString = project.id.uuidString
+        toggleExpand(project.id)
         return .handled
     }
 
-    /// Esc behavior: clear the search query if there is one. Otherwise
-    /// just collapse the cursor without intercepting the key — the
-    /// system can decide whether to dismiss the popover.
     private func handleEscape() -> KeyPress.Result {
+        if expandedProjectID != nil {
+            expandedProjectID = nil
+            return .handled
+        }
         if !searchQuery.isEmpty {
             searchQuery = ""
             keyboardSelectedIndex = nil
@@ -230,13 +194,12 @@ struct MenuBarRootView: View {
         return .ignored
     }
 
+    // MARK: - Helpers
+
     private var filteredProjects: [Project] {
         filterEngine.filter(projects: store.projects, query: searchQuery)
     }
 
-    /// Friendly empty state shown when the user typed a query that
-    /// matches no projects. Mirrors the visual rhythm of the populated
-    /// list (centered, muted, no extra chrome) so the popover stays calm.
     @ViewBuilder
     private var noSearchResultsView: some View {
         VStack(spacing: DevtailTokens.Spacing.gapMedium) {
@@ -256,16 +219,16 @@ struct MenuBarRootView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+        .padding(DevtailTokens.Spacing.popoverPadding)
     }
 
-    /// True when the user has typed something but no project matches it.
-    /// Different from "no projects exist at all" — that case is handled
-    /// by `EmptyProjectsView` higher up.
     private var hasNoSearchResults: Bool {
         !store.projects.isEmpty
             && !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && filteredProjects.isEmpty
     }
+
+    // MARK: - Navigation
 
     private func openDashboard() {
         NSApp.activate(ignoringOtherApps: true)
@@ -277,67 +240,8 @@ struct MenuBarRootView: View {
         openWindow(id: WindowID.dashboard, value: DashboardIntent.createProject)
     }
 
-    /// Opens the dashboard window with the given project pre-selected
-    /// in edit mode. Wired into the read-only DetailPanel's "Edit"
-    /// affordance — clicking it lifts the user out of the popover and
-    /// into the full editor surface where panes and links can be
-    /// modified properly.
-    private func openDashboardForEdit(_ projectID: UUID) {
+    private func openDashboardForProject(_ projectID: UUID) {
         NSApp.activate(ignoringOtherApps: true)
         openWindow(id: WindowID.dashboard, value: DashboardIntent.editProject(projectID))
     }
-
-    private func clearSelectionIfStale(_ newProjects: [Project]) {
-        guard let id = selectedProjectID else { return }
-        if !newProjects.contains(where: { $0.id == id }) {
-            selectedProjectIDString = ""
-        }
-    }
-}
-
-#Preview("Empty state") {
-    let store: ProjectStore = {
-        let container = PersistenceController.makeContainer(inMemory: true)
-        let repository = ProjectRepository(context: container.mainContext)
-        let linkRepository = QuickLinkRepository(context: container.mainContext)
-        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
-        return ProjectStore(
-            repository: repository,
-            quickLinkRepository: linkRepository,
-            workspacePaneRepository: paneRepository,
-            launcher: WorkspaceLauncher()
-        )
-    }()
-    MenuBarRootView()
-        .environment(store)
-}
-
-#Preview("Populated") {
-    let store: ProjectStore = {
-        let container = PersistenceController.makeContainer(inMemory: true)
-        let repository = ProjectRepository(context: container.mainContext)
-        let linkRepository = QuickLinkRepository(context: container.mainContext)
-        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
-        let store = ProjectStore(
-            repository: repository,
-            quickLinkRepository: linkRepository,
-            workspacePaneRepository: paneRepository,
-            launcher: WorkspaceLauncher()
-        )
-        store.createProject(
-            name: "Devtail",
-            color: .green
-        )
-        store.createProject(
-            name: "Side Project",
-            color: .blue
-        )
-        store.createProject(
-            name: "Pixel",
-            color: .purple
-        )
-        return store
-    }()
-    MenuBarRootView()
-        .environment(store)
 }
