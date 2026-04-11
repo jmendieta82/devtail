@@ -24,7 +24,7 @@ struct PopoverAccordionItem: View {
                 expandedContent
             }
         }
-        .glassEffect()
+        .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
     }
 
@@ -65,7 +65,7 @@ struct PopoverAccordionItem: View {
     private var expandedContent: some View {
         VStack(spacing: DevtailTokens.Spacing.gapLarge) {
             if !sortedPanes.isEmpty {
-                FlowLayout(spacing: DevtailTokens.Spacing.gapMedium) {
+                VStack(spacing: DevtailTokens.Spacing.gapSmall) {
                     ForEach(sortedPanes, id: \.id) { pane in
                         PaneChip(
                             label: pane.label,
@@ -84,9 +84,14 @@ struct PopoverAccordionItem: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: DevtailTokens.Sizes.launchButtonHeight)
-                .background(DevtailTokens.Colors.accentGreen)
-                .clipShape(RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
-                .glassEffect(.regular.interactive())
+                .background(
+                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                        .fill(DevtailTokens.Colors.accentGreen)
+                )
+                .glassEffect(
+                    .regular.interactive(),
+                    in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                )
             }
             .buttonStyle(.plain)
             .disabled(isLaunching || sortedPanes.isEmpty || project.directoryPath.isEmpty)
