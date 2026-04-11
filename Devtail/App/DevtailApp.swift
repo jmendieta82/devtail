@@ -12,6 +12,7 @@ import SwiftData
 struct DevtailApp: App {
     @State private var modelContainer: ModelContainer
     @State private var projectStore: ProjectStore
+    @State private var activityMonitor = WorkspaceActivityMonitor()
     @Environment(\.openWindow) private var openWindow
 
     init() {
@@ -40,6 +41,7 @@ struct DevtailApp: App {
         .menuBarExtraStyle(.window)
         .modelContainer(modelContainer)
         .environment(projectStore)
+        .environment(activityMonitor)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Project") {
@@ -58,6 +60,7 @@ struct DevtailApp: App {
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
+        .environment(activityMonitor)
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
 
