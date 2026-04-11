@@ -16,6 +16,15 @@ struct PaneChip: View {
                 .foregroundStyle(DevtailTokens.Colors.textPrimary)
                 .lineLimit(1)
 
+            Spacer(minLength: 0)
+
+            if let branch {
+                Label(branch, systemImage: "arrow.triangle.branch")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    .lineLimit(1)
+            }
+
             if let stack, !stack.isEmpty {
                 Text(stack)
                     .font(DevtailTokens.Typography.captionSmall)
@@ -26,15 +35,6 @@ struct PaneChip: View {
                         RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
                             .fill(DevtailTokens.Colors.accentGreen.opacity(DevtailTokens.ActiveState.badgeBgOpacity))
                     )
-            }
-
-            Spacer(minLength: 0)
-
-            if let branch {
-                Label(branch, systemImage: "arrow.triangle.branch")
-                    .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    .lineLimit(1)
             }
         }
         .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
