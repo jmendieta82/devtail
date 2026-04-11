@@ -154,7 +154,7 @@ enum DevtailTokens {
         static let popoverHeight: CGFloat        = 480  // alias for popoverMaxHeight
 
         // === Dashboard ===
-        static let dashboardWidth: CGFloat       = 900
+        static let dashboardWidth: CGFloat       = 1000
         static let dashboardHeight: CGFloat      = 600
         static let sidebarWidth: CGFloat         = 260
         static let titleBarHeight: CGFloat       = 38

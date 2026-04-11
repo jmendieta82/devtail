@@ -38,8 +38,8 @@ struct DashboardRootView: View {
             sidebar
                 .navigationSplitViewColumnWidth(
                     min: DevtailTokens.Sizes.sidebarWidth,
-                    ideal: DevtailTokens.Sizes.sidebarWidth + 20,
-                    max: 320
+                    ideal: DevtailTokens.Sizes.sidebarWidth,
+                    max: DevtailTokens.Sizes.sidebarWidth
                 )
         } detail: {
             detail
