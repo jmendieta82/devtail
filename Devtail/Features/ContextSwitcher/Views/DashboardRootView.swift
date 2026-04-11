@@ -53,6 +53,12 @@ struct DashboardRootView: View {
             store.loadProjects()
             consumePendingIntent()
         }
+        .onAppear {
+            // Defensive reload: in case this window instance is being reused
+            // after a window-cycle where the store's state could be stale.
+            store.loadProjects()
+            consumePendingIntent()
+        }
         .onChange(of: intentHolder.pending) { _, _ in
             consumePendingIntent()
         }
