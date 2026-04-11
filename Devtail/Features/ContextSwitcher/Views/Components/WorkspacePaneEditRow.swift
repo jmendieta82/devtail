@@ -181,16 +181,8 @@ struct WorkspacePaneEditRow: View {
                 .disabled(!canSave)
             }
         }
-        .padding(DevtailTokens.Spacing.gapMedium)
-        .background(
-            RoundedRectangle(cornerRadius: DevtailTokens.Radius.projectRow)
-                .fill(DevtailTokens.Colors.cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DevtailTokens.Radius.projectRow)
-                .stroke(DevtailTokens.Colors.borderSubtle,
-                        lineWidth: DevtailTokens.BorderWidth.default)
-        )
+        .padding(DevtailTokens.Spacing.gapLarge)
+        .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
     }
 
     // MARK: - Reusable field chrome
