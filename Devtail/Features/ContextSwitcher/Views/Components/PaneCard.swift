@@ -65,28 +65,44 @@ struct PaneCard: View {
             }
 
             // Actions — always visible
-            HStack {
+            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
                 Spacer()
                 Button(action: onEdit) {
-                    Image(systemName: "pencil")
-                        .frame(
-                            width: DevtailTokens.Sizes.actionButtonSize,
-                            height: DevtailTokens.Sizes.actionButtonSize
-                        )
+                    Label("Edit", systemImage: "pencil")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
+                                .stroke(
+                                    DevtailTokens.Colors.borderSubtle,
+                                    lineWidth: DevtailTokens.BorderWidth.default
+                                )
+                        }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(DevtailTokens.Colors.textSecondary)
                 .help("Edit pane settings")
 
                 Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .frame(
-                            width: DevtailTokens.Sizes.actionButtonSize,
-                            height: DevtailTokens.Sizes.actionButtonSize
+                    Label("Delete", systemImage: "trash")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(
+                            canDelete
+                                ? DevtailTokens.Colors.textSecondary
+                                : DevtailTokens.Colors.textDisabled
                         )
+                        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
+                                .stroke(
+                                    DevtailTokens.Colors.borderSubtle,
+                                    lineWidth: DevtailTokens.BorderWidth.default
+                                )
+                        }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(canDelete ? DevtailTokens.Colors.textSecondary : DevtailTokens.Colors.textDisabled)
                 .disabled(!canDelete)
                 .help(canDelete ? "Remove this pane" : "Cannot delete the last pane")
             }
