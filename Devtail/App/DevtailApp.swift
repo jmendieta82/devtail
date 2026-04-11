@@ -59,6 +59,7 @@ struct DevtailApp: App {
         .modelContainer(modelContainer)
         .environment(projectStore)
         .environment(activityMonitor)
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
 

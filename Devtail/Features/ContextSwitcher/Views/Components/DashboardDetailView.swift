@@ -132,7 +132,6 @@ struct DashboardDetailView: View {
                 Spacer()
             }
 
-            SectionHeader(guide: "Assign each pane to a slot. Unassigned panes won't open.")
         }
     }
 

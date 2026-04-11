@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Reusable section header with title and guide text.
-/// Used across dashboard sections for consistent visual hierarchy.
+/// Reusable section header with title and optional guide text (shown as tooltip).
+/// The guide text is NOT rendered inline anymore — it lives in a `.help()`
+/// attached to an info.circle icon next to the title, so it stays accessible
+/// without visually competing with the content.
 ///
 /// Usage:
 ///     SectionHeader(title: "LAYOUT", guide: "Choose how your terminal panes are arranged.")
@@ -15,7 +17,7 @@ struct SectionHeader: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSectionTitle) {
+        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
             if !title.isEmpty {
                 Text(title)
                     .font(DevtailTokens.Typography.captionSmall)
@@ -24,9 +26,10 @@ struct SectionHeader: View {
             }
 
             if let guide {
-                Label(guide, systemImage: "info.circle")
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                Image(systemName: "info.circle")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary.opacity(0.5))
+                    .help(guide)
             }
         }
     }
