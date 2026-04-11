@@ -27,6 +27,17 @@ struct ProjectFormView: View {
     @State private var showError: Bool = false
     @State private var didLoad: Bool = false
 
+    /// Tracks whether the user has manually typed in the Name field. When
+    /// false, picking a directory will auto-fill the name from the folder's
+    /// last path component. Once the user edits the name manually, we stop
+    /// auto-filling to avoid clobbering their choice.
+    @State private var nameWasEditedManually: Bool = false
+
+    /// Set to `true` momentarily while `chooseDirectory` writes an auto-filled
+    /// name, so the `onChange(of: name)` handler does not mistake the write
+    /// for a manual edit.
+    @State private var suppressNameChangeTracking: Bool = false
+
     /// Snapshot of the values the form started with. Used to compute dirty
     /// state. `nil` until loadIfNeeded runs, so the form is considered clean
     /// until it has a baseline to compare against.
@@ -42,39 +53,7 @@ struct ProjectFormView: View {
 
             // ─── Form fields ───
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
-                // Project name
-                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-                    Text("Project name")
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    TextField("", text: $name, prompt: Text("My awesome project"))
-                        .textFieldStyle(.plain)
-                        .font(DevtailTokens.Typography.bodyDefault)
-                        .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
-                        .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-                        .background(
-                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                                .fill(DevtailTokens.Colors.inputBackground)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                                .stroke(
-                                    DevtailTokens.Colors.borderSubtle,
-                                    lineWidth: DevtailTokens.BorderWidth.default
-                                )
-                        )
-                }
-
-                // Color
-                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-                    Text("Color")
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    ColorPickerRow(selection: $color)
-                }
-
-                // Directory
+                // Directory (required, first)
                 VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
                     Text("Directory")
                         .font(DevtailTokens.Typography.caption)
@@ -105,6 +84,48 @@ struct ProjectFormView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
+                }
+
+                // Project name (auto-filled from directory, editable)
+                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
+                    Text("Project name")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    TextField(
+                        "",
+                        text: $name,
+                        prompt: Text(directoryPath.isEmpty
+                            ? "Choose a directory first"
+                            : "My awesome project")
+                    )
+                    .textFieldStyle(.plain)
+                    .font(DevtailTokens.Typography.bodyDefault)
+                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                    .disabled(directoryPath.isEmpty)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                    .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+                    .background(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
+                            .fill(DevtailTokens.Colors.inputBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
+                            .stroke(
+                                DevtailTokens.Colors.borderSubtle,
+                                lineWidth: DevtailTokens.BorderWidth.default
+                            )
+                    )
+                    .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
+                }
+
+                // Color
+                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
+                    Text("Color")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    ColorPickerRow(selection: $color)
+                        .disabled(directoryPath.isEmpty)
+                        .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
                 }
             }
 
@@ -166,7 +187,12 @@ struct ProjectFormView: View {
         .padding(DevtailTokens.Spacing.dashboardPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { loadIfNeeded() }
-        .onChange(of: name) { _, _ in recomputeDirty() }
+        .onChange(of: name) { _, _ in
+            if !suppressNameChangeTracking {
+                nameWasEditedManually = true
+            }
+            recomputeDirty()
+        }
         .onChange(of: color) { _, _ in recomputeDirty() }
         .onChange(of: directoryPath) { _, _ in recomputeDirty() }
     }
@@ -201,7 +227,7 @@ struct ProjectFormView: View {
     }
 
     private var canSubmit: Bool {
-        !trimmedName.isEmpty
+        !trimmedName.isEmpty && !directoryPath.isEmpty
     }
 
     // MARK: - Lifecycle
@@ -213,9 +239,16 @@ struct ProjectFormView: View {
         // Load existing values (edit mode) or leave defaults (create mode).
         if let projectID,
            let project = store.projects.first(where: { $0.id == projectID }) {
+            suppressNameChangeTracking = true
             name = project.name
             color = project.color
             directoryPath = project.directoryPath
+            // In edit mode the user already has a name — treat it as manual
+            // so re-picking a directory doesn't clobber it.
+            nameWasEditedManually = true
+            DispatchQueue.main.async {
+                suppressNameChangeTracking = false
+            }
         }
 
         // Snapshot AFTER loading so the baseline reflects the starting point.
@@ -290,6 +323,17 @@ struct ProjectFormView: View {
         panel.prompt = "Choose"
         if panel.runModal() == .OK, let url = panel.url {
             directoryPath = url.path
+            // Auto-fill the project name from the folder's last component,
+            // but only if the user hasn't manually typed anything yet.
+            if !nameWasEditedManually && trimmedName.isEmpty {
+                suppressNameChangeTracking = true
+                name = url.lastPathComponent
+                // Reset the guard on the next runloop tick so subsequent
+                // keystrokes are tracked as manual edits again.
+                DispatchQueue.main.async {
+                    suppressNameChangeTracking = false
+                }
+            }
         }
     }
 
@@ -301,6 +345,8 @@ struct ProjectFormView: View {
         didLoad = false
         initialSnapshot = nil
         isDirty = false
+        nameWasEditedManually = false
+        suppressNameChangeTracking = false
     }
 }
 
