@@ -81,29 +81,7 @@ struct WorkspacePaneEditRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
-            // Label
-            labeledField(title: "LABEL") {
-                styledTextField(
-                    text: $label,
-                    prompt: "frontend",
-                    isInvalid: labelIsInvalid,
-                    focus: .label,
-                    onSubmit: { focusedField = .stack }
-                )
-            }
-
-            // Stack / tech
-            labeledField(title: "STACK / TECH") {
-                styledTextField(
-                    text: $stack,
-                    prompt: "TypeScript, Django, …",
-                    isInvalid: false,
-                    focus: .stack,
-                    onSubmit: { focusedField = .command }
-                )
-            }
-
-            // Directory — read-only display + picker button
+            // Directory — required, first
             labeledField(title: "DIRECTORY") {
                 VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
                     HStack(spacing: DevtailTokens.Spacing.gapMedium) {
@@ -147,6 +125,32 @@ struct WorkspacePaneEditRow: View {
                 }
             }
 
+            // Label — auto-filled from folder name, editable
+            labeledField(title: "LABEL") {
+                styledTextField(
+                    text: $label,
+                    prompt: relativeCwd.isEmpty ? "Choose a directory first" : "frontend",
+                    isInvalid: labelIsInvalid,
+                    focus: .label,
+                    onSubmit: { focusedField = .stack }
+                )
+                .disabled(relativeCwd.isEmpty)
+                .opacity(relativeCwd.isEmpty ? 0.5 : 1.0)
+            }
+
+            // Stack / tech
+            labeledField(title: "STACK / TECH") {
+                styledTextField(
+                    text: $stack,
+                    prompt: "TypeScript, Django, …",
+                    isInvalid: false,
+                    focus: .stack,
+                    onSubmit: { focusedField = .command }
+                )
+                .disabled(relativeCwd.isEmpty)
+                .opacity(relativeCwd.isEmpty ? 0.5 : 1.0)
+            }
+
             // Command (optional)
             labeledField(title: "COMMAND (OPTIONAL)") {
                 styledTextField(
@@ -156,6 +160,8 @@ struct WorkspacePaneEditRow: View {
                     focus: .command,
                     onSubmit: { commitIfValid() }
                 )
+                .disabled(relativeCwd.isEmpty)
+                .opacity(relativeCwd.isEmpty ? 0.5 : 1.0)
             }
 
             // Environment picker (optional — defaults to None)
@@ -165,6 +171,8 @@ struct WorkspacePaneEditRow: View {
                     .foregroundStyle(DevtailTokens.Colors.textTertiary)
                     .tracking(0.5)
                 EnvironmentPicker(selection: $environment)
+                    .disabled(relativeCwd.isEmpty)
+                    .opacity(relativeCwd.isEmpty ? 0.5 : 1.0)
             }
 
             // Actions
