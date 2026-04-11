@@ -55,6 +55,10 @@ struct MenuBarRootView: View {
                     }
                     .padding(DevtailTokens.Spacing.popoverPadding)
                 }
+                .scrollIndicators(.never)
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: DevtailTokens.Sizes.popoverMaxHeight)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             Divider()
