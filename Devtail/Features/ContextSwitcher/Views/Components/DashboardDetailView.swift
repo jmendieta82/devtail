@@ -279,7 +279,7 @@ struct DashboardDetailView: View {
             Button { isAddingPane = true } label: {
                 Label("Add pane", systemImage: "plus")
                     .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    .foregroundStyle(canAddPane ? DevtailTokens.Colors.textSecondary : DevtailTokens.Colors.textDisabled)
                     .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
                     .padding(.vertical, DevtailTokens.Spacing.gapMedium)
                     .contentShape(
@@ -291,9 +291,15 @@ struct DashboardDetailView: View {
                     }
             }
             .buttonStyle(.plain)
-            .disabled(project.directoryPath.isEmpty)
-            .help("Add a new terminal pane")
+            .disabled(!canAddPane)
+            .help(canAddPane ? "Add a new terminal pane" : "Maximum of 4 panes reached")
         }
+    }
+
+    /// Add-pane is available when there's a project directory AND the
+    /// pane count has not hit the Quarters layout ceiling (4).
+    private var canAddPane: Bool {
+        !project.directoryPath.isEmpty && sortedPanes.count < 4
     }
 
     // MARK: - Section D: Quick Links

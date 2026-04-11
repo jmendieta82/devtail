@@ -211,7 +211,7 @@ final class ProjectStore {
         to project: Project
     ) {
         do {
-            _ = try workspacePaneRepository.create(
+            let newPane = try workspacePaneRepository.create(
                 label: label,
                 relativeCwd: relativeCwd,
                 command: command,
@@ -221,12 +221,48 @@ final class ProjectStore {
                 environment: environment,
                 project: project
             )
+
+            // Auto-upgrade the layout to fit the new pane count, and auto-assign
+            // the new pane to the first free slot of the upgraded layout.
+            autoUpgradeLayoutAndAssign(newPane: newPane, in: project)
+
             if let idx = projects.firstIndex(where: { $0.id == project.id }) {
                 projects[idx] = project
             }
             lastError = nil
         } catch {
             lastError = error
+        }
+    }
+
+    /// Grows the project's layout to match the number of panes, up to the
+    /// maximum (Quarters, 4 slots). Then assigns the newly created pane to
+    /// the first available slot. Never downgrades — removing panes leaves
+    /// the layout as-is.
+    private func autoUpgradeLayoutAndAssign(newPane: WorkspacePane, in project: Project) {
+        let paneCount = project.workspacePanes.count
+        let targetLayout: WorkspaceLayout
+        switch paneCount {
+        case 0, 1: targetLayout = .full
+        case 2:    targetLayout = .halvesVertical
+        case 3:    targetLayout = .mainSideStack
+        default:   targetLayout = .quarters
+        }
+
+        // Only upgrade if the target has more slots than the current layout.
+        if targetLayout.slotCount > project.layout.slotCount {
+            project.layout = targetLayout
+        }
+
+        // Assign the new pane to the first free slot, if any.
+        let usedSlots = Set(
+            project.workspacePanes
+                .filter { $0.id != newPane.id && $0.layoutSlot >= 0 }
+                .map(\.layoutSlot)
+        )
+        for slot in 0..<project.layout.slotCount where !usedSlots.contains(slot) {
+            newPane.layoutSlot = slot
+            break
         }
     }
 
