@@ -76,7 +76,8 @@ final class ProjectStore {
         name: String,
         notes: String? = nil,
         color: ProjectColor = .gray,
-        directoryPath: String = ""
+        directoryPath: String = "",
+        runClaudeCode: Bool = false
     ) {
         do {
             let project = try repository.create(
@@ -90,23 +91,14 @@ final class ProjectStore {
                 try repository.update(project)
 
                 // Seed a root pane mirroring the directoryPath the user
-                // just picked. The original Phase 2.5 decision was to
-                // NOT seed any default pane, on the rationale that
-                // panes should "point at real subfolders the user
-                // intentionally picked". Real usage proved that
-                // rationale was incomplete: the user already picks the
-                // project root via NSOpenPanel when creating the
-                // project, and forcing them to recreate that exact
-                // path as a pane afterwards is duplicate intent, not
-                // pure model. The pane below is named after the
-                // project so a stack of Ghostty windows shouts which
-                // project each one belongs to. We do NOT seed when
-                // directoryPath is empty — that case is honest "no
-                // root yet" and seeding a fake pane WOULD be a lie.
+                // just picked. When `runClaudeCode` is true, the pane's
+                // command is pre-filled with "claude" so launching the
+                // workspace drops the user straight into Claude Code for
+                // this project — the most common setup for Devtail users.
                 _ = try? workspacePaneRepository.create(
                     label: name,
                     relativeCwd: ".",
-                    command: "",
+                    command: runClaudeCode ? "claude" : "",
                     order: 0,
                     layoutSlot: 0,
                     stack: nil,

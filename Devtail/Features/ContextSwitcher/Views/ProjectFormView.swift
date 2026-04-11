@@ -24,6 +24,7 @@ struct ProjectFormView: View {
     @State private var name: String = ""
     @State private var color: ProjectColor = .gray
     @State private var directoryPath: String = ""
+    @State private var runClaudeCode: Bool = true
     @State private var showError: Bool = false
     @State private var didLoad: Bool = false
 
@@ -126,6 +127,25 @@ struct ProjectFormView: View {
                     ColorPickerRow(selection: $color)
                         .disabled(directoryPath.isEmpty)
                         .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
+                }
+
+                // Claude Code toggle — only shown in create mode
+                if !isEditMode {
+                    Toggle(isOn: $runClaudeCode) {
+                        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                            Text("Run Claude Code in this project")
+                                .font(DevtailTokens.Typography.bodyDefault)
+                                .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                            Text("Pre-fills the default pane command with 'claude' so launching the workspace opens Claude Code automatically.")
+                                .font(DevtailTokens.Typography.caption)
+                                .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .tint(DevtailTokens.Colors.accentGreen)
+                    .disabled(directoryPath.isEmpty)
+                    .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
                 }
             }
 
@@ -298,7 +318,8 @@ struct ProjectFormView: View {
             store.createProject(
                 name: trimmedName,
                 color: color,
-                directoryPath: directoryPath
+                directoryPath: directoryPath,
+                runClaudeCode: runClaudeCode
             )
         }
 
@@ -341,6 +362,7 @@ struct ProjectFormView: View {
         name = ""
         color = .gray
         directoryPath = ""
+        runClaudeCode = true
         showError = false
         didLoad = false
         initialSnapshot = nil
