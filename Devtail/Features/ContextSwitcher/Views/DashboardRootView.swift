@@ -48,6 +48,7 @@ struct DashboardRootView: View {
             minWidth: DevtailTokens.Sizes.dashboardWidth,
             minHeight: DevtailTokens.Sizes.dashboardHeight
         )
+        .containerBackground(.thinMaterial, for: .window)
         .navigationTitle("")
         .toolbar(removing: .title)
         .task {
@@ -165,19 +166,22 @@ struct DashboardRootView: View {
 
     private var sidebarList: some View {
         ScrollView {
-            LazyVStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                ForEach(filteredProjects, id: \.id) { project in
-                    DashboardSidebarItem(
-                        project: project,
-                        isSelected: selectedProjectID == project.id,
-                        isActive: activityMonitor.isActive(projectID: project.id)
-                    )
-                    .onTapGesture { requestSelection(project.id) }
+            GlassEffectContainer {
+                LazyVStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                    ForEach(filteredProjects, id: \.id) { project in
+                        DashboardSidebarItem(
+                            project: project,
+                            isSelected: selectedProjectID == project.id,
+                            isActive: activityMonitor.isActive(projectID: project.id)
+                        )
+                        .onTapGesture { requestSelection(project.id) }
+                    }
                 }
+                .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+                .padding(.bottom, DevtailTokens.Spacing.gapLarge)
             }
-            .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
-            .padding(.bottom, DevtailTokens.Spacing.gapLarge)
         }
+        .scrollIndicators(.never)
     }
 
     private var sidebarNoResultsState: some View {

@@ -39,9 +39,13 @@ struct DashboardSidebarItem: View {
 
             Spacer()
         }
-        .padding(.vertical, DevtailTokens.Spacing.sidebarItemVertical)
+        .padding(.leading, DevtailTokens.Spacing.gapMedium)
         .padding(.trailing, DevtailTokens.Spacing.sidebarItemPadding)
+        .padding(.vertical, DevtailTokens.Spacing.sidebarItemVertical)
         .contentShape(Rectangle())
-        .glassEffect(.regular.interactive())
+        .glassEffect(
+            .regular.interactive(),
+            in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+        )
     }
 }
