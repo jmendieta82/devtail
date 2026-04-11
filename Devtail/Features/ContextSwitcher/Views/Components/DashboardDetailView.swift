@@ -84,9 +84,10 @@ struct DashboardDetailView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, DevtailTokens.Spacing.gapXLarge)
                 .frame(height: DevtailTokens.Sizes.launchButtonHeight)
-                .background(DevtailTokens.Colors.accentGreen)
-                .clipShape(RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
-                .glassEffect(.regular.interactive())
+                .background(
+                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                        .fill(DevtailTokens.Colors.accentGreen)
+                )
             }
             .buttonStyle(.plain)
             .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
@@ -104,24 +105,32 @@ struct DashboardDetailView: View {
                 guide: "Choose how your terminal panes are arranged when you launch this workspace."
             )
 
-            WorkspaceLayoutPicker(
-                selected: project.layout,
-                onSelect: { layout in
-                    store.setLayout(for: project, layout: layout)
-                }
-            )
+            HStack {
+                Spacer()
+                WorkspaceLayoutPicker(
+                    selected: project.layout,
+                    onSelect: { layout in
+                        store.setLayout(for: project, layout: layout)
+                    }
+                )
+                Spacer()
+            }
 
-            WorkspaceLayoutThumbnail(
-                layout: project.layout,
-                size: CGSize(
-                    width: DevtailTokens.Sizes.layoutPreviewWidth,
-                    height: DevtailTokens.Sizes.layoutPreviewHeight
-                ),
-                slotLabels: slotLabels(for: project),
-                onSlotMenu: { slot in
-                    slotMenuContent(for: slot)
-                }
-            )
+            HStack {
+                Spacer()
+                WorkspaceLayoutThumbnail(
+                    layout: project.layout,
+                    size: CGSize(
+                        width: DevtailTokens.Sizes.layoutPreviewWidth,
+                        height: DevtailTokens.Sizes.layoutPreviewHeight
+                    ),
+                    slotLabels: slotLabels(for: project),
+                    onSlotMenu: { slot in
+                        slotMenuContent(for: slot)
+                    }
+                )
+                Spacer()
+            }
 
             SectionHeader(guide: "Assign each pane to a slot. Unassigned panes won't open.")
         }

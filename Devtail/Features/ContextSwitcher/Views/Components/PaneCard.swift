@@ -93,6 +93,6 @@ struct PaneCard: View {
         }
         .padding(.horizontal, DevtailTokens.Spacing.cardPadding)
         .padding(.vertical, DevtailTokens.Spacing.gapDefault)
-        .glassEffect()
+        .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
     }
 }
