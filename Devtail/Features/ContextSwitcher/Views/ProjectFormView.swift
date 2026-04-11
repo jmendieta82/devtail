@@ -52,7 +52,7 @@ struct ProjectFormView: View {
         VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
             formHeader
 
-            // ─── Form fields ───
+            // ─── Form fields (wrapped in glass card) ───
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
                 // Directory (required, first)
                 VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
@@ -148,6 +148,8 @@ struct ProjectFormView: View {
                     .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
                 }
             }
+            .padding(DevtailTokens.Spacing.gapLarge)
+            .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
 
             // ─── Live preview ───
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
