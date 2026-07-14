@@ -26,6 +26,10 @@ protocol BrowserLauncherProtocol {
 
 @MainActor
 struct BrowserLauncher: BrowserLauncherProtocol {
+    /// Injection seam: production uses NSWorkspace; tests pass a spy so
+    /// running the suite never opens real browser tabs.
+    var opener: (URL) -> Void = { NSWorkspace.shared.open($0) }
+
     @discardableResult
     func open(urlString: String) -> Bool {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -35,7 +39,7 @@ struct BrowserLauncher: BrowserLauncherProtocol {
               scheme == "http" || scheme == "https" else {
             return false
         }
-        NSWorkspace.shared.open(url)
+        opener(url)
         return true
     }
 }

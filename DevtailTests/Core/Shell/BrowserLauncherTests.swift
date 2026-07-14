@@ -2,9 +2,9 @@
 //  BrowserLauncherTests.swift
 //  DevtailTests
 //
-//  Tests for BrowserLauncher.open(_:) return value.
-//  We assert the Bool contract only — NSWorkspace side effects require
-//  a real UI session and are not testable at unit level.
+//  Tests for BrowserLauncher.open(_:). The NSWorkspace side effect is
+//  injected via `opener`, so the suite asserts both the Bool contract and
+//  the dispatch — without ever opening a real browser tab.
 //
 
 import Testing
@@ -15,7 +15,7 @@ import Foundation
 @Suite("BrowserLauncher")
 struct BrowserLauncherTests {
 
-    private let launcher = BrowserLauncher()
+    private let launcher = BrowserLauncher(opener: { _ in })
 
     @Test("open returns true for valid http URL")
     func openValidHttp() {
@@ -50,5 +50,21 @@ struct BrowserLauncherTests {
     @Test("open returns false for mailto: scheme")
     func openMailtoScheme() {
         #expect(launcher.open(urlString: "mailto:foo@bar.com") == false)
+    }
+
+    @Test("open dispatches the parsed URL to the opener exactly once")
+    func openDispatchesToOpener() {
+        var opened: [URL] = []
+        let spied = BrowserLauncher(opener: { opened.append($0) })
+        spied.open(urlString: "http://localhost:4200")
+        #expect(opened == [URL(string: "http://localhost:4200")!])
+    }
+
+    @Test("invalid URL never reaches the opener")
+    func invalidNeverReachesOpener() {
+        var opened: [URL] = []
+        let spied = BrowserLauncher(opener: { opened.append($0) })
+        spied.open(urlString: "not a url")
+        #expect(opened.isEmpty)
     }
 }
