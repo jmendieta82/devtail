@@ -23,7 +23,9 @@ struct ProjectStoreQuickLinkTests {
             repository: projectRepo,
             quickLinkRepository: linkRepo,
             workspacePaneRepository: paneRepo,
-            launcher: launcher
+            launcher: launcher,
+            vscodeLauncher: MockVSCodeLauncher(),
+            browserLauncher: MockBrowserLauncher()
         )
         return (store, projectRepo, linkRepo)
     }

@@ -21,12 +21,17 @@ struct DevtailApp: App {
         let repository = ProjectRepository(context: container.mainContext)
         let quickLinkRepository = QuickLinkRepository(context: container.mainContext)
         let workspacePaneRepository = WorkspacePaneRepository(context: container.mainContext)
-        let launcher = WorkspaceLauncher()
+        let appSettings = AppSettings()
+        let launcher = WorkspaceLauncher(settings: appSettings)
+        let vscodeLauncher = VSCodeLauncher()
+        let browserLauncher = BrowserLauncher()
         let store = ProjectStore(
             repository: repository,
             quickLinkRepository: quickLinkRepository,
             workspacePaneRepository: workspacePaneRepository,
-            launcher: launcher
+            launcher: launcher,
+            vscodeLauncher: vscodeLauncher,
+            browserLauncher: browserLauncher
         )
         _modelContainer = State(initialValue: container)
         _projectStore = State(initialValue: store)

@@ -55,7 +55,7 @@ enum DevtailTokens {
         static let projectGray          = Color("ProjectGray")
 
         // === Semantic / Accent (Asset Catalog) ===
-        static let accentGreen          = Color("AccentGreen")
+        static let accentPrimary        = Color(red: 0.475, green: 0.322, blue: 0.827)
         static let accentOrange         = Color("AccentOrange")
 
         // Retained accents (keep hardcoded — no light/dark variant needed yet)
@@ -154,8 +154,8 @@ enum DevtailTokens {
         static let popoverHeight: CGFloat        = 480  // alias for popoverMaxHeight
 
         // === Dashboard ===
-        static let dashboardWidth: CGFloat       = 1000
-        static let dashboardHeight: CGFloat      = 600
+        static let dashboardWidth: CGFloat       = 1100
+        static let dashboardHeight: CGFloat      = 700
         static let sidebarWidth: CGFloat         = 260
         static let titleBarHeight: CGFloat       = 38
 
@@ -231,10 +231,10 @@ extension Color {
     }
 
     static var activeProjectBg: Color {
-        DevtailTokens.Colors.accentGreen.opacity(DevtailTokens.ActiveState.activeBgOpacity)
+        DevtailTokens.Colors.accentPrimary.opacity(DevtailTokens.ActiveState.activeBgOpacity)
     }
 
     static var activeProjectBorder: Color {
-        DevtailTokens.Colors.accentGreen.opacity(DevtailTokens.ActiveState.activeBorderOpacity)
+        DevtailTokens.Colors.accentPrimary.opacity(DevtailTokens.ActiveState.activeBorderOpacity)
     }
 }

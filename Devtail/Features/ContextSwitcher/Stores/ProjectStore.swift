@@ -8,6 +8,17 @@
 
 import Foundation
 
+// MARK: - BranchChange
+
+/// Describes a detected branch change between `lastKnownBranch` and the
+/// current branch for a single pane. Used by the Resume flow to surface
+/// a confirmation alert before relaunching.
+struct BranchChange: Sendable {
+    let paneLabel: String
+    let from: String
+    let to: String
+}
+
 // MARK: - ProjectLayoutError
 
 enum ProjectLayoutError: Error, Equatable {
@@ -50,17 +61,23 @@ final class ProjectStore {
     private let quickLinkRepository: any QuickLinkRepositoryProtocol
     private let workspacePaneRepository: any WorkspacePaneRepositoryProtocol
     private let launcher: any WorkspaceLauncherProtocol
+    private let vscodeLauncher: any VSCodeLauncherProtocol
+    private let browserLauncher: any BrowserLauncherProtocol
 
     init(
         repository: any ProjectRepositoryProtocol,
         quickLinkRepository: any QuickLinkRepositoryProtocol,
         workspacePaneRepository: any WorkspacePaneRepositoryProtocol,
-        launcher: any WorkspaceLauncherProtocol
+        launcher: any WorkspaceLauncherProtocol,
+        vscodeLauncher: any VSCodeLauncherProtocol,
+        browserLauncher: any BrowserLauncherProtocol
     ) {
         self.repository = repository
         self.quickLinkRepository = quickLinkRepository
         self.workspacePaneRepository = workspacePaneRepository
         self.launcher = launcher
+        self.vscodeLauncher = vscodeLauncher
+        self.browserLauncher = browserLauncher
     }
 
     func loadProjects() {
@@ -77,7 +94,9 @@ final class ProjectStore {
         notes: String? = nil,
         color: ProjectColor = .gray,
         directoryPath: String = "",
-        runClaudeCode: Bool = false
+        directoryBookmark: Data? = nil,
+        runClaudeCode: Bool = false,
+        launchTarget: LaunchTarget = .auto
     ) {
         do {
             let project = try repository.create(
@@ -85,8 +104,10 @@ final class ProjectStore {
                 notes: notes,
                 color: color
             )
+            project.launchTarget = launchTarget
             if !directoryPath.isEmpty {
                 project.directoryPath = directoryPath
+                project.directoryBookmark = directoryBookmark
                 project.layout = .full
                 try repository.update(project)
 
@@ -102,8 +123,21 @@ final class ProjectStore {
                     order: 0,
                     layoutSlot: 0,
                     stack: nil,
+                    isFrontend: false,
+                    localhostUrl: nil,
                     environment: nil,
                     project: project
+                )
+
+                // Repository quick link is seeded from the pane's folder,
+                // not here — see `seedRepositoryQuickLinkForPane(...)`
+                // triggered on addWorkspacePane / updateWorkspacePane.
+                // This way each pane contributes its remote (useful for
+                // monorepos with subtree/submodule-sourced subfolders),
+                // deduped by URL at the project level.
+                seedRepositoryQuickLinkForPane(
+                    project: project,
+                    relativeCwd: "."
                 )
             }
             projects.append(project)
@@ -117,14 +151,22 @@ final class ProjectStore {
         _ project: Project,
         name: String,
         notes: String? = nil,
-        color: ProjectColor,
-        directoryPath: String = ""
+        color: ProjectColor = .gray,
+        directoryPath: String = "",
+        directoryBookmark: Data? = nil
     ) {
         do {
             project.name = name
             project.notes = notes
             project.color = color
             project.directoryPath = directoryPath
+            // Only overwrite the stored bookmark when a fresh one was captured
+            // (user re-picked the folder). Passing nil keeps the existing
+            // bookmark intact — important for edit flows that don't touch
+            // the directory field.
+            if let directoryBookmark {
+                project.directoryBookmark = directoryBookmark
+            }
             try repository.update(project)
 
             // Force @Observable to detect the nested mutation by re-assigning
@@ -148,6 +190,39 @@ final class ProjectStore {
         } catch {
             lastError = error
         }
+    }
+
+    /// Detects the git remote of the pane's folder (project root joined
+    /// with the pane's `relativeCwd`) and inserts a quick link pointing at
+    /// the web URL, labeled by host (GitHub / GitLab / Bitbucket /
+    /// Repository). Silent no-op when: the folder isn't a git repo, origin
+    /// has no URL, the URL is unparseable, the project has no directory
+    /// path, or the project already has a quick link with the same URL
+    /// (dedup — matters for monorepos where multiple panes share origin).
+    private func seedRepositoryQuickLinkForPane(project: Project, relativeCwd: String) {
+        let root = project.directoryPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !root.isEmpty else { return }
+
+        let rel = relativeCwd.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseURL = URL(fileURLWithPath: root, isDirectory: true)
+        let folderURL: URL = {
+            if rel.isEmpty || rel == "." {
+                return baseURL
+            }
+            let suffix = rel.hasPrefix("./") ? String(rel.dropFirst(2)) : rel
+            return baseURL.appendingPathComponent(suffix, isDirectory: true)
+        }()
+
+        guard let remote = GitRemoteDetector().detectRemote(in: folderURL) else {
+            return
+        }
+        let alreadyExists = project.quickLinks.contains { $0.url == remote.webURL }
+        guard !alreadyExists else { return }
+        _ = try? quickLinkRepository.create(
+            label: remote.label,
+            url: remote.webURL,
+            project: project
+        )
     }
 
     func addQuickLink(label: String, url: String, to project: Project) {
@@ -199,6 +274,8 @@ final class ProjectStore {
         command: String,
         layoutSlot: Int = -1,
         stack: String? = nil,
+        isFrontend: Bool = false,
+        localhostUrl: String? = nil,
         environment: ProjectEnvironment? = nil,
         to project: Project
     ) {
@@ -210,6 +287,8 @@ final class ProjectStore {
                 order: 0, // repository computes actual order from existing panes
                 layoutSlot: layoutSlot,
                 stack: stack,
+                isFrontend: isFrontend,
+                localhostUrl: localhostUrl,
                 environment: environment,
                 project: project
             )
@@ -217,6 +296,11 @@ final class ProjectStore {
             // Auto-upgrade the layout to fit the new pane count, and auto-assign
             // the new pane to the first free slot of the upgraded layout.
             autoUpgradeLayoutAndAssign(newPane: newPane, in: project)
+
+            // Try to derive a repository quick link from the pane's folder.
+            // Deduped by URL so multiple panes pointing at the same repo
+            // (monorepo subfolders) contribute a single link.
+            seedRepositoryQuickLinkForPane(project: project, relativeCwd: relativeCwd)
 
             if let idx = projects.firstIndex(where: { $0.id == project.id }) {
                 projects[idx] = project
@@ -264,6 +348,8 @@ final class ProjectStore {
         relativeCwd: String,
         command: String,
         stack: String?,
+        isFrontend: Bool = false,
+        localhostUrl: String? = nil,
         environment: ProjectEnvironment? = nil
     ) {
         do {
@@ -271,11 +357,18 @@ final class ProjectStore {
             pane.relativeCwd = relativeCwd
             pane.command = command
             pane.stack = stack
+            pane.isFrontend = isFrontend
+            pane.localhostUrl = isFrontend ? localhostUrl : nil
             pane.environment = environment
             try workspacePaneRepository.update(pane)
-            if let project = pane.project,
-               let idx = projects.firstIndex(where: { $0.id == project.id }) {
-                projects[idx] = project
+            if let project = pane.project {
+                // If the pane now points at a different folder (or the
+                // folder only recently became a git repo), try to surface
+                // the remote as a quick link. Dedup by URL keeps this idempotent.
+                seedRepositoryQuickLinkForPane(project: project, relativeCwd: relativeCwd)
+                if let idx = projects.firstIndex(where: { $0.id == project.id }) {
+                    projects[idx] = project
+                }
             }
             lastError = nil
         } catch {
@@ -348,24 +441,125 @@ final class ProjectStore {
         }
     }
 
+    // MARK: - Browser Launcher (per-pane)
+
+    /// Opens the pane's `localhostUrl` in the default browser. No-op when
+    /// the pane is not marked frontend or has no/invalid URL — the launcher
+    /// itself validates the scheme and skips silently. Exposed as an
+    /// independent action so the user can re-open the tab without having
+    /// to relaunch the whole workspace.
+    func openBrowser(for pane: WorkspacePane) {
+        guard pane.isFrontend else { return }
+        let urlString = (pane.localhostUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !urlString.isEmpty else { return }
+        browserLauncher.open(urlString: urlString)
+    }
+
+    // MARK: - VSCode Launcher
+
+    func openInVSCode(project: Project) {
+        Task {
+            do {
+                try await vscodeLauncher.open(
+                    directoryPath: project.directoryPath,
+                    bookmark: project.directoryBookmark
+                )
+                lastError = nil
+            } catch {
+                lastError = error
+            }
+        }
+    }
+
     // MARK: - Workspace Launcher
 
     func launchWorkspace(for project: Project) {
-        // Guard against double-taps: if a launch is already in flight,
-        // ignore the new request. Without this the user could spawn
-        // multiple Ghostty windows by mashing the button.
         guard !isLaunchingWorkspace else { return }
 
+        // Stamp intent BEFORE opening anything. Even a failed launch counts —
+        // the user tried to resume this project, which is the intent we record.
+        project.lastLaunchedAt = .now
+        try? repository.update(project)
+
         let panes = project.workspacePanes.sorted { $0.order < $1.order }
+
+        for pane in panes where pane.isFrontend {
+            let urlString = pane.localhostUrl ?? ""
+            if !urlString.isEmpty {
+                browserLauncher.open(urlString: urlString)
+            }
+        }
+
         isLaunchingWorkspace = true
         Task {
             defer { isLaunchingWorkspace = false }
             do {
                 try await launcher.launch(project: project, panes: panes)
+                persistBranches(for: project, panes: panes)
                 lastError = nil
             } catch {
                 lastError = error
             }
+        }
+    }
+
+    /// Detects branch changes for each pane in `project` by comparing
+    /// `pane.lastKnownBranch` against the current HEAD. Returns only the
+    /// panes where a change is detected. Panes without a `stack` or
+    /// `relativeCwd` that doesn't resolve to a git repo are silently skipped.
+    ///
+    /// Called synchronously from the UI layer before deciding whether to
+    /// show the Resume confirmation alert. `GitBranchDetector` reads only
+    /// a few bytes from `.git/HEAD` so this is safe to call on MainActor.
+    func detectBranchChanges(for project: Project) -> [BranchChange] {
+        guard !project.directoryPath.isEmpty else { return [] }
+        let detector = GitBranchDetector()
+        let root = URL(fileURLWithPath: project.directoryPath, isDirectory: true)
+
+        return project.workspacePanes.compactMap { pane -> BranchChange? in
+            guard let known = pane.lastKnownBranch, !known.isEmpty else { return nil }
+            let folder = pane.relativeCwd.trimmingCharacters(in: .whitespacesAndNewlines)
+            let target: URL = (folder.isEmpty || folder == ".")
+                ? root
+                : root.appendingPathComponent(
+                    folder.hasPrefix("./") ? String(folder.dropFirst(2)) : folder,
+                    isDirectory: true
+                )
+            guard let current = detector.detectBranch(in: target) else { return nil }
+            guard current != known else { return nil }
+            return BranchChange(paneLabel: pane.label, from: known, to: current)
+        }
+    }
+
+    // MARK: - Private helpers
+
+    /// After a successful launch, snapshot the current branch for every pane
+    /// so the next Resume can detect drift. Silently skips panes without a
+    /// detectable branch (non-git folders, missing .git/HEAD, etc.).
+    private func persistBranches(for project: Project, panes: [WorkspacePane]) {
+        guard !project.directoryPath.isEmpty else { return }
+        let detector = GitBranchDetector()
+        let root = URL(fileURLWithPath: project.directoryPath, isDirectory: true)
+        var didChange = false
+
+        for pane in panes {
+            let folder = pane.relativeCwd.trimmingCharacters(in: .whitespacesAndNewlines)
+            let target: URL = (folder.isEmpty || folder == ".")
+                ? root
+                : root.appendingPathComponent(
+                    folder.hasPrefix("./") ? String(folder.dropFirst(2)) : folder,
+                    isDirectory: true
+                )
+            if let branch = detector.detectBranch(in: target) {
+                pane.lastKnownBranch = branch
+                try? workspacePaneRepository.update(pane)
+                didChange = true
+            }
+        }
+
+        if didChange,
+           let idx = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[idx] = project
         }
     }
 }

@@ -24,7 +24,22 @@ final class Project {
     var updatedAt: Date
 
     var directoryPath: String = ""
+    /// Security-scoped bookmark for `directoryPath`. Required under App
+    /// Sandbox so the app can re-access the folder across launches and
+    /// pass it to external apps (VSCode, Ghostty) without triggering
+    /// "no tiene permiso para abrir X" errors. `nil` for projects created
+    /// before this field existed — those get a bookmark the next time the
+    /// user opens the directory picker.
+    var directoryBookmark: Data?
     var layoutRaw: String = WorkspaceLayout.full.rawValue
+    /// Stored raw value for `launchTarget`. SwiftData lightweight migration:
+    /// existing rows receive the Swift default `"auto"` automatically.
+    var launchTargetRaw: String = LaunchTarget.auto.rawValue
+    /// Timestamp of the last time the user pressed Launch for this project.
+    /// Updated BEFORE the workspace opens (intent, not success). `nil` when
+    /// the project has never been launched. Drives the "Last seen" chip in
+    /// the sidebar and the Resume button visibility in the detail header.
+    var lastLaunchedAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \QuickLink.project)
     var quickLinks: [QuickLink] = []
@@ -45,6 +60,14 @@ final class Project {
     var layout: WorkspaceLayout {
         get { WorkspaceLayout(rawValue: layoutRaw) ?? .full }
         set { layoutRaw = newValue.rawValue }
+    }
+
+    /// Where to open the Ghostty workspace: auto (window-count check at runtime),
+    /// new tab in the front window, or always a new OS window.
+    /// Falls back to `.auto` on invalid raw values.
+    var launchTarget: LaunchTarget {
+        get { LaunchTarget(rawValue: launchTargetRaw) ?? .auto }
+        set { launchTargetRaw = newValue.rawValue }
     }
 
     init(

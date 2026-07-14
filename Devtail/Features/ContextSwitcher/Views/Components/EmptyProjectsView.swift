@@ -38,7 +38,7 @@ struct EmptyProjectsView: View {
                     .padding(.vertical, DevtailTokens.Spacing.gapMedium)
                     .background(
                         RoundedRectangle(cornerRadius: DevtailTokens.Radius.tab)
-                            .fill(DevtailTokens.Colors.accentGreen)
+                            .fill(DevtailTokens.Colors.accentPrimary)
                     )
                     .foregroundStyle(.white)
             }

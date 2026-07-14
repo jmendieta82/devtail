@@ -33,10 +33,7 @@ struct PopoverAccordionItem: View {
     private var headerButton: some View {
         Button(action: onToggle) {
             HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-                ColorDot(color: project.color, size: DevtailTokens.Sizes.projectDot)
-                    .overlay(alignment: .bottomTrailing) {
-                        ActivityDot(isActive: isActive)
-                    }
+                ActivityDot(isActive: isActive)
 
                 Text(project.name)
                     .font(DevtailTokens.Typography.bodySemibold)
@@ -87,7 +84,7 @@ struct PopoverAccordionItem: View {
                 .frame(height: DevtailTokens.Sizes.launchButtonHeight)
                 .background(
                     RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                        .fill(DevtailTokens.Colors.accentGreen)
+                        .fill(DevtailTokens.Colors.accentPrimary)
                 )
                 .glassEffect(
                     .regular.interactive(),

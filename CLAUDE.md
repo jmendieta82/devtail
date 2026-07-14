@@ -1,5 +1,11 @@
 # Devtail — Project Context for Claude Code
 
+## Engram Identity
+
+- **Project name in engram**: `devtail`
+- When calling `mem_save`, `mem_search`, `mem_session_summary` or any engram tool, ALWAYS pass `project: "devtail"` explicitly.
+- Open Claude Code from THIS directory (`DEVTAIL/Devtail/`), not from subdirectories.
+
 ## What is this project
 
 Devtail is a native macOS menu bar app for freelance developers managing multiple projects. Three modules: Context Switcher, Credential Vault, AWS Cost Watcher.

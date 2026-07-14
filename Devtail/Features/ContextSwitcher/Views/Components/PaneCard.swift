@@ -11,7 +11,7 @@ struct PaneCard: View {
     var onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
             // Line 1: Label + badges
             HStack(spacing: DevtailTokens.Spacing.gapSmall) {
                 Text(pane.label)
@@ -25,24 +25,18 @@ struct PaneCard: View {
                     Text(slotLabel)
                         .font(DevtailTokens.Typography.captionSmall)
                         .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                        .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
-                        .padding(.vertical, 1)
                 }
 
                 if let branch {
                     Label(branch, systemImage: "arrow.triangle.branch")
                         .font(DevtailTokens.Typography.captionSmall)
-                        .foregroundStyle(DevtailTokens.Colors.accentGreen)
-                        .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
-                        .padding(.vertical, 1)
+                        .foregroundStyle(DevtailTokens.Colors.accentPrimary)
                 }
 
                 if let stack = pane.stack, !stack.isEmpty {
                     Text(stack)
                         .font(DevtailTokens.Typography.captionSmall)
                         .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                        .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
-                        .padding(.vertical, 1)
                 }
 
                 if let env = pane.environment {
@@ -50,18 +44,25 @@ struct PaneCard: View {
                 }
             }
 
-            // Line 2: Directory
-            Text(pane.relativeCwd)
-                .font(DevtailTokens.Typography.mono)
-                .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                .lineLimit(1)
-
-            // Line 3: Command (if present)
-            if !pane.command.isEmpty {
-                Text(pane.command)
+            // Line 2: Directory · Command (merged)
+            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                Text(pane.relativeCwd)
                     .font(DevtailTokens.Typography.mono)
                     .foregroundStyle(DevtailTokens.Colors.textTertiary)
                     .lineLimit(1)
+
+                if !pane.command.isEmpty {
+                    Text("·")
+                        .font(DevtailTokens.Typography.mono)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    Text(pane.command)
+                        .font(DevtailTokens.Typography.mono)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+
+                Spacer(minLength: 0)
             }
 
             // Actions — always visible
@@ -71,9 +72,8 @@ struct PaneCard: View {
                     Label("Edit", systemImage: "pencil")
                         .font(DevtailTokens.Typography.caption)
                         .foregroundStyle(DevtailTokens.Colors.textSecondary)
-                        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
-                        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
-                        .frame(minHeight: DevtailTokens.Sizes.actionButtonSize)
+                        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+                        .padding(.vertical, DevtailTokens.Spacing.gapTiny)
                         .contentShape(
                             RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
                         )
@@ -96,9 +96,8 @@ struct PaneCard: View {
                                 ? DevtailTokens.Colors.textSecondary
                                 : DevtailTokens.Colors.textDisabled
                         )
-                        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
-                        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
-                        .frame(minHeight: DevtailTokens.Sizes.actionButtonSize)
+                        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+                        .padding(.vertical, DevtailTokens.Spacing.gapTiny)
                         .contentShape(
                             RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
                         )
@@ -116,7 +115,7 @@ struct PaneCard: View {
             }
         }
         .padding(.horizontal, DevtailTokens.Spacing.cardPadding)
-        .padding(.vertical, DevtailTokens.Spacing.gapDefault)
+        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
         .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
     }
 }

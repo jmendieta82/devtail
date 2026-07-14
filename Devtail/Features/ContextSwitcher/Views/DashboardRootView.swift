@@ -24,6 +24,7 @@ struct DashboardRootView: View {
     @State private var isFormDirty: Bool = false
     @State private var pendingSelection: UUID?
     @State private var searchQuery: String = ""
+    @State private var sortMode: SidebarSortMode = SidebarSortMode.load()
 
     private let filterEngine = ProjectFilterEngine()
 
@@ -123,7 +124,7 @@ struct DashboardRootView: View {
     }
 
     private var sidebarHeader: some View {
-        HStack {
+        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
             Text("PROJECTS")
                 .font(DevtailTokens.Typography.captionSmall)
                 .tracking(0.5)
@@ -134,18 +135,49 @@ struct DashboardRootView: View {
                     .font(DevtailTokens.Typography.captionSmall)
                     .foregroundStyle(DevtailTokens.Colors.textMuted)
                     .monospacedDigit()
+
+                sortMenuButton
             }
-            Button { startCreating() } label: {
-                Image(systemName: "plus")
-                    .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
-            }
-            .buttonStyle(.plain)
-            .help("Create a new project")
         }
         .padding(.horizontal, DevtailTokens.Spacing.sidebarItemPadding)
         .padding(.top, DevtailTokens.Spacing.gapSection)
         .padding(.bottom, DevtailTokens.Spacing.gapMedium)
+    }
+
+    private var sortMenuButton: some View {
+        Menu {
+            Button {
+                applySortMode(.recency)
+            } label: {
+                Label(
+                    "By recency",
+                    systemImage: sortMode == .recency ? "checkmark" : ""
+                )
+            }
+            Button {
+                applySortMode(.alphabetical)
+            } label: {
+                Label(
+                    "By name",
+                    systemImage: sortMode == .alphabetical ? "checkmark" : ""
+                )
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(DevtailTokens.Colors.textMuted)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Sort projects")
+    }
+
+    private func applySortMode(_ newSort: SidebarSortMode) {
+        sortMode = newSort
+        newSort.save()
     }
 
     private var headerCountText: String {
@@ -194,6 +226,13 @@ struct DashboardRootView: View {
                             isActive: activityMonitor.isActive(projectID: project.id)
                         )
                         .onTapGesture { requestSelection(project.id) }
+                        .contextMenu {
+                            Button {
+                                store.openInVSCode(project: project)
+                            } label: {
+                                Label("Open in VSCode", systemImage: "chevron.left.forwardslash.chevron.right")
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
@@ -230,26 +269,25 @@ struct DashboardRootView: View {
     }
 
     private var sidebarFooter: some View {
-        HStack {
-            Button {
-                startCreating()
-            } label: {
-                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                    Image(systemName: "plus")
-                    Text("New project")
-                }
-                .font(DevtailTokens.Typography.bodySmall)
-                .foregroundStyle(DevtailTokens.Colors.accentGreen)
-                .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
-                .padding(.vertical, DevtailTokens.Spacing.gapSmall)
-                .contentShape(Rectangle())
+        Button {
+            startCreating()
+        } label: {
+            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                Image(systemName: "plus")
+                Text("New project")
             }
-            .buttonStyle(.plain)
-            .help("New project")
-
-            Spacer()
+            .font(DevtailTokens.Typography.bodySemibold)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+            .background(
+                RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                    .fill(DevtailTokens.Colors.accentPrimary)
+            )
         }
-        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+        .buttonStyle(.plain)
+        .help("New project")
+        .padding(.horizontal, DevtailTokens.Spacing.sidebarItemPadding)
         .padding(.vertical, DevtailTokens.Spacing.gapMedium)
     }
 
@@ -267,6 +305,7 @@ struct DashboardRootView: View {
                 isDirty: $isFormDirty
             )
             .environment(store)
+            .id("project-form-create")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .editingProject(let id):
             ProjectFormView(
@@ -357,7 +396,28 @@ struct DashboardRootView: View {
     }
 
     private var filteredProjects: [Project] {
-        filterEngine.filter(projects: store.projects, query: searchQuery)
+        let base = filterEngine.filter(projects: store.projects, query: searchQuery)
+        return sorted(base)
+    }
+
+    private func sorted(_ projects: [Project]) -> [Project] {
+        switch sortMode {
+        case .alphabetical:
+            return projects.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .recency:
+            return projects.sorted { a, b in
+                switch (a.lastLaunchedAt, b.lastLaunchedAt) {
+                case let (.some(dateA), .some(dateB)):
+                    return dateA > dateB
+                case (.some, .none):
+                    return true
+                case (.none, .some):
+                    return false
+                case (.none, .none):
+                    return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                }
+            }
+        }
     }
 
     private var hasNoSearchResults: Bool {

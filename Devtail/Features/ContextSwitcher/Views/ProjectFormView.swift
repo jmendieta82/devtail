@@ -3,211 +3,59 @@
 //  Devtail
 //
 //  Dual-mode (create + edit) form for a Project. Lives inline inside
-//  DashboardRootView's detail pane (not a sheet, not a separate window).
-//  The caller passes:
+//  DashboardRootView's detail pane.
+//
+//  Public API (do not change without updating DashboardRootView):
 //    - projectID: nil for create, UUID for edit
 //    - onDismiss: callback invoked on save or cancel
-//    - isDirty:   binding the form updates whenever its fields differ from
-//                 the initial snapshot. The dashboard reads this to decide
-//                 whether to show a "discard changes" alert on sidebar taps.
-//
-//  Notes is preserved on the model but intentionally hidden from this form
-//  per locked decision (not in mockup, MVP-first).
+//    - isDirty:   binding the form updates whenever fields differ from
+//                 the initial snapshot
 //
 
 import SwiftUI
 import SwiftData
+import AppKit
 
 struct ProjectFormView: View {
     @Environment(ProjectStore.self) private var store
-
-    @State private var name: String = ""
-    @State private var color: ProjectColor = .gray
-    @State private var directoryPath: String = ""
-    @State private var runClaudeCode: Bool = true
-    @State private var showError: Bool = false
-    @State private var didLoad: Bool = false
-
-    /// Tracks whether the user has manually typed in the Name field. When
-    /// false, picking a directory will auto-fill the name from the folder's
-    /// last path component. Once the user edits the name manually, we stop
-    /// auto-filling to avoid clobbering their choice.
-    @State private var nameWasEditedManually: Bool = false
-
-    /// Set to `true` momentarily while `chooseDirectory` writes an auto-filled
-    /// name, so the `onChange(of: name)` handler does not mistake the write
-    /// for a manual edit.
-    @State private var suppressNameChangeTracking: Bool = false
-
-    /// Snapshot of the values the form started with. Used to compute dirty
-    /// state. `nil` until loadIfNeeded runs, so the form is considered clean
-    /// until it has a baseline to compare against.
-    @State private var initialSnapshot: FormSnapshot?
 
     let projectID: UUID?
     let onDismiss: () -> Void
     @Binding var isDirty: Bool
 
+    @State private var name: String = ""
+    @State private var directoryPath: String = ""
+    @State private var directoryBookmark: Data?
+    @State private var launchTarget: LaunchTarget = .auto
+    @State private var runClaudeCode: Bool = true
+    @State private var showError: Bool = false
+    @State private var didLoad: Bool = false
+    @State private var nameWasEditedManually: Bool = false
+    @State private var suppressNameChangeTracking: Bool = false
+    @State private var initialSnapshot: FormSnapshot?
+
     var body: some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
-            formHeader
-
-            // ─── Form fields (wrapped in glass card) ───
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
-                // Directory (required, first)
-                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-                    Text("Directory")
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-                        Text(directoryPath.isEmpty ? "No folder selected" : directoryPath)
-                            .font(DevtailTokens.Typography.monoSmall)
-                            .foregroundStyle(directoryPath.isEmpty
-                                ? DevtailTokens.Colors.textPlaceholder
-                                : DevtailTokens.Colors.textSecondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
-                            .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-                            .background(
-                                RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                                    .fill(DevtailTokens.Colors.inputBackground)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                                    .stroke(DevtailTokens.Colors.borderSubtle,
-                                            lineWidth: DevtailTokens.BorderWidth.default)
-                            )
-                        Button("Choose folder…") {
-                            chooseDirectory()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                }
-
-                // Project name (auto-filled from directory, editable)
-                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-                    Text("Project name")
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    TextField(
-                        "",
-                        text: $name,
-                        prompt: Text(directoryPath.isEmpty
-                            ? "Choose a directory first"
-                            : "My awesome project")
-                    )
-                    .textFieldStyle(.plain)
-                    .font(DevtailTokens.Typography.bodyDefault)
-                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                    .disabled(directoryPath.isEmpty)
-                    .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
-                    .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-                    .background(
-                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                            .fill(DevtailTokens.Colors.inputBackground)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                            .stroke(
-                                DevtailTokens.Colors.borderSubtle,
-                                lineWidth: DevtailTokens.BorderWidth.default
-                            )
-                    )
-                    .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
-                }
-
-                // Color
-                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-                    Text("Color")
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    ColorPickerRow(selection: $color)
-                        .disabled(directoryPath.isEmpty)
-                        .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
-                }
-
-                // Claude Code toggle — only shown in create mode
+        ScrollView {
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
+                header
+                directoryField
+                nameField
+                launchTargetPicker
                 if !isEditMode {
-                    Toggle(isOn: $runClaudeCode) {
-                        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
-                            Text("Run Claude Code in this project")
-                                .font(DevtailTokens.Typography.bodyDefault)
-                                .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                            Text("Pre-fills the default pane command with 'claude' so launching the workspace opens Claude Code automatically.")
-                                .font(DevtailTokens.Typography.caption)
-                                .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .tint(DevtailTokens.Colors.accentGreen)
-                    .disabled(directoryPath.isEmpty)
-                    .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
+                    claudeCodeToggle
                 }
-            }
-            .padding(DevtailTokens.Spacing.gapLarge)
-            .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
-
-            // ─── Live preview ───
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-                Text("Preview")
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                ProjectRowView(
-                    name: trimmedName.isEmpty ? "Project name" : trimmedName,
-                    color: color,
-                    isSelected: false,
-                    isInteractive: false,
-                    onTap: nil,
-                    onEdit: nil,
-                    onDelete: nil
-                )
-                .padding(.horizontal, DevtailTokens.Spacing.cardPadding)
-                .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-                .background(
-                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                        .fill(DevtailTokens.Colors.cardBackground)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                        .stroke(
-                            DevtailTokens.Colors.borderCard,
-                            lineWidth: DevtailTokens.BorderWidth.default
-                        )
-                )
-            }
-
-            // ─── Inline error ───
-            if showError, let error = store.lastError {
-                Text(error.localizedDescription)
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(.red)
-            }
-
-            Spacer(minLength: 0)
-
-            // ─── Actions ───
-            HStack {
-                Spacer()
-                Button("Cancel") {
-                    cancel()
+                preview
+                if showError, let error = store.lastError {
+                    Text(error.localizedDescription)
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(.red)
                 }
-                .keyboardShortcut(.cancelAction)
-                .buttonStyle(.bordered)
-
-                Button(submitLabel) {
-                    submit()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .disabled(!canSubmit)
+                actions
             }
+            .padding(DevtailTokens.Spacing.dashboardPadding)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(DevtailTokens.Spacing.dashboardPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { loadIfNeeded() }
         .onChange(of: name) { _, _ in
             if !suppressNameChangeTracking {
@@ -215,19 +63,153 @@ struct ProjectFormView: View {
             }
             recomputeDirty()
         }
-        .onChange(of: color) { _, _ in recomputeDirty() }
         .onChange(of: directoryPath) { _, _ in recomputeDirty() }
+        .onChange(of: launchTarget) { _, _ in recomputeDirty() }
     }
 
-    // MARK: - Header (title inside the dashboard detail area)
+    // MARK: - Sections
 
-    private var formHeader: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(DevtailTokens.Typography.titleLarge)
-                .foregroundStyle(DevtailTokens.Colors.textPrimary)
-            Spacer()
+    private var header: some View {
+        Text(title)
+            .font(DevtailTokens.Typography.titleLarge)
+            .foregroundStyle(DevtailTokens.Colors.textPrimary)
+    }
+
+    private var directoryField: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
+            fieldLabel("Directory")
+            HStack(spacing: DevtailTokens.Spacing.gapMedium) {
+                Text(directoryPath.isEmpty ? "No folder selected" : directoryPath)
+                    .font(DevtailTokens.Typography.monoSmall)
+                    .foregroundStyle(directoryPath.isEmpty
+                        ? DevtailTokens.Colors.textPlaceholder
+                        : DevtailTokens.Colors.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+                    .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+                    .background(inputBackground)
+
+                Button("Choose folder…") { chooseDirectory() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
         }
+    }
+
+    private var nameField: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
+            fieldLabel("Project name")
+            TextField(
+                "",
+                text: $name,
+                prompt: Text(directoryPath.isEmpty
+                    ? "Choose a directory first"
+                    : "My awesome project")
+            )
+            .textFieldStyle(.plain)
+            .font(DevtailTokens.Typography.bodyDefault)
+            .foregroundStyle(DevtailTokens.Colors.textPrimary)
+            .disabled(directoryPath.isEmpty)
+            .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+            .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+            .background(inputBackground)
+            .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
+        }
+    }
+
+    private var launchTargetPicker: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
+            fieldLabel("Launch in")
+            Picker("Launch in", selection: $launchTarget) {
+                ForEach(LaunchTarget.allCases) { option in
+                    Text(option.label).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+    }
+
+    private var claudeCodeToggle: some View {
+        Toggle(isOn: $runClaudeCode) {
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                Text("Run Claude Code in this project")
+                    .font(DevtailTokens.Typography.bodyDefault)
+                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                Text("Pre-fills the default pane command with 'claude' so launching the workspace opens Claude Code automatically.")
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .toggleStyle(.switch)
+        .tint(DevtailTokens.Colors.accentPrimary)
+        .disabled(directoryPath.isEmpty)
+        .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
+    }
+
+    private var preview: some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
+            fieldLabel("Preview")
+            ProjectRowView(
+                name: trimmedName.isEmpty ? "Project name" : trimmedName,
+                isSelected: false,
+                isInteractive: false,
+                onTap: nil,
+                onEdit: nil,
+                onDelete: nil
+            )
+            .padding(.horizontal, DevtailTokens.Spacing.cardPadding)
+            .padding(.vertical, DevtailTokens.Spacing.gapMedium)
+            .background(
+                RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                    .fill(DevtailTokens.Colors.accentPrimary.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                    .stroke(
+                        DevtailTokens.Colors.accentPrimary.opacity(0.20),
+                        lineWidth: DevtailTokens.BorderWidth.default
+                    )
+            )
+        }
+    }
+
+    private var actions: some View {
+        HStack {
+            Spacer()
+            Button("Cancel") { cancel() }
+                .keyboardShortcut(.cancelAction)
+                .buttonStyle(.bordered)
+
+            Button(submitLabel) { submit() }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(!canSubmit)
+        }
+        .padding(.top, DevtailTokens.Spacing.gapLarge)
+    }
+
+    // MARK: - Helpers
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text)
+            .font(DevtailTokens.Typography.caption)
+            .foregroundStyle(DevtailTokens.Colors.textTertiary)
+    }
+
+    private var inputBackground: some View {
+        RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
+            .fill(DevtailTokens.Colors.accentPrimary.opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
+                    .stroke(
+                        DevtailTokens.Colors.accentPrimary.opacity(0.20),
+                        lineWidth: DevtailTokens.BorderWidth.default
+                    )
+            )
     }
 
     // MARK: - Computed
@@ -258,42 +240,31 @@ struct ProjectFormView: View {
         guard !didLoad else { return }
         didLoad = true
 
-        // Load existing values (edit mode) or leave defaults (create mode).
         if let projectID,
            let project = store.projects.first(where: { $0.id == projectID }) {
             suppressNameChangeTracking = true
             name = project.name
-            color = project.color
             directoryPath = project.directoryPath
-            // In edit mode the user already has a name — treat it as manual
-            // so re-picking a directory doesn't clobber it.
+            directoryBookmark = project.directoryBookmark
+            launchTarget = project.launchTarget
             nameWasEditedManually = true
             DispatchQueue.main.async {
                 suppressNameChangeTracking = false
             }
         }
 
-        // Snapshot AFTER loading so the baseline reflects the starting point.
         initialSnapshot = currentSnapshot()
-        // Whenever we reload, clear dirty — caller should see a fresh form.
         isDirty = false
     }
 
     // MARK: - Dirty state
 
     private func currentSnapshot() -> FormSnapshot {
-        FormSnapshot(
-            name: name,
-            color: color,
-            directoryPath: directoryPath
-        )
+        FormSnapshot(name: name, directoryPath: directoryPath, launchTarget: launchTarget)
     }
 
     private func recomputeDirty() {
-        guard let initialSnapshot else {
-            // loadIfNeeded has not run yet; ignore transient onChange firings.
-            return
-        }
+        guard let initialSnapshot else { return }
         let newValue = currentSnapshot() != initialSnapshot
         if newValue != isDirty {
             isDirty = newValue
@@ -307,21 +278,21 @@ struct ProjectFormView: View {
 
         if let projectID,
            let project = store.projects.first(where: { $0.id == projectID }) {
-            // Edit mode — preserve notes (form doesn't show them).
+            project.launchTarget = launchTarget
             store.updateProject(
                 project,
                 name: trimmedName,
                 notes: project.notes,
-                color: color,
-                directoryPath: directoryPath
+                directoryPath: directoryPath,
+                directoryBookmark: directoryBookmark
             )
         } else {
-            // Create mode
             store.createProject(
                 name: trimmedName,
-                color: color,
                 directoryPath: directoryPath,
-                runClaudeCode: runClaudeCode
+                directoryBookmark: directoryBookmark,
+                runClaudeCode: runClaudeCode,
+                launchTarget: launchTarget
             )
         }
 
@@ -346,13 +317,16 @@ struct ProjectFormView: View {
         panel.prompt = "Choose"
         if panel.runModal() == .OK, let url = panel.url {
             directoryPath = url.path
-            // Auto-fill the project name from the folder's last component,
-            // but only if the user hasn't manually typed anything yet.
+            // Capture a security-scoped bookmark so the path survives
+            // restarts and can be passed to external apps under sandbox.
+            directoryBookmark = try? url.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
             if !nameWasEditedManually && trimmedName.isEmpty {
                 suppressNameChangeTracking = true
                 name = url.lastPathComponent
-                // Reset the guard on the next runloop tick so subsequent
-                // keystrokes are tracked as manual edits again.
                 DispatchQueue.main.async {
                     suppressNameChangeTracking = false
                 }
@@ -362,8 +336,8 @@ struct ProjectFormView: View {
 
     private func resetState() {
         name = ""
-        color = .gray
         directoryPath = ""
+        launchTarget = .auto
         runClaudeCode = true
         showError = false
         didLoad = false
@@ -374,57 +348,8 @@ struct ProjectFormView: View {
     }
 }
 
-/// Snapshot of the form fields, used as the baseline for dirty detection.
-/// Equatable so dirty is a single `!=` away.
 private struct FormSnapshot: Equatable {
     let name: String
-    let color: ProjectColor
     let directoryPath: String
-}
-
-#Preview("Create mode") {
-    @Previewable @State var dirty = false
-    let store: ProjectStore = {
-        let container = PersistenceController.makeContainer(inMemory: true)
-        let repository = ProjectRepository(context: container.mainContext)
-        let linkRepository = QuickLinkRepository(context: container.mainContext)
-        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
-        return ProjectStore(
-            repository: repository,
-            quickLinkRepository: linkRepository,
-            workspacePaneRepository: paneRepository,
-            launcher: WorkspaceLauncher()
-        )
-    }()
-    ProjectFormView(projectID: nil, onDismiss: {}, isDirty: $dirty)
-        .environment(store)
-        .frame(width: 700, height: 600)
-        .background(DevtailTokens.Colors.appBackground)
-        .preferredColorScheme(.dark)
-}
-
-#Preview("Edit mode") {
-    @Previewable @State var dirty = false
-    let (store, projectID): (ProjectStore, UUID) = {
-        let container = PersistenceController.makeContainer(inMemory: true)
-        let repository = ProjectRepository(context: container.mainContext)
-        let linkRepository = QuickLinkRepository(context: container.mainContext)
-        let paneRepository = WorkspacePaneRepository(context: container.mainContext)
-        let store = ProjectStore(
-            repository: repository,
-            quickLinkRepository: linkRepository,
-            workspacePaneRepository: paneRepository,
-            launcher: WorkspaceLauncher()
-        )
-        store.createProject(
-            name: "Devtail",
-            color: .green
-        )
-        return (store, store.projects[0].id)
-    }()
-    ProjectFormView(projectID: projectID, onDismiss: {}, isDirty: $dirty)
-        .environment(store)
-        .frame(width: 700, height: 600)
-        .background(DevtailTokens.Colors.appBackground)
-        .preferredColorScheme(.dark)
+    let launchTarget: LaunchTarget
 }

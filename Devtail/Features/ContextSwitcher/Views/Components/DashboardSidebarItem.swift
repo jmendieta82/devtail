@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Project row for the dashboard sidebar.
-/// Shows accent color strip, name, layout info, and activity dot.
+/// Shows name, layout info, activity dot, and a "last seen" timestamp chip.
 struct DashboardSidebarItem: View {
     let project: Project
     let isSelected: Bool
@@ -11,19 +11,15 @@ struct DashboardSidebarItem: View {
         project.workspacePanes.count
     }
 
+    private var lastSeenLabel: String? {
+        RelativeDateFormatter.label(for: project.lastLaunchedAt)
+    }
+
     var body: some View {
         HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-            RoundedRectangle(cornerRadius: 1.5)
-                .fill(project.color.color)
-                .frame(width: DevtailTokens.BorderWidth.accentStrip)
-                .opacity(isSelected ? 1.0 : 0.5)
-
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
                 HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                    ColorDot(color: project.color, size: DevtailTokens.Sizes.projectDot)
-                        .overlay(alignment: .bottomTrailing) {
-                            ActivityDot(isActive: isActive)
-                        }
+                    ActivityDot(isActive: isActive)
 
                     Text(project.name)
                         .font(DevtailTokens.Typography.bodySemibold)
@@ -31,10 +27,23 @@ struct DashboardSidebarItem: View {
                         .lineLimit(1)
                 }
 
-                Text("\(project.layout.displayName) · \(paneCount) panes")
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    .lineLimit(1)
+                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                    Text("\(project.layout.displayName) · \(paneCount) panes")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                        .lineLimit(1)
+
+                    if let label = lastSeenLabel {
+                        Text("·")
+                            .font(DevtailTokens.Typography.captionSmall)
+                            .foregroundStyle(DevtailTokens.Colors.textMuted)
+
+                        Text(label)
+                            .font(DevtailTokens.Typography.captionSmall)
+                            .foregroundStyle(DevtailTokens.Colors.textMuted)
+                            .lineLimit(1)
+                    }
+                }
             }
 
             Spacer()

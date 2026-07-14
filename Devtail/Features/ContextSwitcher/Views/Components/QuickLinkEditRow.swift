@@ -48,7 +48,7 @@ struct QuickLinkEditRow: View {
                 .padding(.vertical, DevtailTokens.Spacing.gapSmall)
                 .background(
                     RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                        .fill(DevtailTokens.Colors.inputBackground)
+                        .fill(Color.black.opacity(0.25))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
@@ -66,7 +66,7 @@ struct QuickLinkEditRow: View {
                 .padding(.vertical, DevtailTokens.Spacing.gapSmall)
                 .background(
                     RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                        .fill(DevtailTokens.Colors.inputBackground)
+                        .fill(Color.black.opacity(0.25))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)

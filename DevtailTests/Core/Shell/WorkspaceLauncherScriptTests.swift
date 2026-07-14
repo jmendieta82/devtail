@@ -35,7 +35,7 @@ struct WorkspaceLauncherScriptTests {
         )
     }
 
-    // MARK: - Full layout
+    // MARK: - Full layout (windowOnly — preserves existing golden string behaviour)
 
     @Test("Full layout — one window, zero splits")
     func fullLayout() throws {
@@ -43,7 +43,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .full,
-            panesBySlot: [0: p]
+            panesBySlot: [0: p],
+            target: .windowOnly
         )
         #expect(script.contains("tell application \"Ghostty\""))
         #expect(script.contains("activate"))
@@ -60,7 +61,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .full,
-            panesBySlot: [0: p]
+            panesBySlot: [0: p],
+            target: .windowOnly
         )
         #expect(!script.contains("input text"))
         #expect(!script.contains("send key"))
@@ -75,7 +77,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .halvesVertical,
-            panesBySlot: [0: slot0, 1: slot1]
+            panesBySlot: [0: slot0, 1: slot1],
+            target: .windowOnly
         )
         #expect(script.contains("set initial working directory of cfg0 to \"/tmp/proj\""))
         #expect(script.contains("set cfg1 to new surface configuration"))
@@ -97,7 +100,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .mainSideStack,
-            panesBySlot: [0: slot0, 1: slot1, 2: slot2]
+            panesBySlot: [0: slot0, 1: slot1, 2: slot2],
+            target: .windowOnly
         )
         #expect(script.contains("set term1 to split term0 direction right with configuration cfg1"))
         #expect(script.contains("set term2 to split term1 direction down with configuration cfg2"))
@@ -119,7 +123,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .quarters,
-            panesBySlot: [0: slot0, 1: slot1, 2: slot2, 3: slot3]
+            panesBySlot: [0: slot0, 1: slot1, 2: slot2, 3: slot3],
+            target: .windowOnly
         )
 
         // Step 1: term0 → right → term1
@@ -151,7 +156,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/p",
             layout: .quarters,
-            panesBySlot: slots
+            panesBySlot: slots,
+            target: .windowOnly
         )
         // term2 MUST reference term0 as source — not term1
         let lines = script.components(separatedBy: "\n")
@@ -172,7 +178,8 @@ struct WorkspaceLauncherScriptTests {
             try buildLaunchScript(
                 directoryPath: "/tmp/proj",
                 layout: .halvesVertical,
-                panesBySlot: [0: slot0]
+                panesBySlot: [0: slot0],
+                target: .windowOnly
             )
         }
     }
@@ -184,7 +191,8 @@ struct WorkspaceLauncherScriptTests {
             try buildLaunchScript(
                 directoryPath: "/tmp/proj",
                 layout: .quarters,
-                panesBySlot: [0: slot0]
+                panesBySlot: [0: slot0],
+                target: .windowOnly
             )
         }
     }
@@ -198,7 +206,8 @@ struct WorkspaceLauncherScriptTests {
             try buildLaunchScript(
                 directoryPath: "/tmp/proj",
                 layout: .quarters,
-                panesBySlot: [0: slot0, 1: slot1, 3: slot3]
+                panesBySlot: [0: slot0, 1: slot1, 3: slot3],
+                target: .windowOnly
             )
         }
     }
@@ -211,7 +220,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .full,
-            panesBySlot: [0: p]
+            panesBySlot: [0: p],
+            target: .windowOnly
         )
         #expect(script.contains("input text \"claude --resume && echo done\" to term0"))
     }
@@ -222,7 +232,8 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .full,
-            panesBySlot: [0: p]
+            panesBySlot: [0: p],
+            target: .windowOnly
         )
         #expect(script.contains(#"input text "echo \"hello\"" to term0"#))
     }
@@ -233,9 +244,117 @@ struct WorkspaceLauncherScriptTests {
         let script = try buildLaunchScript(
             directoryPath: "/tmp/proj",
             layout: .full,
-            panesBySlot: [0: p]
+            panesBySlot: [0: p],
+            target: .windowOnly
         )
         #expect(script.contains("input text \"npm start\" to term0"))
+    }
+
+    // MARK: - tabWithFallback branch
+
+    @Test("tabWithFallback — script contains 'if (count of windows) > 0' guard")
+    func tabWithFallbackContainsWindowCountCheck() throws {
+        let p = pane(".", "claude", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p],
+            target: .tabWithFallback
+        )
+        #expect(script.contains("if (count of windows) > 0 then"))
+    }
+
+    @Test("tabWithFallback — script contains 'new tab in front window with configuration cfg0'")
+    func tabWithFallbackContainsNewTabVerb() throws {
+        let p = pane(".", "claude", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p],
+            target: .tabWithFallback
+        )
+        #expect(script.contains("new tab in front window with configuration cfg0"))
+    }
+
+    @Test("tabWithFallback — else branch contains 'new window with configuration cfg0'")
+    func tabWithFallbackElseBranchContainsNewWindow() throws {
+        let p = pane(".", "claude", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p],
+            target: .tabWithFallback
+        )
+        #expect(script.contains("else"))
+        #expect(script.contains("new window with configuration cfg0"))
+        #expect(script.contains("end if"))
+    }
+
+    @Test("tabWithFallback — term0 is bound via 'focused terminal of newTab' in the if branch")
+    func tabWithFallbackTerm0BindingInIfBranch() throws {
+        let p = pane(".", "claude", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p],
+            target: .tabWithFallback
+        )
+        #expect(script.contains("set term0 to focused terminal of newTab"))
+    }
+
+    @Test("tabWithFallback — does NOT contain 'new window' as the sole/unconditional opening line")
+    func tabWithFallbackNoUnconditionalNewWindow() throws {
+        let p = pane(".", "claude", slot: 0)
+        let script = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .full,
+            panesBySlot: [0: p],
+            target: .tabWithFallback
+        )
+        // 'new window' must exist only inside the else block — not as an
+        // unconditional opener. Verify 'if (count of windows) > 0' comes first.
+        let lines = script.components(separatedBy: "\n")
+        let ifLineIdx = lines.firstIndex { $0.contains("if (count of windows) > 0 then") }
+        let winLineIdx = lines.firstIndex { $0.contains("new window with configuration cfg0") }
+        #expect(ifLineIdx != nil)
+        #expect(winLineIdx != nil)
+        if let i = ifLineIdx, let w = winLineIdx {
+            #expect(i < w, "The 'if' guard must appear before the 'new window' fallback line")
+        }
+    }
+
+    @Test("tabWithFallback — HalvesVertical Phase A splits and Phase B content identical to windowOnly")
+    func tabWithFallbackSplitsAndContentIdenticalToWindowOnly() throws {
+        let slot0 = pane(".", "claude", slot: 0)
+        let slot1 = pane("./api", "npm start", slot: 1)
+        let panesBySlot: [Int: WorkspacePane] = [0: slot0, 1: slot1]
+
+        let tabScript = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .halvesVertical,
+            panesBySlot: panesBySlot,
+            target: .tabWithFallback
+        )
+        let winScript = try buildLaunchScript(
+            directoryPath: "/tmp/proj",
+            layout: .halvesVertical,
+            panesBySlot: panesBySlot,
+            target: .windowOnly
+        )
+
+        // Phase A (splits) identical between both targets
+        #expect(tabScript.contains("set term1 to split term0 direction right with configuration cfg1"))
+        #expect(winScript.contains("set term1 to split term0 direction right with configuration cfg1"))
+
+        // Phase B (content) identical between both targets
+        #expect(tabScript.contains("input text \"cd /tmp/proj/api\" to term1"))
+        #expect(winScript.contains("input text \"cd /tmp/proj/api\" to term1"))
+        #expect(tabScript.contains("input text \"npm start\" to term1"))
+        #expect(winScript.contains("input text \"npm start\" to term1"))
+
+        // Focus identical between both targets
+        #expect(tabScript.contains("focus term0"))
+        #expect(winScript.contains("focus term0"))
     }
 
     // MARK: - Path resolution (unchanged helpers)

@@ -24,6 +24,8 @@ struct WorkspacePaneEditRow: View {
     let initialRelativeCwd: String
     let initialCommand: String
     let initialStack: String?
+    let initialIsFrontend: Bool
+    let initialLocalhostUrl: String?
     let initialEnvironment: ProjectEnvironment?
 
     /// Stack auto-detection registry. Defaults to the production list,
@@ -36,6 +38,8 @@ struct WorkspacePaneEditRow: View {
         _ relativeCwd: String,
         _ command: String,
         _ stack: String?,
+        _ isFrontend: Bool,
+        _ localhostUrl: String?,
         _ environment: ProjectEnvironment?
     ) -> Void
     let onCancel: () -> Void
@@ -44,12 +48,14 @@ struct WorkspacePaneEditRow: View {
     @State private var stack: String
     @State private var relativeCwd: String
     @State private var command: String
+    @State private var isFrontend: Bool
+    @State private var localhostUrl: String
     @State private var environment: ProjectEnvironment?
     @State private var chooserError: String?
     @FocusState private var focusedField: Field?
 
     private enum Field {
-        case label, stack, command
+        case label, stack, command, localhostUrl
     }
 
     init(
@@ -58,9 +64,11 @@ struct WorkspacePaneEditRow: View {
         initialRelativeCwd: String = "",
         initialCommand: String = "",
         initialStack: String? = nil,
+        initialIsFrontend: Bool = false,
+        initialLocalhostUrl: String? = nil,
         initialEnvironment: ProjectEnvironment? = nil,
         detectorRegistry: StackDetectorRegistry = .default,
-        onSave: @escaping (String, String, String, String?, ProjectEnvironment?) -> Void,
+        onSave: @escaping (String, String, String, String?, Bool, String?, ProjectEnvironment?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.projectRoot = projectRoot
@@ -68,6 +76,8 @@ struct WorkspacePaneEditRow: View {
         self.initialRelativeCwd = initialRelativeCwd
         self.initialCommand = initialCommand
         self.initialStack = initialStack
+        self.initialIsFrontend = initialIsFrontend
+        self.initialLocalhostUrl = initialLocalhostUrl
         self.initialEnvironment = initialEnvironment
         self.detectorRegistry = detectorRegistry
         self.onSave = onSave
@@ -76,6 +86,8 @@ struct WorkspacePaneEditRow: View {
         _stack = State(initialValue: initialStack ?? "")
         _relativeCwd = State(initialValue: initialRelativeCwd)
         _command = State(initialValue: initialCommand)
+        _isFrontend = State(initialValue: initialIsFrontend)
+        _localhostUrl = State(initialValue: initialLocalhostUrl ?? "")
         _environment = State(initialValue: initialEnvironment)
     }
 
@@ -97,7 +109,7 @@ struct WorkspacePaneEditRow: View {
                             .padding(.vertical, DevtailTokens.Spacing.gapSmall)
                             .background(
                                 RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                                    .fill(DevtailTokens.Colors.inputBackground)
+                                    .fill(Color.black.opacity(0.25))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
@@ -175,6 +187,41 @@ struct WorkspacePaneEditRow: View {
                     .opacity(relativeCwd.isEmpty ? 0.5 : 1.0)
             }
 
+            // Frontend toggle + localhost URL
+            Toggle(isOn: $isFrontend) {
+                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                    Text("FRONTEND")
+                        .font(DevtailTokens.Typography.captionSmall)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                        .tracking(0.5)
+                    Text("Opens a browser tab to the localhost URL when launching this workspace.")
+                        .font(DevtailTokens.Typography.captionSmall)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch)
+            .tint(DevtailTokens.Colors.accentPrimary)
+            .disabled(relativeCwd.isEmpty)
+            .opacity(relativeCwd.isEmpty ? 0.5 : 1.0)
+            .onChange(of: isFrontend) { _, newValue in
+                if newValue, localhostUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    localhostUrl = FrontendStackDefaults.defaultURL(forLabel: trimmedStack.isEmpty ? nil : trimmedStack)
+                }
+            }
+
+            if isFrontend {
+                labeledField(title: "LOCALHOST URL") {
+                    styledTextField(
+                        text: $localhostUrl,
+                        prompt: "http://localhost:3000",
+                        isInvalid: false,
+                        focus: .localhostUrl,
+                        onSubmit: { commitIfValid() }
+                    )
+                }
+            }
+
             // Actions
             HStack {
                 Button("Cancel", action: onCancel)
@@ -190,7 +237,17 @@ struct WorkspacePaneEditRow: View {
             }
         }
         .padding(DevtailTokens.Spacing.gapLarge)
-        .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
+        .background(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .fill(DevtailTokens.Colors.accentPrimary.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .stroke(
+                    DevtailTokens.Colors.accentPrimary.opacity(0.20),
+                    lineWidth: DevtailTokens.BorderWidth.default
+                )
+        )
     }
 
     // MARK: - Reusable field chrome
@@ -225,7 +282,7 @@ struct WorkspacePaneEditRow: View {
             .padding(.vertical, DevtailTokens.Spacing.gapSmall)
             .background(
                 RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
-                    .fill(DevtailTokens.Colors.inputBackground)
+                    .fill(Color.black.opacity(0.25))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
@@ -348,14 +405,17 @@ struct WorkspacePaneEditRow: View {
     private func commitIfValid() {
         guard canSave else { return }
         let stackValue: String? = trimmedStack.isEmpty ? nil : trimmedStack
-        onSave(trimmedLabel, relativeCwd, command, stackValue, environment)
+        let urlValue: String? = isFrontend
+            ? (localhostUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : localhostUrl.trimmingCharacters(in: .whitespacesAndNewlines))
+            : nil
+        onSave(trimmedLabel, relativeCwd, command, stackValue, isFrontend, urlValue, environment)
     }
 }
 
 #Preview {
     WorkspacePaneEditRow(
         projectRoot: "/Users/dev/MRN_V2",
-        onSave: { _, _, _, _, _ in },
+        onSave: { _, _, _, _, _, _, _ in },
         onCancel: {}
     )
     .padding()

@@ -52,7 +52,7 @@ struct EnvironmentPill: View {
             return DevtailTokens.Colors.accentOrange
                 .opacity(DevtailTokens.ActiveState.badgeBgOpacity)
         case .prod:
-            return DevtailTokens.Colors.accentGreen
+            return DevtailTokens.Colors.accentPrimary
                 .opacity(DevtailTokens.ActiveState.badgeBgOpacity)
         }
     }
@@ -65,7 +65,7 @@ struct EnvironmentPill: View {
             return DevtailTokens.Colors.accentOrange
                 .opacity(DevtailTokens.ActiveState.activeBorderOpacity)
         case .prod:
-            return DevtailTokens.Colors.accentGreen
+            return DevtailTokens.Colors.accentPrimary
                 .opacity(DevtailTokens.ActiveState.activeBorderOpacity)
         }
     }
@@ -77,7 +77,7 @@ struct EnvironmentPill: View {
         case .staging:
             return DevtailTokens.Colors.accentOrange
         case .prod:
-            return DevtailTokens.Colors.accentGreen
+            return DevtailTokens.Colors.accentPrimary
         }
     }
 }

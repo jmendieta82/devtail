@@ -17,6 +17,8 @@ protocol WorkspacePaneRepositoryProtocol {
         order: Int,
         layoutSlot: Int,
         stack: String?,
+        isFrontend: Bool,
+        localhostUrl: String?,
         environment: ProjectEnvironment?,
         project: Project
     ) throws -> WorkspacePane

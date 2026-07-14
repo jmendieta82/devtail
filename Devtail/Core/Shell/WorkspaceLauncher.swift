@@ -42,6 +42,33 @@ protocol WorkspaceLauncherProtocol {
     func launch(project: Project, panes: [WorkspacePane]) async throws
 }
 
+// MARK: - ResolvedLaunchTarget
+
+/// Script-builder boundary type. Three user-visible `LaunchTarget` values
+/// collapse to two script templates: `.newTab` and `.auto` both need the
+/// same `if (count of windows) > 0` fallback logic, so they share one branch.
+/// - `tabWithFallback`: open as a new tab in the front window; fallback to
+///   a new window when no Ghostty windows exist.
+/// - `windowOnly`: always create a new OS window (never reuse an open window).
+enum ResolvedLaunchTarget {
+    case tabWithFallback
+    case windowOnly
+}
+
+/// Maps a project's `LaunchTarget` + the global `AppSettings` default to
+/// one of the two script templates. `.auto` defers to `settings.defaultLaunchTarget`;
+/// if that is also `.auto`, the runtime `if (count of windows) > 0` guard in the
+/// AppleScript handles the final decision.
+func resolveLaunchTarget(project: Project, settings: AppSettings) -> ResolvedLaunchTarget {
+    let effective: LaunchTarget = (project.launchTarget == .auto)
+        ? settings.defaultLaunchTarget
+        : project.launchTarget
+    switch effective {
+    case .auto, .newTab: return .tabWithFallback
+    case .newWindow:     return .windowOnly
+    }
+}
+
 // MARK: - Script builder (file scope, testable)
 
 /// Builds the AppleScript source that drives Ghostty using its native
@@ -62,13 +89,16 @@ protocol WorkspaceLauncherProtocol {
 ///   - layout: The WorkspaceLayout defining slot count and split topology.
 ///   - panesBySlot: A dictionary mapping slot index → WorkspacePane. Every
 ///     slot in 0 ..< layout.slotCount MUST have an entry; throws otherwise.
+///   - target: Whether to open as a new tab (with window fallback) or
+///     always as a new OS window.
 /// - Returns: AppleScript source code ready for NSAppleScript.
 /// - Throws: `WorkspaceLauncherError.layoutHasUnassignedSlots` if any slot
 ///   in 0 ..< layout.slotCount has no pane.
 func buildLaunchScript(
     directoryPath: String,
     layout: WorkspaceLayout,
-    panesBySlot: [Int: WorkspacePane]
+    panesBySlot: [Int: WorkspacePane],
+    target: ResolvedLaunchTarget
 ) throws -> String {
     // Pre-validation: every slot must be filled before emitting any script.
     let missing = (0 ..< layout.slotCount).filter { panesBySlot[$0] == nil }
@@ -80,14 +110,26 @@ func buildLaunchScript(
     lines.append("tell application \"Ghostty\"")
     lines.append("    activate")
 
-    // Slot 0 — the initial window.
+    // Slot 0 — the initial window or tab.
     let pane0 = panesBySlot[0]!
     let path0 = resolvedPath(rootPath: directoryPath, relativeCwd: pane0.relativeCwd)
 
     lines.append("    set cfg0 to new surface configuration")
     lines.append("    set initial working directory of cfg0 to \"\(path0)\"")
-    lines.append("    set win to new window with configuration cfg0")
-    lines.append("    set term0 to focused terminal of selected tab of win")
+
+    switch target {
+    case .windowOnly:
+        lines.append("    set win to new window with configuration cfg0")
+        lines.append("    set term0 to focused terminal of selected tab of win")
+    case .tabWithFallback:
+        lines.append("    if (count of windows) > 0 then")
+        lines.append("        set newTab to new tab in front window with configuration cfg0")
+        lines.append("        set term0 to focused terminal of newTab")
+        lines.append("    else")
+        lines.append("        set win to new window with configuration cfg0")
+        lines.append("        set term0 to focused terminal of selected tab of win")
+        lines.append("    end if")
+    }
 
     // Phase A — Topology: emit all splits in the layout-defined order.
     for step in layout.splitSequence {
@@ -167,6 +209,11 @@ private func escape(_ value: String) -> String {
 
 @MainActor
 struct WorkspaceLauncher: WorkspaceLauncherProtocol {
+    let settings: AppSettings
+
+    init(settings: AppSettings) {
+        self.settings = settings
+    }
 
     func launch(project: Project, panes: [WorkspacePane]) async throws {
         // 1. Validate directoryPath
@@ -183,7 +230,10 @@ struct WorkspaceLauncher: WorkspaceLauncherProtocol {
             throw WorkspaceLauncherError.ghosttyNotInstalled
         }
 
-        // 3. Build a slot-indexed dictionary from the pane list, skipping
+        // 3. Resolve the launch target (per-project preference vs. global default).
+        let target = resolveLaunchTarget(project: project, settings: settings)
+
+        // 4. Build a slot-indexed dictionary from the pane list, skipping
         //    unassigned panes (layoutSlot == -1). The buildLaunchScript
         //    function will throw if any required slot is missing.
         var panesBySlot: [Int: WorkspacePane] = [:]
@@ -194,10 +244,11 @@ struct WorkspaceLauncher: WorkspaceLauncherProtocol {
         let source = try buildLaunchScript(
             directoryPath: root,
             layout: project.layout,
-            panesBySlot: panesBySlot
+            panesBySlot: panesBySlot,
+            target: target
         )
 
-        // 4. Run the script off the main thread.
+        // 5. Run the script off the main thread.
         try await runScript(source)
     }
 

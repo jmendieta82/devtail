@@ -20,6 +20,8 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         order: Int,
         layoutSlot: Int,
         stack: String? = nil,
+        isFrontend: Bool = false,
+        localhostUrl: String? = nil,
         environment: ProjectEnvironment? = nil,
         project: Project
     ) throws -> WorkspacePane {
@@ -42,6 +44,8 @@ struct WorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
             order: nextOrder,
             layoutSlot: layoutSlot,
             stack: normalizedStack(stack),
+            isFrontend: isFrontend,
+            localhostUrl: isFrontend ? localhostUrl : nil,
             environment: environment,
             project: project
         )

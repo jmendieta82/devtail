@@ -7,6 +7,7 @@
 
 import Testing
 import Foundation
+import SwiftData
 @testable import Devtail
 
 @MainActor
@@ -94,4 +95,5 @@ struct ProjectModelTests {
 
         #expect(pane.environment == .prod)
     }
+
 }

@@ -11,7 +11,6 @@ import SwiftUI
 
 struct ProjectRowView: View {
     let name: String
-    let color: ProjectColor
     let isSelected: Bool
     /// Distinct from `isSelected`: this is the temporary cursor used
     /// while the user navigates the list with arrow keys, BEFORE they
@@ -23,12 +22,12 @@ struct ProjectRowView: View {
     var onTap: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
+    var onOpenInVSCode: (() -> Void)? = nil
 
     @State private var isHovered: Bool = false
 
     var body: some View {
         HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-            ColorDot(color: color)
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
                 Text(name)
                     .font(DevtailTokens.Typography.bodyDefault)
@@ -39,7 +38,7 @@ struct ProjectRowView: View {
             if isSelected {
                 Image(systemName: "checkmark")
                     .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                    .foregroundStyle(DevtailTokens.Colors.accentPrimary)
             }
             if isInteractive && isHovered && hasActions {
                 rowActions
@@ -72,7 +71,7 @@ struct ProjectRowView: View {
     }
 
     private var hasActions: Bool {
-        onEdit != nil || onDelete != nil
+        onEdit != nil || onDelete != nil || onOpenInVSCode != nil
     }
 
     @ViewBuilder
@@ -112,6 +111,13 @@ struct ProjectRowView: View {
         } label: {
             Label("Edit", systemImage: "pencil")
         }
+        if let onOpenInVSCode {
+            Button {
+                onOpenInVSCode()
+            } label: {
+                Label("Open in VSCode", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+        }
         Button(role: .destructive) {
             onDelete?()
         } label: {
@@ -140,17 +146,14 @@ struct ProjectRowView: View {
     VStack(spacing: DevtailTokens.Spacing.gapSmall) {
         ProjectRowView(
             name: "Devtail",
-            color: .green,
             isSelected: false
         )
         ProjectRowView(
             name: "Side Project",
-            color: .blue,
             isSelected: true
         )
         ProjectRowView(
             name: "Pixel",
-            color: .purple,
             isSelected: false
         )
     }
@@ -162,7 +165,6 @@ struct ProjectRowView: View {
 #Preview("Preview mode (non-interactive)") {
     ProjectRowView(
         name: "Live preview",
-        color: .amber,
         isSelected: false,
         isInteractive: false
     )

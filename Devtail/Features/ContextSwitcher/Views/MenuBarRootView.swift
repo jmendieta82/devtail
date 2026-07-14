@@ -85,6 +85,7 @@ struct MenuBarRootView: View {
             .padding(.vertical, DevtailTokens.Spacing.gapMedium)
         }
         .frame(width: DevtailTokens.Sizes.popoverWidth)
+        .background(popoverBackground)
         .task { store.loadProjects() }
         .task { await activityMonitor.refresh() }
         .onChange(of: store.projects) { _, _ in
@@ -109,6 +110,23 @@ struct MenuBarRootView: View {
         .onKeyPress(.escape) {
             handleEscape()
         }
+    }
+
+    // MARK: - Background
+
+    /// Same dark gradient used by the dashboard window. Keeps the popover
+    /// visually consistent with the rest of the app instead of inheriting
+    /// the translucent system material.
+    private var popoverBackground: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 0.05, green: 0.05, blue: 0.09),
+                Color(red: 0.08, green: 0.09, blue: 0.18),
+                Color(red: 0.06, green: 0.14, blue: 0.22)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     // MARK: - Accordion

@@ -18,11 +18,19 @@ struct QuickLinkChip: View {
     @State private var isHovering: Bool = false
 
     var body: some View {
-        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+        HStack(spacing: DevtailTokens.Spacing.gapMedium) {
+            Image(systemName: iconName)
+                .font(DevtailTokens.Typography.bodySmall)
+                .foregroundStyle(DevtailTokens.Colors.accentPrimary)
+                .frame(width: 14)
+
             Text(quickLink.label)
                 .font(DevtailTokens.Typography.bodySmall)
-                .foregroundStyle(DevtailTokens.Colors.accentBlue)
+                .foregroundStyle(DevtailTokens.Colors.textPrimary)
                 .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 0)
 
             if isEditing {
                 Button {
@@ -35,17 +43,15 @@ struct QuickLinkChip: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
-        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+        .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
+        .padding(.vertical, DevtailTokens.Spacing.gapMedium)
         .background(
             RoundedRectangle(cornerRadius: DevtailTokens.Radius.linkChip)
-                .fill(isHovering
-                      ? DevtailTokens.Colors.hoverState
-                      : DevtailTokens.Colors.pill)
+                .fill(DevtailTokens.Colors.accentPrimary.opacity(isHovering ? 0.18 : 0.10))
         )
         .overlay(
             RoundedRectangle(cornerRadius: DevtailTokens.Radius.linkChip)
-                .stroke(DevtailTokens.Colors.borderSubtle,
+                .stroke(DevtailTokens.Colors.accentPrimary.opacity(0.25),
                         lineWidth: DevtailTokens.BorderWidth.default)
         )
         .contentShape(Rectangle())
@@ -57,6 +63,12 @@ struct QuickLinkChip: View {
                 openURL(url)
             }
         }
+    }
+
+    /// Icon is derived from the URL's category, so it always matches the
+    /// section header the chip lives under.
+    private var iconName: String {
+        QuickLinkCategory.classify(urlString: quickLink.url).iconName
     }
 }
 

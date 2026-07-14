@@ -1,20 +1,14 @@
 import SwiftUI
 
 /// Green dot indicator for active workspaces.
-/// Designed to overlay on top of a ColorDot.
-///
-/// Usage:
-///     ColorDot(color: project.color)
-///         .overlay(alignment: .bottomTrailing) {
-///             ActivityDot(isActive: monitor.isActive(projectID: project.id))
-///         }
+/// Universal "live" semantic — kept green regardless of the app accent.
 struct ActivityDot: View {
     let isActive: Bool
 
     var body: some View {
         if isActive {
             Circle()
-                .fill(DevtailTokens.Colors.activityGreen)
+                .fill(Color(red: 0.298, green: 0.851, blue: 0.392))
                 .frame(
                     width: DevtailTokens.Sizes.activityDotSize,
                     height: DevtailTokens.Sizes.activityDotSize

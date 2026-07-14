@@ -32,6 +32,8 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
     var lastCreateCommand: String?
     var lastCreateLayoutSlot: Int?
     var lastCreateStack: String?
+    var lastCreateIsFrontend: Bool = false
+    var lastCreateLocalhostUrl: String?
     var lastCreateEnvironment: ProjectEnvironment?
     var lastCreateProject: Project?
     var lastUpdatedPane: WorkspacePane?
@@ -46,6 +48,8 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         order: Int,
         layoutSlot: Int,
         stack: String?,
+        isFrontend: Bool,
+        localhostUrl: String?,
         environment: ProjectEnvironment?,
         project: Project
     ) throws -> WorkspacePane {
@@ -55,6 +59,8 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
         lastCreateCommand = command
         lastCreateLayoutSlot = layoutSlot
         lastCreateStack = stack
+        lastCreateIsFrontend = isFrontend
+        lastCreateLocalhostUrl = localhostUrl
         lastCreateEnvironment = environment
         lastCreateProject = project
         if let errorToThrow {
@@ -70,6 +76,8 @@ final class MockWorkspacePaneRepository: WorkspacePaneRepositoryProtocol {
             order: order,
             layoutSlot: layoutSlot,
             stack: stack,
+            isFrontend: isFrontend,
+            localhostUrl: localhostUrl,
             environment: environment,
             project: project
         )

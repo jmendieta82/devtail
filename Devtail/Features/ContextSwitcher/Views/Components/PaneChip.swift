@@ -29,12 +29,12 @@ struct PaneChip: View {
             if let stack, !stack.isEmpty {
                 Text(stack)
                     .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.accentGreen)
+                    .foregroundStyle(DevtailTokens.Colors.accentPrimary)
                     .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
                     .padding(.vertical, 1)
                     .background(
                         RoundedRectangle(cornerRadius: DevtailTokens.Radius.badge)
-                            .fill(DevtailTokens.Colors.accentGreen.opacity(DevtailTokens.ActiveState.badgeBgOpacity))
+                            .fill(DevtailTokens.Colors.accentPrimary.opacity(DevtailTokens.ActiveState.badgeBgOpacity))
                     )
             }
         }

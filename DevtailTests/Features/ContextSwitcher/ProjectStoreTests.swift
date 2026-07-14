@@ -28,7 +28,9 @@ struct ProjectStoreTests {
             repository: projectRepo ?? MockProjectRepository(),
             quickLinkRepository: linkRepo ?? MockQuickLinkRepository(),
             workspacePaneRepository: paneRepo ?? MockWorkspacePaneRepository(),
-            launcher: launcher ?? MockWorkspaceLauncher()
+            launcher: launcher ?? MockWorkspaceLauncher(),
+            vscodeLauncher: MockVSCodeLauncher(),
+            browserLauncher: MockBrowserLauncher()
         )
     }
 

@@ -27,6 +27,8 @@ final class WorkspacePane {
     var order: Int
     var layoutSlot: Int
     var stack: String?
+    var isFrontend: Bool = false
+    var localhostUrl: String? = nil
     /// Stored as a raw string mirror of `ProjectEnvironment` so SwiftData
     /// can persist it. Optional because not every pane corresponds to a
     /// runtime environment (a pane could be a tooling shell, a logs
@@ -36,6 +38,11 @@ final class WorkspacePane {
     var createdAt: Date
     var updatedAt: Date
     var project: Project?
+    /// The git branch that was active the last time the user launched this
+    /// project. Compared against the current branch on Resume to detect
+    /// drift and prompt a confirmation. `nil` until the first launch that
+    /// succeeds branch detection for this pane.
+    var lastKnownBranch: String?
 
     /// Strongly-typed accessor over `environmentRaw`. Returns `nil` for
     /// unset OR unrecognized raw values, so a manual edit of the SQLite
@@ -56,6 +63,8 @@ final class WorkspacePane {
         order: Int,
         layoutSlot: Int,
         stack: String? = nil,
+        isFrontend: Bool = false,
+        localhostUrl: String? = nil,
         environment: ProjectEnvironment? = nil,
         project: Project?
     ) {
@@ -66,6 +75,8 @@ final class WorkspacePane {
         self.order = order
         self.layoutSlot = layoutSlot
         self.stack = stack
+        self.isFrontend = isFrontend
+        self.localhostUrl = localhostUrl
         self.environmentRaw = environment?.rawValue
         self.project = project
         let now = Date.now

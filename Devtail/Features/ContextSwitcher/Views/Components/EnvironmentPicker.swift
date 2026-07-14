@@ -75,14 +75,14 @@ struct EnvironmentPicker: View {
 
     private func background(for env: ProjectEnvironment) -> Color {
         selection == env
-            ? DevtailTokens.Colors.accentGreen
+            ? DevtailTokens.Colors.accentPrimary
                 .opacity(DevtailTokens.ActiveState.badgeBgOpacity)
             : DevtailTokens.Colors.pill
     }
 
     private func border(for env: ProjectEnvironment) -> Color {
         selection == env
-            ? DevtailTokens.Colors.accentGreen
+            ? DevtailTokens.Colors.accentPrimary
                 .opacity(DevtailTokens.ActiveState.activeBorderOpacity)
             : DevtailTokens.Colors.borderSubtle
     }
@@ -95,14 +95,14 @@ struct EnvironmentPicker: View {
 
     private var backgroundForNone: Color {
         selection == nil
-            ? DevtailTokens.Colors.accentGreen
+            ? DevtailTokens.Colors.accentPrimary
                 .opacity(DevtailTokens.ActiveState.badgeBgOpacity)
             : DevtailTokens.Colors.pill
     }
 
     private var borderForNone: Color {
         selection == nil
-            ? DevtailTokens.Colors.accentGreen
+            ? DevtailTokens.Colors.accentPrimary
                 .opacity(DevtailTokens.ActiveState.activeBorderOpacity)
             : DevtailTokens.Colors.borderSubtle
     }
