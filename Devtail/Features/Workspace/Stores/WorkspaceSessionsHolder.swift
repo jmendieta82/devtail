@@ -54,6 +54,8 @@ final class WorkspaceSession: Identifiable {
     /// is `@MainActor`-isolated under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
     /// and cannot be a default parameter value.
     let fileTree: FileTreeStore
+    /// Which side panel view is showing: files or processes.
+    var sidePanel: SidePanelView = .files
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor,

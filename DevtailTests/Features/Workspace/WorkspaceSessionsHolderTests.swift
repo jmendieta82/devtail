@@ -377,4 +377,12 @@ struct WorkspaceSessionsHolderTests {
         holder.close(projectId: session.projectId)
         #expect(agent?.terminateCount == 1)
     }
+
+    // MARK: - Side panel state
+
+    @Test func openSessionDefaultsToFilesSidePanel() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        #expect(session.sidePanel == .files)
+    }
 }
