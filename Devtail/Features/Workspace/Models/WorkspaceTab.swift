@@ -11,4 +11,6 @@ enum WorkspaceTab: Hashable {
     case process(UUID)
     /// Absolute path of an open file (read-only viewer tab).
     case file(String)
+    /// First-class interactive agent tab (auto-launched agent command).
+    case agent
 }

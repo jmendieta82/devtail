@@ -15,10 +15,18 @@ import Observation
 @MainActor
 @Observable
 final class AppSettings {
+    private let defaults: UserDefaults
     var defaultLaunchTarget: LaunchTarget
+    var agentCommand: String {
+        didSet { defaults.set(agentCommand, forKey: "agentCommand") }
+    }
 
     init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         let raw = defaults.string(forKey: "defaultLaunchTarget") ?? LaunchTarget.auto.rawValue
         self.defaultLaunchTarget = LaunchTarget(rawValue: raw) ?? .auto
+
+        let rawCommand = defaults.string(forKey: "agentCommand") ?? ""
+        self.agentCommand = rawCommand.trimmingCharacters(in: .whitespaces).isEmpty ? "claude" : rawCommand
     }
 }

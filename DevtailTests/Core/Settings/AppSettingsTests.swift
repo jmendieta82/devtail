@@ -51,4 +51,32 @@ struct AppSettingsTests {
         let settings = AppSettings(defaults: defaults)
         #expect(settings.defaultLaunchTarget == .auto)
     }
+
+    @Test("agentCommand defaults to claude")
+    func agentCommandDefaultsToClaude() {
+        let settings = AppSettings(defaults: freshDefaults())
+        #expect(settings.agentCommand == "claude")
+    }
+
+    @Test("agentCommand reads stored value")
+    func agentCommandReadsStoredValue() {
+        let defaults = freshDefaults()
+        defaults.set("claude --continue", forKey: "agentCommand")
+        #expect(AppSettings(defaults: defaults).agentCommand == "claude --continue")
+    }
+
+    @Test("agentCommand blank stored value falls back to claude")
+    func agentCommandBlankStoredValueFallsBackToClaude() {
+        let defaults = freshDefaults()
+        defaults.set("   ", forKey: "agentCommand")
+        #expect(AppSettings(defaults: defaults).agentCommand == "claude")
+    }
+
+    @Test("agentCommand persists on change")
+    func agentCommandPersistsOnChange() {
+        let defaults = freshDefaults()
+        let settings = AppSettings(defaults: defaults)
+        settings.agentCommand = "claude --continue"
+        #expect(defaults.string(forKey: "agentCommand") == "claude --continue")
+    }
 }
