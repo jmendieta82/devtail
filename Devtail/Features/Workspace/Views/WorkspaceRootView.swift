@@ -3,9 +3,9 @@
 //  Devtail
 //
 //  The per-project work window: interactive terminal as the hero, a tab row
-//  to flip between terminal and process logs, and a slim sidebar of process
-//  cards. CRITICAL: terminal views are all mounted in a ZStack and merely
-//  hidden — removing one from the hierarchy would destroy scrollback.
+//  to flip between terminal and process logs, and a project dashboard column.
+//  CRITICAL: terminal views are all mounted in a ZStack and merely hidden —
+//  removing one from the hierarchy would destroy scrollback.
 //
 
 import SwiftUI
