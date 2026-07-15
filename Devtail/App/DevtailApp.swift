@@ -79,7 +79,7 @@ struct DevtailApp: App {
         .defaultLaunchBehavior(.suppressed)
 
         Window("Settings", id: WindowID.settings) {
-            ComingSoonView(title: "Settings")
+            SettingsView()
         }
         .environment(appSettings)
         .windowResizability(.contentSize)

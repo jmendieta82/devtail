@@ -27,7 +27,6 @@ struct ProjectFormView: View {
     @State private var directoryPath: String = ""
     @State private var directoryBookmark: Data?
     @State private var launchTarget: LaunchTarget = .auto
-    @State private var runClaudeCode: Bool = true
     @State private var showError: Bool = false
     @State private var didLoad: Bool = false
     @State private var nameWasEditedManually: Bool = false
@@ -43,9 +42,6 @@ struct ProjectFormView: View {
                 header
                 directoryField
                 nameField
-                if !isEditMode {
-                    claudeCodeToggle
-                }
                 preview
                 if isEditMode, let project = editingProject {
                     layoutSection(for: project)
@@ -137,24 +133,6 @@ struct ProjectFormView: View {
             .background(inputBackground)
             .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
         }
-    }
-
-    private var claudeCodeToggle: some View {
-        Toggle(isOn: $runClaudeCode) {
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
-                Text("Run Claude Code in this project")
-                    .font(DevtailTokens.Typography.bodyDefault)
-                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                Text("Pre-fills the default pane command with 'claude' so launching the workspace opens Claude Code automatically.")
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .toggleStyle(.switch)
-        .tint(DevtailTokens.Colors.accentPrimary)
-        .disabled(directoryPath.isEmpty)
-        .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
     }
 
     private var preview: some View {
@@ -428,7 +406,6 @@ struct ProjectFormView: View {
                 name: trimmedName,
                 directoryPath: directoryPath,
                 directoryBookmark: directoryBookmark,
-                runClaudeCode: runClaudeCode,
                 launchTarget: launchTarget
             )
         }
@@ -475,7 +452,6 @@ struct ProjectFormView: View {
         name = ""
         directoryPath = ""
         launchTarget = .auto
-        runClaudeCode = true
         showError = false
         didLoad = false
         initialSnapshot = nil

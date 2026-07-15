@@ -86,7 +86,6 @@ final class ProjectStore {
         color: ProjectColor = .gray,
         directoryPath: String = "",
         directoryBookmark: Data? = nil,
-        runClaudeCode: Bool = false,
         launchTarget: LaunchTarget = .auto
     ) {
         do {
@@ -103,14 +102,13 @@ final class ProjectStore {
                 try repository.update(project)
 
                 // Seed a root pane mirroring the directoryPath the user
-                // just picked. When `runClaudeCode` is true, the pane's
-                // command is pre-filled with "claude" so launching the
-                // workspace drops the user straight into Claude Code for
-                // this project — the most common setup for Devtail users.
+                // just picked. The command starts empty — the agent
+                // command (if any) is configured globally in Settings
+                // and applied at spawn time, not baked into the seed.
                 _ = try? workspacePaneRepository.create(
                     label: name,
                     relativeCwd: ".",
-                    command: runClaudeCode ? "claude" : "",
+                    command: "",
                     order: 0,
                     layoutSlot: 0,
                     stack: nil,
