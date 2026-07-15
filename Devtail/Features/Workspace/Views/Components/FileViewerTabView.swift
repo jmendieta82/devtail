@@ -13,12 +13,20 @@ import SwiftUI
 struct FileViewerTabView: View {
     let path: String
 
-    @State private var content: FileViewerContent?
+    private enum ViewerState {
+        case loading
+        case binary
+        case tooLarge(Int)
+        case unreadable(String)
+        case ready(NSAttributedString, NSColor)
+    }
+
+    @State private var state: ViewerState = .loading
 
     var body: some View {
         Group {
-            switch content {
-            case nil:
+            switch state {
+            case .loading:
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .binary:
@@ -28,27 +36,38 @@ struct FileViewerTabView: View {
                             detail: "\(bytes / (1024 * 1024)) MB exceeds the viewer limit.")
             case .unreadable(let reason):
                 placeholder(icon: "exclamationmark.triangle", title: "Can't read file", detail: reason)
-            case .text(let text, let language, let highlightable):
-                viewer(text: text, language: language, highlightable: highlightable)
+            case .ready(let attributed, let background):
+                CodeViewerView(attributedText: attributed, backgroundColor: background)
             }
         }
-        .task(id: path) { content = FileContentLoader.load(path: path) }
+        .task(id: path) {
+            state = .loading
+            let content = FileContentLoader.load(path: path)
+            state = Self.viewerState(for: content)
+        }
     }
 
-    private func viewer(text: String, language: String?, highlightable: Bool) -> some View {
-        let attributed: NSAttributedString
-        if highlightable, let highlighted = CodeHighlighter.shared.highlight(text, language: language) {
-            attributed = highlighted
-        } else {
-            attributed = NSAttributedString(string: text, attributes: [
-                .font: NSFont(name: "UbuntuMono-Regular", size: 13) ?? .monospacedSystemFont(ofSize: 13, weight: .regular),
-                .foregroundColor: NSColor.labelColor,
-            ])
+    private static func viewerState(for content: FileViewerContent) -> ViewerState {
+        switch content {
+        case .binary:
+            return .binary
+        case .tooLarge(let bytes):
+            return .tooLarge(bytes)
+        case .unreadable(let reason):
+            return .unreadable(reason)
+        case .text(let text, let language, let highlightable):
+            let attributed: NSAttributedString
+            if highlightable, let highlighted = CodeHighlighter.shared.highlight(text, language: language) {
+                attributed = highlighted
+            } else {
+                attributed = NSAttributedString(string: text, attributes: [
+                    .font: NSFont(name: "UbuntuMono-Regular", size: 13) ?? .monospacedSystemFont(ofSize: 13, weight: .regular),
+                    .foregroundColor: NSColor.labelColor,
+                ])
+            }
+            let background = highlightable ? CodeHighlighter.shared.backgroundColor : .textBackgroundColor
+            return .ready(attributed, background)
         }
-        return CodeViewerView(
-            attributedText: attributed,
-            backgroundColor: highlightable ? CodeHighlighter.shared.backgroundColor : .textBackgroundColor
-        )
     }
 
     private func placeholder(icon: String, title: String, detail: String) -> some View {

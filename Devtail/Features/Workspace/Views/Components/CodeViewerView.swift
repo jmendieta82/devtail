@@ -38,10 +38,19 @@ struct CodeViewerView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
-        textView.textStorage?.setAttributedString(attributedText)
+        if context.coordinator.lastRendered !== attributedText {
+            textView.textStorage?.setAttributedString(attributedText)
+            context.coordinator.lastRendered = attributedText
+            (scrollView.verticalRulerView as? LineNumberRulerView)?.needsDisplay = true
+        }
         textView.backgroundColor = backgroundColor
         scrollView.backgroundColor = backgroundColor
-        (scrollView.verticalRulerView as? LineNumberRulerView)?.needsDisplay = true
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var lastRendered: NSAttributedString?
     }
 }
 
@@ -73,6 +82,8 @@ final class LineNumberRulerView: NSRulerView {
     }
 
     required init(coder: NSCoder) { fatalError("not used") }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     @objc private func textDidChange() { needsDisplay = true }
 
