@@ -62,7 +62,36 @@ struct WorkspaceRootView: View {
                         .allowsHitTesting(session.selectedTab == process.id)
                 }
             }
+
+            // Dead-state affordance: the exited terminal view stays mounted
+            // underneath (scrollback stays readable) — this just floats a
+            // restart prompt over it. User-initiated only, no auto-respawn.
+            if session.selectedTab == nil && session.interactiveExited {
+                deadShellOverlay
+            }
         }
+    }
+
+    private var deadShellOverlay: some View {
+        VStack(spacing: DevtailTokens.Spacing.gapMedium) {
+            Text("shell exited")
+                .font(DevtailTokens.Typography.caption)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            Button("Restart shell") {
+                holder.restartInteractive(projectId: session.projectId)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(DevtailTokens.Spacing.cardPadding)
+        .background(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .fill(DevtailTokens.Colors.popoverBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
+        )
     }
 
     private var sidebar: some View {
@@ -89,8 +118,10 @@ struct WorkspaceRootView: View {
                 if !session.quickLinks.isEmpty {
                     SectionHeader(title: "Quick Links")
                     ForEach(session.quickLinks, id: \.url) { link in
-                        Link(link.title, destination: URL(string: link.url) ?? URL(fileURLWithPath: "/"))
-                            .font(DevtailTokens.Typography.caption)
+                        if let url = URL(string: link.url) {
+                            Link(link.title, destination: url)
+                                .font(DevtailTokens.Typography.caption)
+                        }
                     }
                 }
             }

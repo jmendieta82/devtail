@@ -139,4 +139,55 @@ struct WorkspaceSessionsHolderTests {
         #expect(session.currentBranch == nil)
         #expect(session.quickLinks.isEmpty)
     }
+
+    // MARK: - Interactive shell exit / restart (no auto-respawn)
+
+    @Test func interactiveExitSetsInteractiveExitedFlag() throws {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+        let interactiveMock = try #require(session.interactive as? MockTerminalSession)
+
+        interactiveMock.simulateExit(code: 0)
+
+        #expect(session.interactiveExited)
+    }
+
+    @Test func restartInteractiveCreatesFreshSessionResetsFlagAndTerminatesOld() throws {
+        let (holder, engine) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+        let oldInteractive = session.interactive as! MockTerminalSession
+        oldInteractive.simulateExit(code: 1)
+        #expect(session.interactiveExited)
+
+        holder.restartInteractive(projectId: p.id)
+
+        #expect(!session.interactiveExited)
+        #expect(oldInteractive.terminateCount >= 1)
+        #expect(session.interactive !== oldInteractive)
+        // A fresh non-readOnly session was spawned at the same root.
+        let freshInteractive = session.interactive as! MockTerminalSession
+        #expect(freshInteractive.startCount == 1)
+        #expect(engine.configs.last?.readOnly == false)
+        #expect(engine.configs.last?.cwd.path == "/tmp/alpha")
+    }
+
+    @Test func staleExitFromReplacedInteractiveSessionDoesNotReflipFlagAfterRestart() throws {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+        let oldInteractive = session.interactive as! MockTerminalSession
+
+        holder.restartInteractive(projectId: p.id)
+        #expect(!session.interactiveExited)
+
+        // The OLD (replaced) session's process dies late/async after restart.
+        // Identity guard must prevent this stale callback from re-flipping
+        // the flag — the current `session.interactive` is a different
+        // instance now.
+        oldInteractive.simulateExit(code: 1)
+
+        #expect(!session.interactiveExited)
+    }
 }

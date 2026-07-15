@@ -40,7 +40,6 @@ struct ProjectFormView: View {
                 header
                 directoryField
                 nameField
-                launchTargetPicker
                 if !isEditMode {
                     claudeCodeToggle
                 }
@@ -64,7 +63,6 @@ struct ProjectFormView: View {
             recomputeDirty()
         }
         .onChange(of: directoryPath) { _, _ in recomputeDirty() }
-        .onChange(of: launchTarget) { _, _ in recomputeDirty() }
     }
 
     // MARK: - Sections
@@ -116,19 +114,6 @@ struct ProjectFormView: View {
             .padding(.vertical, DevtailTokens.Spacing.gapMedium)
             .background(inputBackground)
             .opacity(directoryPath.isEmpty ? 0.5 : 1.0)
-        }
-    }
-
-    private var launchTargetPicker: some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.sectionTitleBottom) {
-            fieldLabel("Launch in")
-            Picker("Launch in", selection: $launchTarget) {
-                ForEach(LaunchTarget.allCases) { option in
-                    Text(option.label).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
         }
     }
 
