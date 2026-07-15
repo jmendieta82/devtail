@@ -40,8 +40,8 @@ git checkout main && git pull && git checkout -b feat/workspace-tres-columnas
 La card "Session" de la columna dashboard necesita saber cuándo se abrió el workspace. Hoy `WorkspaceSession` no tiene timestamp (verificado por grep). Se agrega `openedAt` y un formateador puro testeable.
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Models/WorkspaceSessionClock.swift`
-- Modify: `Devtail/Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (clase `WorkspaceSession`, ~L13-48)
+- Create: `Devtail/Features/Workspace/Models/WorkspaceSessionClock.swift`
+- Modify: `Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (clase `WorkspaceSession`, ~L13-48)
 - Test: `DevtailTests/Features/Workspace/WorkspaceSessionClockTests.swift` (nuevo)
 - Test: `DevtailTests/Features/Workspace/WorkspaceSessionsHolderTests.swift` (extender)
 
@@ -104,7 +104,7 @@ Expected: FAIL — `cannot find 'WorkspaceSessionClock' in scope`.
 
 - [ ] **Step 3: Implementación mínima**
 
-Crear `Devtail/Devtail/Features/Workspace/Models/WorkspaceSessionClock.swift`:
+Crear `Devtail/Features/Workspace/Models/WorkspaceSessionClock.swift`:
 
 ```swift
 import Foundation
@@ -152,9 +152,9 @@ Nota: si Xcode no materializa el archivo nuevo en el target automáticamente (pr
 Nueva vista que absorbe el contenido del `sidebar` actual de `WorkspaceRootView` (L97-130) y agrega header de proyecto, quick links vivos y card de sesión. En este task la vista se crea y se usa REEMPLAZANDO al sidebar derecho actual (el layout de 3 columnas llega en Task 3 — acá solo cambia el contenido del panel derecho existente para mantener la app compilando y usable en cada commit).
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Views/Components/WorkspaceDashboardColumn.swift`
-- Modify: `Devtail/Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (reemplazar la property `sidebar` por la nueva vista; borrar `sidebar`)
-- Modify: `Devtail/Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (eliminar el snapshot `quickLinks` de `WorkspaceSession`, ver Step 3)
+- Create: `Devtail/Features/Workspace/Views/Components/WorkspaceDashboardColumn.swift`
+- Modify: `Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (reemplazar la property `sidebar` por la nueva vista; borrar `sidebar`)
+- Modify: `Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (eliminar el snapshot `quickLinks` de `WorkspaceSession`, ver Step 3)
 - Test: `DevtailTests/Features/Workspace/WorkspaceSessionsHolderTests.swift` (ajustar tests del snapshot)
 
 **Interfaces:**
@@ -262,8 +262,8 @@ git commit -m "feat(workspace): project dashboard column with live quick links a
 ### Task 3: Tres columnas + placeholder del file tree
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Views/Components/FileTreePlaceholderColumn.swift`
-- Modify: `Devtail/Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (body, L17-30)
+- Create: `Devtail/Features/Workspace/Views/Components/FileTreePlaceholderColumn.swift`
+- Modify: `Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (body, L17-30)
 
 **Interfaces:**
 - Consumes: `WorkspaceDashboardColumn` (Task 2).
@@ -343,7 +343,7 @@ git commit -m "feat(workspace): three-column layout with file tree placeholder"
 ANTES de adelgazar el hub (Task 5), la edición de layout/panes/quick links tiene que existir en el form — nunca un commit sin hogar para la edición. Hoy `ProjectFormView` NO edita nada de eso (verificado). Las secciones nuevas aparecen SOLO en modo edición (`isEditMode`) y operan en vivo sobre el store — la misma semántica inmediata que tenían en `DashboardDetailView` (el form snapshot/submit existente sigue gobernando solo name/directory/launchTarget).
 
 **Files:**
-- Modify: `Devtail/Devtail/Features/ContextSwitcher/Views/ProjectFormView.swift` (body L37-56 + secciones nuevas)
+- Modify: `Devtail/Features/ContextSwitcher/Views/ProjectFormView.swift` (body L37-56 + secciones nuevas)
 
 **Interfaces:**
 - Consumes: `WorkspaceLayoutPicker(selected:onSelect:axis:layouts:)`, `WorkspacePaneEditRow` (firma completa en su archivo: `projectRoot`, `initial*`, `detectorRegistry`, `onSave(7 params)`, más el resto de closures — COPIAR la instanciación exacta desde `DashboardDetailView.paneEditMode`/`paneAddMode` L64-133, que en este task todavía existen), `QuickLinksPanel(projectID:hideTitle:)`, y de `ProjectStore`: `addWorkspacePane(label:relativeCwd:command:layoutSlot:stack:isFrontend:localhostUrl:environment:to:)`, `updateWorkspacePane(_:label:relativeCwd:command:stack:isFrontend:localhostUrl:environment:)`, `deleteWorkspacePane(_:)`, `setLayout(for:layout:)`.
@@ -456,7 +456,7 @@ git commit -m "feat(hub): edit processes, quick links and layout from the projec
 Con la edición ya viviendo en el form (Task 4), el detail del hub se reduce a welcome.
 
 **Files:**
-- Modify: `Devtail/Devtail/Features/ContextSwitcher/Views/Components/DashboardDetailView.swift` (819 líneas → mucho menos)
+- Modify: `Devtail/Features/ContextSwitcher/Views/Components/DashboardDetailView.swift` (819 líneas → mucho menos)
 
 **Interfaces:**
 - Consumes: nada nuevo.

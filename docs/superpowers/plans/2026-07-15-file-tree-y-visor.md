@@ -38,10 +38,10 @@ git checkout main && git checkout -b feat/file-tree-y-visor
 ### Task 1: Migración `selectedTab` → `WorkspaceTab`
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Models/WorkspaceTab.swift`
-- Modify: `Devtail/Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (`WorkspaceSession.selectedTab`)
-- Modify: `Devtail/Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (`tabRow`, `tabButton`, `terminalArea`, `deadShellOverlay` condition)
-- Modify: `Devtail/Devtail/Features/Workspace/Views/Components/WorkspaceDashboardColumn.swift` (`processesSection` closures)
+- Create: `Devtail/Features/Workspace/Models/WorkspaceTab.swift`
+- Modify: `Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (`WorkspaceSession.selectedTab`)
+- Modify: `Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (`tabRow`, `tabButton`, `terminalArea`, `deadShellOverlay` condition)
+- Modify: `Devtail/Features/Workspace/Views/Components/WorkspaceDashboardColumn.swift` (`processesSection` closures)
 - Test: actualizar todo test que referencie `selectedTab` (`rg -n "selectedTab" Devtail DevtailTests`)
 
 **Interfaces:**
@@ -123,8 +123,8 @@ Expected: exit 0, 0 failed (289 casos: 288 + el nuevo).
 ### Task 2: `OpenFile` + open/close en la sesión
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Models/OpenFile.swift`
-- Modify: `Devtail/Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (`WorkspaceSession`)
+- Create: `Devtail/Features/Workspace/Models/OpenFile.swift`
+- Modify: `Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (`WorkspaceSession`)
 - Test: Create `DevtailTests/Features/Workspace/WorkspaceSessionOpenFilesTests.swift`
 
 **Interfaces:**
@@ -246,9 +246,9 @@ func closeFile(at path: String) {
 ### Task 3: `DirectoryLister` + `FileTreeStore`
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Services/DirectoryLister.swift`
-- Create: `Devtail/Devtail/Features/Workspace/Stores/FileTreeStore.swift`
-- Modify: `Devtail/Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (la sesión gana `let fileTree: FileTreeStore`)
+- Create: `Devtail/Features/Workspace/Services/DirectoryLister.swift`
+- Create: `Devtail/Features/Workspace/Stores/FileTreeStore.swift`
+- Modify: `Devtail/Features/Workspace/Stores/WorkspaceSessionsHolder.swift` (la sesión gana `let fileTree: FileTreeStore`)
 - Test: Create `DevtailTests/Features/Workspace/FileTreeStoreTests.swift` (+ `MockDirectoryLister` en el mismo archivo)
 
 **Interfaces:**
@@ -296,7 +296,10 @@ struct FileTreeStoreTests {
     }
 
     @Test func relativeRootFailsClosed() {
-        let store = FileTreeStore(root: URL(fileURLWithPath: ""), lister: MockDirectoryLister())
+        // URL(string: "file:...") yields a genuinely relative path, unlike
+        // URL(fileURLWithPath: "") which resolves against CWD (see
+        // GitBranchDetectorTests.relativeURLReturnsNil).
+        let store = FileTreeStore(root: URL(string: "file:some/relative/dir")!, lister: MockDirectoryLister())
         store.loadRootIfNeeded()
         #expect(store.rootNodes == nil)
         #expect(store.rootError != nil)
@@ -481,9 +484,9 @@ En `WorkspaceSession`: agregar `let fileTree: FileTreeStore`, inicializado en su
 
 **Files:**
 - Modify: `Devtail.xcodeproj/project.pbxproj` (4 bloques, espejo del patrón SwiftTerm)
-- Create: `Devtail/Devtail/Features/Workspace/Services/CodeLanguageMap.swift`
-- Create: `Devtail/Devtail/Features/Workspace/Services/FileContentLoader.swift`
-- Create: `Devtail/Devtail/Features/Workspace/Services/CodeHighlighter.swift`
+- Create: `Devtail/Features/Workspace/Services/CodeLanguageMap.swift`
+- Create: `Devtail/Features/Workspace/Services/FileContentLoader.swift`
+- Create: `Devtail/Features/Workspace/Services/CodeHighlighter.swift`
 - Test: Create `DevtailTests/Features/Workspace/CodeLanguageMapTests.swift`, `DevtailTests/Features/Workspace/FileContentLoaderTests.swift`, `DevtailTests/Features/Workspace/CodeHighlighterTests.swift`
 
 **Interfaces:**
@@ -727,8 +730,8 @@ final class CodeHighlighter {
 ### Task 5: Visor — `CodeViewerView` + `LineNumberRulerView` + `FileViewerTabView`
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Views/Components/CodeViewerView.swift` (incluye `LineNumberRulerView`, acoplados)
-- Create: `Devtail/Devtail/Features/Workspace/Views/Components/FileViewerTabView.swift`
+- Create: `Devtail/Features/Workspace/Views/Components/CodeViewerView.swift` (incluye `LineNumberRulerView`, acoplados)
+- Create: `Devtail/Features/Workspace/Views/Components/FileViewerTabView.swift`
 
 **Interfaces:**
 - Consumes: `FileContentLoader`, `CodeHighlighter`, `CodeLanguageMap` (Task 4), tokens `DevtailTokens.Typography.mono`.
@@ -906,9 +909,9 @@ struct FileViewerTabView: View {
 ### Task 6: `FileTreeColumn` (UI del tree)
 
 **Files:**
-- Create: `Devtail/Devtail/Features/Workspace/Views/Components/FileTreeColumn.swift`
-- Delete: `Devtail/Devtail/Features/Workspace/Views/Components/FileTreePlaceholderColumn.swift`
-- Modify: `Devtail/Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (columna derecha)
+- Create: `Devtail/Features/Workspace/Views/Components/FileTreeColumn.swift`
+- Delete: `Devtail/Features/Workspace/Views/Components/FileTreePlaceholderColumn.swift`
+- Modify: `Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (columna derecha)
 
 **Interfaces:**
 - Consumes: `WorkspaceSession.fileTree` (Task 3), `session.openFile(at:)` (Task 2), `SectionHeader`, `DevtailTokens`.
@@ -1005,7 +1008,7 @@ private struct FileTreeNodeRow: View {
 ### Task 7: Tabs de archivo en el centro
 
 **Files:**
-- Modify: `Devtail/Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (`tabRow` + área central)
+- Modify: `Devtail/Features/Workspace/Views/WorkspaceRootView.swift` (`tabRow` + área central)
 
 **Interfaces:**
 - Consumes: `session.openFiles`/`closeFile(at:)` (Task 2), `FileViewerTabView` (Task 5), `WorkspaceTab.file` (Task 1).
