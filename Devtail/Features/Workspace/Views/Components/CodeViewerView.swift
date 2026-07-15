@@ -87,6 +87,22 @@ final class LineNumberRulerView: NSRulerView {
 
     @objc private func textDidChange() { needsDisplay = true }
 
+    /// Counts newlines up to `index` without copying the string or
+    /// allocating an array, unlike `substring(to:).components(separatedBy:)`.
+    private static func lineNumber(forCharacterIndex index: Int, in text: NSString) -> Int {
+        var count = 1
+        var searchRange = NSRange(location: 0, length: index)
+        while true {
+            let found = text.range(of: "\n", options: [], range: searchRange)
+            if found.location == NSNotFound { break }
+            count += 1
+            let nextStart = found.location + 1
+            searchRange = NSRange(location: nextStart, length: index - nextStart)
+            if searchRange.length <= 0 { break }
+        }
+        return count
+    }
+
     override func drawHashMarksAndLabels(in rect: NSRect) {
         guard let textView,
               let layoutManager = textView.layoutManager,
@@ -101,8 +117,7 @@ final class LineNumberRulerView: NSRulerView {
         let firstVisibleCharIndex = visibleGlyphs.location < layoutManager.numberOfGlyphs
             ? layoutManager.characterIndexForGlyph(at: visibleGlyphs.location)
             : text.length
-        var lineNumber = text.substring(to: firstVisibleCharIndex)
-            .components(separatedBy: "\n").count
+        var lineNumber = Self.lineNumber(forCharacterIndex: firstVisibleCharIndex, in: text)
 
         var glyphIndex = visibleGlyphs.location
         while glyphIndex < NSMaxRange(visibleGlyphs) {

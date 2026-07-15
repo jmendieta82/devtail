@@ -66,8 +66,8 @@ struct WorkspaceSessionOpenFilesTests {
     @Test func closeSelectedSelectsPreviousNeighbor() {
         let s = makeSession()
         s.openFile(at: "/tmp/a.swift"); s.openFile(at: "/tmp/b.swift"); s.openFile(at: "/tmp/c.swift")
-        s.closeFile(at: "/tmp/b.swift")   // b sigue seleccionado? no: c es el seleccionado
-        s.openFile(at: "/tmp/b.swift")    // reabrir y seleccionar b
+        s.closeFile(at: "/tmp/b.swift")   // is b still selected? no: c is selected
+        s.openFile(at: "/tmp/b.swift")    // reopen and select b
         s.closeFile(at: "/tmp/b.swift")
         #expect(s.selectedTab == .file("/tmp/c.swift"))
     }

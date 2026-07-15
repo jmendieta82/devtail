@@ -15,6 +15,10 @@ enum FileContentLoader {
 
     static func load(path: String) -> FileViewerContent {
         let url = URL(fileURLWithPath: path)
+        if let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
+           size > plainByteLimit {
+            return .tooLarge(size)
+        }
         let data: Data
         do {
             data = try Data(contentsOf: url)

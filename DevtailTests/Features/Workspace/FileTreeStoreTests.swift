@@ -54,9 +54,9 @@ struct FileTreeStoreTests {
         store.loadRootIfNeeded()
         let sub = store.rootNodes![0]
         #expect(sub.children == nil)
-        store.toggleExpansion(of: sub)          // expand → carga
+        store.toggleExpansion(of: sub)          // expand → loads
         store.toggleExpansion(of: sub)          // collapse
-        store.toggleExpansion(of: sub)          // re-expand → NO re-lista
+        store.toggleExpansion(of: sub)          // re-expand → does NOT re-list
         #expect(mock.listedPaths.filter { $0 == "/root/sub" }.count == 1)
         #expect(sub.children?.count == 1)
     }
