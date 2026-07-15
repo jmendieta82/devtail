@@ -28,6 +28,8 @@ final class WorkspaceSession: Identifiable {
     /// Which center-column tab is showing: interactive terminal, a managed
     /// process's log, or a file viewer.
     var selectedTab: WorkspaceTab = .terminal
+    /// Files open in the workspace (read-only viewer tabs).
+    private(set) var openFiles: [OpenFile] = []
     /// Current git branch of the project root, detected once at session
     /// open. Nil when the root isn't a git repo (or metadata is unreadable).
     let currentBranch: String?
@@ -47,6 +49,31 @@ final class WorkspaceSession: Identifiable {
         self.interactive = interactive
         self.currentBranch = currentBranch
         self.openedAt = openedAt
+    }
+
+    /// Open a file in the workspace (append to openFiles if not already open,
+    /// and select it). Idempotent: calling again with the same path simply
+    /// re-selects it.
+    func openFile(at path: String) {
+        if !openFiles.contains(where: { $0.path == path }) {
+            openFiles.append(OpenFile(path: path))
+        }
+        selectedTab = .file(path)
+    }
+
+    /// Close a file in the workspace. If the closed file was selected,
+    /// selects the previous neighbor (or next if closed file was first).
+    /// If no files remain, selects the terminal tab. No-op if the path
+    /// is not in openFiles.
+    func closeFile(at path: String) {
+        guard let index = openFiles.firstIndex(where: { $0.path == path }) else { return }
+        openFiles.remove(at: index)
+        guard selectedTab == .file(path) else { return }
+        if openFiles.isEmpty {
+            selectedTab = .terminal
+        } else {
+            selectedTab = .file(openFiles[max(0, index - 1)].path)
+        }
     }
 }
 
