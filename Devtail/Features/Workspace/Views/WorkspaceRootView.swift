@@ -37,7 +37,11 @@ struct WorkspaceRootView: View {
             tabButton(title: "terminal", tab: .terminal)
             tabButton(title: "agent", tab: .agent)
             ForEach(session.supervisor.processes) { process in
-                tabButton(title: process.name, tab: .process(process.id))
+                // On-demand tab: only processes with a live session (running,
+                // or exited/stopped with scrollback preserved) get a tab.
+                if process.session != nil {
+                    tabButton(title: process.name, tab: .process(process.id))
+                }
             }
             ForEach(session.openFiles) { file in
                 fileTab(for: file)

@@ -47,8 +47,17 @@ struct WorkspaceDashboardColumn: View {
                 ProcessCardView(
                     process: process,
                     isSelected: session.selectedTab == .process(process.id),
-                    onSelect: { session.selectedTab = .process(process.id) },
-                    onStart: { session.supervisor.start(process) },
+                    onSelect: {
+                        // Never-started processes have no session, hence no tab —
+                        // selecting the card must not point at a tab that renders nothing.
+                        if process.session != nil { session.selectedTab = .process(process.id) }
+                    },
+                    onStart: {
+                        // Start opens the tab: after start() the session exists,
+                        // so selecting immediately shows the live process view.
+                        session.supervisor.start(process)
+                        session.selectedTab = .process(process.id)
+                    },
                     onStop: { session.supervisor.stop(process) },
                     onRestart: { session.supervisor.restart(process) }
                 )
