@@ -96,4 +96,15 @@ struct ProcessSupervisorTests {
         engine.sessions[0].simulateExit(code: 0)
         #expect(sut.processes[0].state == .stopped)
     }
+
+    @Test func staleExitFromReplacedSessionDoesNotKillRestartedProcess() {
+        let (sut, engine, _) = makeSUT()
+        sut.configure(panes: [pane("back", order: 0)], root: URL(fileURLWithPath: "/tmp/p"))
+        sut.start(sut.processes[0])
+        sut.restart(sut.processes[0])
+        // The OLD session's child dies late — its exit must not touch the
+        // process now owned by the NEW session.
+        engine.sessions[0].simulateExit(code: 137)
+        #expect(sut.processes[0].state == .running)
+    }
 }

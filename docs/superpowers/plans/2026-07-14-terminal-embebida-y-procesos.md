@@ -647,8 +647,20 @@ final class ProcessSupervisor {
         let session = engine.makeSession(
             TerminalSessionConfig(command: process.command, cwd: process.cwd, readOnly: true)
         )
-        session.onExit = { [weak process] code in
-            guard let process, process.state == .running || process.state == .starting else { return }
+        // Two races guarded here: (1) identity — restart() may have replaced
+        // process.session with a fresh one by the time this OLD session's
+        // child actually dies (termination is async), so we must confirm
+        // process.session is STILL this session before touching state;
+        // (2) state — stop() marks .stopped synchronously but does not nil
+        // the session, so a late exit after a plain stop passes the identity
+        // check and needs the state guard to be rejected.
+        // [Amended post-review: original draft used only `[weak process]` with
+        // a state guard, which let a stale exit from a session replaced by
+        // restart() stamp .exited over the healthy new session.]
+        session.onExit = { [weak process, weak session] code in
+            guard let process, let session,
+                  process.session === session,
+                  process.state == .running || process.state == .starting else { return }
             process.state = .exited(code)
         }
         process.session = session
