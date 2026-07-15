@@ -86,6 +86,11 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
 /// `LocalProcessTerminalView.send(source:data:)` before reaching the PTY, so
 /// swallowing input there is equivalent and leaves `keyDown`'s UI bookkeeping
 /// (selection, scrolling) intact.
+///
+/// NOTE: the same funnel carries programmatic writes — `send(txt:)` and thus
+/// the adapter's `writeToStdin` are ALSO no-ops on read-only sessions. This
+/// is the documented `TerminalSession.writeToStdin` contract; consumers that
+/// need to type into a session must create it with `readOnly: false`.
 final class ReadOnlyLocalProcessTerminalView: LocalProcessTerminalView {
     override func send(source: TerminalView, data: ArraySlice<UInt8>) { /* read-only: swallow */ }
 }

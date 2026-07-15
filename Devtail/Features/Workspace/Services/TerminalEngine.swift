@@ -28,7 +28,9 @@ protocol TerminalSession: AnyObject {
     func start()
     /// killpg(SIGTERM) → grace → killpg(SIGKILL). Idempotent.
     func terminate()
-    /// Forward text to the session's stdin (interactive sessions).
+    /// Forward text to the session's stdin. Interactive sessions only:
+    /// on read-only sessions this is a documented no-op (the read-only
+    /// swallow intercepts the same delegate funnel keyboard input uses).
     func writeToStdin(_ text: String)
 }
 
