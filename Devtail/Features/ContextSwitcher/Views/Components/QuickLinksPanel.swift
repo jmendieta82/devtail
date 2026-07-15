@@ -110,7 +110,7 @@ struct QuickLinksPanel: View {
                 .font(DevtailTokens.Typography.bodyDefault)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
             Text(isReadOnly
-                 ? "Open Manage… to add links."
+                 ? "Edit the project to add links."
                  : "Enter edit mode to add your first link.")
                 .font(DevtailTokens.Typography.caption)
                 .foregroundStyle(DevtailTokens.Colors.textTertiary)

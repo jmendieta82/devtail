@@ -187,7 +187,7 @@ struct ProjectFormView: View {
     private var actions: some View {
         HStack {
             Spacer()
-            Button("Cancel") { cancel() }
+            Button(cancelLabel) { cancel() }
                 .keyboardShortcut(.cancelAction)
                 .buttonStyle(.bordered)
 
@@ -234,14 +234,21 @@ struct ProjectFormView: View {
                     Button("Edit") { editingPane = pane }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                    Button(role: .destructive) {
-                        store.deleteWorkspacePane(pane)
-                    } label: {
-                        Image(systemName: "trash")
+                    if project.workspacePanes.count > 1 {
+                        Button(role: .destructive) {
+                            store.deleteWorkspacePane(pane)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
                 }
+            }
+            if project.workspacePanes.isEmpty {
+                Text("Add a process to launch this workspace.")
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
             }
             Button {
                 isAddingPane = true
@@ -286,6 +293,7 @@ struct ProjectFormView: View {
                 onCancel: { editingPane = nil }
             )
             .padding(DevtailTokens.Spacing.dashboardPadding)
+            .frame(minWidth: 560)
         }
     }
 
@@ -309,6 +317,7 @@ struct ProjectFormView: View {
             onCancel: { isAddingPane = false }
         )
         .padding(DevtailTokens.Spacing.dashboardPadding)
+        .frame(minWidth: 560)
     }
 
     // MARK: - Helpers
@@ -352,6 +361,10 @@ struct ProjectFormView: View {
 
     private var submitLabel: String {
         isEditMode ? "Save project" : "Create project"
+    }
+
+    private var cancelLabel: String {
+        isEditMode ? "Close" : "Cancel"
     }
 
     private var canSubmit: Bool {
