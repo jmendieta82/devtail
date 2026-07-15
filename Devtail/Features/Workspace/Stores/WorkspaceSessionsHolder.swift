@@ -30,8 +30,6 @@ final class WorkspaceSession: Identifiable {
     /// Current git branch of the project root, detected once at session
     /// open. Nil when the root isn't a git repo (or metadata is unreadable).
     let currentBranch: String?
-    /// Project quick links, order-sorted, snapshotted at session open.
-    let quickLinks: [(title: String, url: String)]
     /// Timestamp the workspace was opened — feeds the elapsed-time card via
     /// `WorkspaceSessionClock`. `Date()` is nonisolated, so it's safe as a
     /// default even though this class is `@MainActor` by default isolation.
@@ -39,7 +37,7 @@ final class WorkspaceSession: Identifiable {
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor, interactive: TerminalSession,
-         currentBranch: String? = nil, quickLinks: [(title: String, url: String)] = [],
+         currentBranch: String? = nil,
          openedAt: Date = Date()) {
         self.projectId = projectId
         self.projectName = projectName
@@ -48,7 +46,6 @@ final class WorkspaceSession: Identifiable {
         self.interactive = interactive
         self.selectedTab = nil
         self.currentBranch = currentBranch
-        self.quickLinks = quickLinks
         self.openedAt = openedAt
     }
 }
@@ -80,14 +77,11 @@ final class WorkspaceSessionsHolder {
         supervisor.startAll()
 
         let branch = GitBranchDetector().detectBranch(in: root)
-        let links = project.quickLinks
-            .sorted { $0.order < $1.order }
-            .map { (title: $0.label, url: $0.url) }
 
         let session = WorkspaceSession(
             projectId: project.id, projectName: project.name, root: root,
             supervisor: supervisor, interactive: interactive,
-            currentBranch: branch, quickLinks: links
+            currentBranch: branch
         )
         wireInteractiveExit(interactive, on: session)
         sessions[project.id] = session

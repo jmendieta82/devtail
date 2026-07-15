@@ -22,7 +22,7 @@ struct WorkspaceRootView: View {
             }
             .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
 
-            sidebar
+            WorkspaceDashboardColumn(session: session)
                 .frame(minWidth: 220, maxWidth: 300)
         }
         .navigationTitle(session.projectName)
@@ -92,40 +92,5 @@ struct WorkspaceRootView: View {
             RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
                 .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
         )
-    }
-
-    private var sidebar: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
-                SectionHeader(title: "Processes")
-                ForEach(session.supervisor.processes) { process in
-                    ProcessCardView(
-                        process: process,
-                        isSelected: session.selectedTab == process.id,
-                        onSelect: { session.selectedTab = process.id },
-                        onStart: { session.supervisor.start(process) },
-                        onStop: { session.supervisor.stop(process) },
-                        onRestart: { session.supervisor.restart(process) }
-                    )
-                }
-
-                if let branch = session.currentBranch {
-                    SectionHeader(title: "Branch")
-                    Label(branch, systemImage: "arrow.triangle.branch")
-                        .font(DevtailTokens.Typography.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if !session.quickLinks.isEmpty {
-                    SectionHeader(title: "Quick Links")
-                    ForEach(session.quickLinks, id: \.url) { link in
-                        if let url = URL(string: link.url) {
-                            Link(link.title, destination: url)
-                                .font(DevtailTokens.Typography.caption)
-                        }
-                    }
-                }
-            }
-            .padding(DevtailTokens.Spacing.cardPadding)
-        }
     }
 }

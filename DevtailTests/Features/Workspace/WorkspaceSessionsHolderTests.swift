@@ -85,7 +85,7 @@ struct WorkspaceSessionsHolderTests {
         #expect(engine.sessions.allSatisfy { $0.terminateCount >= 1 })
     }
 
-    // MARK: - currentBranch / quickLinks population
+    // MARK: - currentBranch population
 
     /// Writes a `.git/HEAD` file with the given contents under `folder`.
     /// Mirrors the fixture pattern in GitBranchDetectorTests.
@@ -112,32 +112,13 @@ struct WorkspaceSessionsHolderTests {
         #expect(session.currentBranch == "main")
     }
 
-    @Test func openSessionPopulatesQuickLinksSortedByOrder() throws {
-        let (holder, _) = makeSUT()
-        let context = try makeContext()
-        let p = project("alpha")
-        context.insert(p)
-
-        let second = QuickLink(label: "Docs", url: "https://docs.example.com", order: 1, project: p)
-        let first = QuickLink(label: "GitHub", url: "https://github.com", order: 0, project: p)
-        context.insert(second)
-        context.insert(first)
-        p.quickLinks.append(contentsOf: [second, first])
-
-        let session = holder.openSession(for: p)
-
-        #expect(session.quickLinks.map(\.title) == ["GitHub", "Docs"])
-        #expect(session.quickLinks.map(\.url) == ["https://github.com", "https://docs.example.com"])
-    }
-
-    @Test func openSessionWithNoGitAndNoLinksLeavesBranchNilAndLinksEmpty() {
+    @Test func openSessionWithNoGitLeavesBranchNil() {
         let (holder, _) = makeSUT()
         let p = project("alpha")
 
         let session = holder.openSession(for: p)
 
         #expect(session.currentBranch == nil)
-        #expect(session.quickLinks.isEmpty)
     }
 
     @Test func openSessionStampsOpenedAt() {
