@@ -127,8 +127,9 @@ final class WorkspaceSessionsHolder {
         )
         agent.start()
 
-        supervisor.startAll()
-
+        // Managed processes are configured (cards visible, stopped) but do
+        // NOT auto-start — the user starts each one manually via its
+        // card's play button (ProcessCardView).
         let branch = GitBranchDetector().detectBranch(in: root)
 
         let session = WorkspaceSession(

@@ -64,6 +64,29 @@ struct WorkspaceSessionsHolderTests {
         #expect(holder.isOpen(p.id))
     }
 
+    /// Managed processes are configured (cards visible, stopped) but must
+    /// NOT auto-start on workspace open — the user starts them manually via
+    /// each card's play button. Only the interactive terminal and the agent
+    /// session are spawned automatically.
+    @Test func openSessionConfiguresButDoesNotStartManagedProcesses() throws {
+        let (holder, engine) = makeSUT()
+        let context = try makeContext()
+        let p = project("alpha")
+        context.insert(p)
+        let pane = WorkspacePane(label: "back", relativeCwd: "api", command: "npm run dev",
+                                  order: 0, layoutSlot: 0, project: p)
+        context.insert(pane)
+        p.workspacePanes.append(pane)
+
+        let session = holder.openSession(for: p)
+
+        // Only the interactive terminal + agent session are spawned. No
+        // session was created for the managed process.
+        #expect(engine.sessions.count == 2)
+        #expect(session.supervisor.processes.count == 1)
+        #expect(session.supervisor.processes[0].state == .stopped)
+    }
+
     @Test func closeShutsDownProcessesAndTerminal() throws {
         let (holder, engine) = makeSUT()
         let context = try makeContext()
@@ -75,14 +98,15 @@ struct WorkspaceSessionsHolderTests {
         p.workspacePanes.append(pane)
 
         _ = holder.openSession(for: p)
-        // 1 interactive terminal + 1 agent session + 1 managed process session.
-        #expect(engine.sessions.count == 3)
+        // Managed processes are not auto-started: only the interactive
+        // terminal + agent session exist at this point.
+        #expect(engine.sessions.count == 2)
 
         holder.close(projectId: p.id)
         #expect(!holder.isOpen(p.id))
         // Proves the holder propagates teardown through the supervisor to
         // every underlying session, not just the interactive terminal.
-        #expect(engine.sessions.count == 3)
+        #expect(engine.sessions.count == 2)
         #expect(engine.sessions.allSatisfy { $0.terminateCount >= 1 })
     }
 
