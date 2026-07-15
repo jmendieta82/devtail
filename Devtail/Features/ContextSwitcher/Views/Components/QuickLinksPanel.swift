@@ -282,7 +282,6 @@ struct QuickLinksPanel: View {
             repository: projectRepo,
             quickLinkRepository: linkRepo,
             workspacePaneRepository: paneRepo,
-            launcher: WorkspaceLauncher(settings: AppSettings()),
             vscodeLauncher: VSCodeLauncher(),
             browserLauncher: BrowserLauncher()
         )
@@ -303,7 +302,6 @@ struct QuickLinksPanel: View {
             repository: projectRepo,
             quickLinkRepository: linkRepo,
             workspacePaneRepository: paneRepo,
-            launcher: WorkspaceLauncher(settings: AppSettings()),
             vscodeLauncher: VSCodeLauncher(),
             browserLauncher: BrowserLauncher()
         )

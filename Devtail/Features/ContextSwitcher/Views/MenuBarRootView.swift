@@ -12,7 +12,7 @@ import SwiftData
 
 struct MenuBarRootView: View {
     @Environment(ProjectStore.self) private var store
-    @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
+    @Environment(WorkspaceSessionsHolder.self) private var workspaceHolder
     @Environment(DashboardIntentHolder.self) private var intentHolder
     @Environment(\.openWindow) private var openWindow
 
@@ -45,12 +45,11 @@ struct MenuBarRootView: View {
                             PopoverAccordionItem(
                                 project: project,
                                 isExpanded: expandedProjectID == project.id,
-                                isActive: activityMonitor.isActive(projectID: project.id),
+                                isActive: workspaceHolder.isOpen(project.id),
                                 branches: resolveBranches(for: project),
                                 onToggle: { toggleExpand(project.id) },
                                 onLaunch: { launchWorkspace(for: project) },
-                                onOpenDashboard: { openDashboardForProject(project.id) },
-                                isLaunching: store.isLaunchingWorkspace
+                                onOpenDashboard: { openDashboardForProject(project.id) }
                             )
                         }
                     }
@@ -87,7 +86,6 @@ struct MenuBarRootView: View {
         .frame(width: DevtailTokens.Sizes.popoverWidth)
         .background(popoverBackground)
         .task { store.loadProjects() }
-        .task { await activityMonitor.refresh() }
         .onChange(of: store.projects) { _, _ in
             keyboardSelectedIndex = nil
         }
@@ -144,11 +142,8 @@ struct MenuBarRootView: View {
     // MARK: - Launch
 
     private func launchWorkspace(for project: Project) {
-        store.launchWorkspace(for: project)
-        activityMonitor.markLaunched(
-            projectID: project.id,
-            directoryPath: project.directoryPath
-        )
+        store.prepareLaunch(for: project)
+        openWindow(id: WindowID.workspace, value: project.id)
     }
 
     // MARK: - Branch detection

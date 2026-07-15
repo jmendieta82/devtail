@@ -12,7 +12,6 @@ import SwiftData
 struct DevtailApp: App {
     @State private var modelContainer: ModelContainer
     @State private var projectStore: ProjectStore
-    @State private var activityMonitor = WorkspaceActivityMonitor()
     @State private var dashboardIntent = DashboardIntentHolder()
     @State private var workspaceHolder: WorkspaceSessionsHolder
     @Environment(\.openWindow) private var openWindow
@@ -23,15 +22,12 @@ struct DevtailApp: App {
         let repository = ProjectRepository(context: container.mainContext)
         let quickLinkRepository = QuickLinkRepository(context: container.mainContext)
         let workspacePaneRepository = WorkspacePaneRepository(context: container.mainContext)
-        let appSettings = AppSettings()
-        let launcher = WorkspaceLauncher(settings: appSettings)
         let vscodeLauncher = VSCodeLauncher()
         let browserLauncher = BrowserLauncher()
         let store = ProjectStore(
             repository: repository,
             quickLinkRepository: quickLinkRepository,
             workspacePaneRepository: workspacePaneRepository,
-            launcher: launcher,
             vscodeLauncher: vscodeLauncher,
             browserLauncher: browserLauncher
         )
@@ -55,7 +51,6 @@ struct DevtailApp: App {
         .menuBarExtraStyle(.window)
         .modelContainer(modelContainer)
         .environment(projectStore)
-        .environment(activityMonitor)
         .environment(dashboardIntent)
         .environment(workspaceHolder)
         .commands {
@@ -74,7 +69,6 @@ struct DevtailApp: App {
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
-        .environment(activityMonitor)
         .environment(dashboardIntent)
         .environment(workspaceHolder)
         .windowStyle(.hiddenTitleBar)

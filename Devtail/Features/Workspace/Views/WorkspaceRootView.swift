@@ -79,6 +79,20 @@ struct WorkspaceRootView: View {
                         onRestart: { session.supervisor.restart(process) }
                     )
                 }
+
+                if let branch = session.currentBranch {
+                    SectionHeader(title: "Branch")
+                    Label(branch, systemImage: "arrow.triangle.branch")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !session.quickLinks.isEmpty {
+                    SectionHeader(title: "Quick Links")
+                    ForEach(session.quickLinks, id: \.url) { link in
+                        Link(link.title, destination: URL(string: link.url) ?? URL(fileURLWithPath: "/"))
+                            .font(DevtailTokens.Typography.caption)
+                    }
+                }
             }
             .padding(DevtailTokens.Spacing.cardPadding)
         }

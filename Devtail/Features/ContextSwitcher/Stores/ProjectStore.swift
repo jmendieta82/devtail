@@ -51,16 +51,9 @@ final class ProjectStore {
     /// See proposal §8.
     private(set) var lastError: Error?
 
-    /// Toggled while a `launchWorkspace` call is in flight. Lets the UI
-    /// show a "Launching..." state without owning the async lifecycle
-    /// itself — the store manages on/off around the Task that actually
-    /// calls the launcher.
-    private(set) var isLaunchingWorkspace: Bool = false
-
     private let repository: any ProjectRepositoryProtocol
     private let quickLinkRepository: any QuickLinkRepositoryProtocol
     private let workspacePaneRepository: any WorkspacePaneRepositoryProtocol
-    private let launcher: any WorkspaceLauncherProtocol
     private let vscodeLauncher: any VSCodeLauncherProtocol
     private let browserLauncher: any BrowserLauncherProtocol
 
@@ -68,14 +61,12 @@ final class ProjectStore {
         repository: any ProjectRepositoryProtocol,
         quickLinkRepository: any QuickLinkRepositoryProtocol,
         workspacePaneRepository: any WorkspacePaneRepositoryProtocol,
-        launcher: any WorkspaceLauncherProtocol,
         vscodeLauncher: any VSCodeLauncherProtocol,
         browserLauncher: any BrowserLauncherProtocol
     ) {
         self.repository = repository
         self.quickLinkRepository = quickLinkRepository
         self.workspacePaneRepository = workspacePaneRepository
-        self.launcher = launcher
         self.vscodeLauncher = vscodeLauncher
         self.browserLauncher = browserLauncher
     }
@@ -473,34 +464,17 @@ final class ProjectStore {
 
     // MARK: - Workspace Launcher
 
-    func launchWorkspace(for project: Project) {
-        guard !isLaunchingWorkspace else { return }
-
+    /// Store-side launch preparation. Window opening lives in the view layer
+    /// (openWindow is a SwiftUI environment action); the embedded workspace's
+    /// supervisor handles process spawn and frontend browser opening.
+    func prepareLaunch(for project: Project) {
         // Stamp intent BEFORE opening anything. Even a failed launch counts —
         // the user tried to resume this project, which is the intent we record.
         project.lastLaunchedAt = .now
         try? repository.update(project)
 
         let panes = project.workspacePanes.sorted { $0.order < $1.order }
-
-        for pane in panes where pane.isFrontend {
-            let urlString = pane.localhostUrl ?? ""
-            if !urlString.isEmpty {
-                browserLauncher.open(urlString: urlString)
-            }
-        }
-
-        isLaunchingWorkspace = true
-        Task {
-            defer { isLaunchingWorkspace = false }
-            do {
-                try await launcher.launch(project: project, panes: panes)
-                persistBranches(for: project, panes: panes)
-                lastError = nil
-            } catch {
-                lastError = error
-            }
-        }
+        persistBranches(for: project, panes: panes)
     }
 
     /// Detects branch changes for each pane in `project` by comparing

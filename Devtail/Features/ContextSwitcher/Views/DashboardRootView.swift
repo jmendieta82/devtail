@@ -16,7 +16,7 @@ import SwiftData
 
 struct DashboardRootView: View {
     @Environment(ProjectStore.self) private var store
-    @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
+    @Environment(WorkspaceSessionsHolder.self) private var workspaceHolder
     @Environment(DashboardIntentHolder.self) private var intentHolder
 
     @State private var selectedProjectID: UUID?
@@ -223,7 +223,7 @@ struct DashboardRootView: View {
                         DashboardSidebarItem(
                             project: project,
                             isSelected: selectedProjectID == project.id,
-                            isActive: activityMonitor.isActive(projectID: project.id)
+                            isActive: workspaceHolder.isOpen(project.id)
                         )
                         .onTapGesture { requestSelection(project.id) }
                         .contextMenu {

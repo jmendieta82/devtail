@@ -19,15 +19,23 @@ final class WorkspaceSession: Identifiable {
     let interactive: TerminalSession
     /// nil = interactive terminal tab; otherwise a ManagedProcess id.
     var selectedTab: UUID?
+    /// Current git branch of the project root, detected once at session
+    /// open. Nil when the root isn't a git repo (or metadata is unreadable).
+    let currentBranch: String?
+    /// Project quick links, order-sorted, snapshotted at session open.
+    let quickLinks: [(title: String, url: String)]
 
     init(projectId: UUID, projectName: String, root: URL,
-         supervisor: ProcessSupervisor, interactive: TerminalSession) {
+         supervisor: ProcessSupervisor, interactive: TerminalSession,
+         currentBranch: String? = nil, quickLinks: [(title: String, url: String)] = []) {
         self.projectId = projectId
         self.projectName = projectName
         self.root = root
         self.supervisor = supervisor
         self.interactive = interactive
         self.selectedTab = nil
+        self.currentBranch = currentBranch
+        self.quickLinks = quickLinks
     }
 }
 
@@ -57,9 +65,15 @@ final class WorkspaceSessionsHolder {
         interactive.start()
         supervisor.startAll()
 
+        let branch = GitBranchDetector().detectBranch(in: root)
+        let links = project.quickLinks
+            .sorted { $0.order < $1.order }
+            .map { (title: $0.label, url: $0.url) }
+
         let session = WorkspaceSession(
             projectId: project.id, projectName: project.name, root: root,
-            supervisor: supervisor, interactive: interactive
+            supervisor: supervisor, interactive: interactive,
+            currentBranch: branch, quickLinks: links
         )
         sessions[project.id] = session
         return session

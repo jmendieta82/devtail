@@ -17,8 +17,7 @@ struct ProjectStoreTests {
     private func makeStore(
         projectRepo: MockProjectRepository? = nil,
         linkRepo: MockQuickLinkRepository? = nil,
-        paneRepo: MockWorkspacePaneRepository? = nil,
-        launcher: MockWorkspaceLauncher? = nil
+        paneRepo: MockWorkspacePaneRepository? = nil
     ) -> ProjectStore {
         // Swift 6 rejects @MainActor-isolated initializers as default
         // parameter values (those are evaluated in nonisolated context).
@@ -28,7 +27,6 @@ struct ProjectStoreTests {
             repository: projectRepo ?? MockProjectRepository(),
             quickLinkRepository: linkRepo ?? MockQuickLinkRepository(),
             workspacePaneRepository: paneRepo ?? MockWorkspacePaneRepository(),
-            launcher: launcher ?? MockWorkspaceLauncher(),
             vscodeLauncher: MockVSCodeLauncher(),
             browserLauncher: MockBrowserLauncher()
         )

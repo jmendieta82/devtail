@@ -9,7 +9,8 @@ struct DashboardDetailView: View {
     let onDeleteProject: (Project) -> Void
 
     @Environment(ProjectStore.self) private var store
-    @Environment(WorkspaceActivityMonitor.self) private var activityMonitor
+    @Environment(WorkspaceSessionsHolder.self) private var workspaceHolder
+    @Environment(\.openWindow) private var openWindow
 
     @State private var editingPaneID: UUID? = nil
     @State private var isAddingPane: Bool = false
@@ -405,7 +406,7 @@ struct DashboardDetailView: View {
         HStack(alignment: .center, spacing: DevtailTokens.Spacing.gapLarge) {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
                 HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                    ActivityDot(isActive: activityMonitor.isActive(projectID: project.id))
+                    ActivityDot(isActive: workspaceHolder.isOpen(project.id))
 
                     Text(project.name)
                         .font(DevtailTokens.Typography.projectTitle)
@@ -518,8 +519,8 @@ struct DashboardDetailView: View {
                     launchWorkspace()
                 } label: {
                     HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                        Image(systemName: store.isLaunchingWorkspace ? "hourglass" : "play.fill")
-                        Text(store.isLaunchingWorkspace ? "Launching..." : "Launch")
+                        Image(systemName: "play.fill")
+                        Text("Launch")
                     }
                     .font(DevtailTokens.Typography.bodySemibold)
                     .foregroundStyle(.white)
@@ -534,8 +535,8 @@ struct DashboardDetailView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
-                .help("Launch workspace in Ghostty")
+                .disabled(sortedPanes.isEmpty || project.directoryPath.isEmpty)
+                .help("Launch workspace")
             }
         }
         .confirmationDialog(
@@ -590,7 +591,7 @@ struct DashboardDetailView: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(store.isLaunchingWorkspace || sortedPanes.isEmpty || project.directoryPath.isEmpty)
+        .disabled(sortedPanes.isEmpty || project.directoryPath.isEmpty)
         .help("Resume last session")
     }
 
@@ -811,10 +812,7 @@ struct DashboardDetailView: View {
     }
 
     private func launchWorkspace() {
-        store.launchWorkspace(for: project)
-        activityMonitor.markLaunched(
-            projectID: project.id,
-            directoryPath: project.directoryPath
-        )
+        store.prepareLaunch(for: project)
+        openWindow(id: WindowID.workspace, value: project.id)
     }
 }

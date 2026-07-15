@@ -11,7 +11,6 @@ struct PopoverAccordionItem: View {
     let onToggle: () -> Void
     let onLaunch: () -> Void
     let onOpenDashboard: () -> Void
-    var isLaunching: Bool = false
 
     private var sortedPanes: [WorkspacePane] {
         project.workspacePanes.sorted { $0.order < $1.order }
@@ -75,8 +74,8 @@ struct PopoverAccordionItem: View {
 
             Button(action: onLaunch) {
                 HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                    Image(systemName: isLaunching ? "hourglass" : "play.fill")
-                    Text(isLaunching ? "Launching..." : "Launch")
+                    Image(systemName: "play.fill")
+                    Text("Launch")
                 }
                 .font(DevtailTokens.Typography.bodySemibold)
                 .foregroundStyle(.white)
@@ -92,8 +91,8 @@ struct PopoverAccordionItem: View {
                 )
             }
             .buttonStyle(.plain)
-            .disabled(isLaunching || sortedPanes.isEmpty || project.directoryPath.isEmpty)
-            .help("Launch workspace in Ghostty")
+            .disabled(sortedPanes.isEmpty || project.directoryPath.isEmpty)
+            .help("Launch workspace")
 
             Button(action: onOpenDashboard) {
                 Text("Configure in Dashboard...")

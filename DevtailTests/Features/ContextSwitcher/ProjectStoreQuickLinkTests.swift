@@ -18,12 +18,10 @@ struct ProjectStoreQuickLinkTests {
         let projectRepo = MockProjectRepository()
         let linkRepo = MockQuickLinkRepository()
         let paneRepo = MockWorkspacePaneRepository()
-        let launcher = MockWorkspaceLauncher()
         let store = ProjectStore(
             repository: projectRepo,
             quickLinkRepository: linkRepo,
             workspacePaneRepository: paneRepo,
-            launcher: launcher,
             vscodeLauncher: MockVSCodeLauncher(),
             browserLauncher: MockBrowserLauncher()
         )
