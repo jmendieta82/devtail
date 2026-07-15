@@ -2,7 +2,8 @@ import SwiftUI
 import AppKit
 
 /// Scrollable detail view for the dashboard.
-/// Contains hero header, layout section, panes section, and quick links.
+/// Browsing mode shows a JetBrains-style welcome hero header; details mode
+/// shows the read-only full project info (layout, panes, quick links, metadata).
 struct DashboardDetailView: View {
     let project: Project
     let onEditProject: (UUID) -> Void
@@ -12,13 +13,8 @@ struct DashboardDetailView: View {
     @Environment(WorkspaceSessionsHolder.self) private var workspaceHolder
     @Environment(\.openWindow) private var openWindow
 
-    @State private var editingPaneID: UUID? = nil
-    @State private var isAddingPane: Bool = false
     @State private var showDeleteConfirmation: Bool = false
     @State private var isShowingDetails: Bool = false
-    /// Slot index to preassign when the "Add pane" flow completes. `nil`
-    /// means the new pane has no target slot (stays unassigned).
-    @State private var pendingSlotForNewPane: Int? = nil
     /// Branch changes detected when the user taps Resume. Non-empty triggers
     /// the confirmation alert before proceeding.
     @State private var pendingBranchChanges: [BranchChange] = []
@@ -30,12 +26,9 @@ struct DashboardDetailView: View {
         project.workspacePanes.sorted { $0.order < $1.order }
     }
 
+    @ViewBuilder
     var body: some View {
-        if let editingPane = sortedPanes.first(where: { $0.id == editingPaneID }) {
-            paneEditMode(for: editingPane)
-        } else if isAddingPane {
-            paneAddMode
-        } else if isShowingDetails {
+        if isShowingDetails {
             detailsMode
         } else {
             browsingMode
@@ -47,88 +40,8 @@ struct DashboardDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
                 heroHeader
-                layoutSection
-                Rectangle()
-                    .fill(DevtailTokens.Colors.borderSubtle)
-                    .frame(height: 1)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, DevtailTokens.Spacing.gapSmall)
-                quickLinksSection
             }
             .padding(DevtailTokens.Spacing.dashboardPadding)
-        }
-    }
-
-    // MARK: - Pane Edit Mode (full-screen form)
-
-    @ViewBuilder
-    private func paneEditMode(for pane: WorkspacePane) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
-                paneEditHeader(title: "Edit pane", subtitle: pane.label)
-
-                WorkspacePaneEditRow(
-                    projectRoot: project.directoryPath,
-                    initialLabel: pane.label,
-                    initialRelativeCwd: pane.relativeCwd,
-                    initialCommand: pane.command,
-                    initialStack: pane.stack,
-                    initialIsFrontend: pane.isFrontend,
-                    initialLocalhostUrl: pane.localhostUrl,
-                    initialEnvironment: pane.environment,
-                    onSave: { label, cwd, command, stack, isFrontend, localhostUrl, env in
-                        store.updateWorkspacePane(
-                            pane,
-                            label: label,
-                            relativeCwd: cwd,
-                            command: command,
-                            stack: stack,
-                            isFrontend: isFrontend,
-                            localhostUrl: localhostUrl,
-                            environment: env
-                        )
-                        editingPaneID = nil
-                    },
-                    onCancel: { editingPaneID = nil }
-                )
-            }
-            .padding(DevtailTokens.Spacing.dashboardPadding)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-    }
-
-    @ViewBuilder
-    private var paneAddMode: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
-                paneEditHeader(title: "New pane", subtitle: project.name)
-
-                WorkspacePaneEditRow(
-                    projectRoot: project.directoryPath,
-                    onSave: { label, cwd, command, stack, isFrontend, localhostUrl, env in
-                        let targetSlot = pendingSlotForNewPane ?? -1
-                        store.addWorkspacePane(
-                            label: label,
-                            relativeCwd: cwd,
-                            command: command,
-                            layoutSlot: targetSlot,
-                            stack: stack,
-                            isFrontend: isFrontend,
-                            localhostUrl: localhostUrl,
-                            environment: env,
-                            to: project
-                        )
-                        isAddingPane = false
-                        pendingSlotForNewPane = nil
-                    },
-                    onCancel: {
-                        isAddingPane = false
-                        pendingSlotForNewPane = nil
-                    }
-                )
-            }
-            .padding(DevtailTokens.Spacing.dashboardPadding)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
@@ -360,45 +273,6 @@ struct DashboardDetailView: View {
         return formatter.string(from: date)
     }
 
-    @ViewBuilder
-    private func paneEditHeader(title: String, subtitle: String) -> some View {
-        HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-            Button {
-                editingPaneID = nil
-                isAddingPane = false
-            } label: {
-                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                    Image(systemName: "chevron.left")
-                    Text("Back")
-                }
-                .font(DevtailTokens.Typography.bodySmall)
-                .foregroundStyle(DevtailTokens.Colors.textSecondary)
-                .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
-                .padding(.vertical, DevtailTokens.Spacing.gapMedium)
-                .contentShape(
-                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                        .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
-                )
-            }
-            .buttonStyle(.plain)
-            .help("Back to workspace")
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: DevtailTokens.Spacing.gapTiny) {
-                Text(title)
-                    .font(DevtailTokens.Typography.projectTitle)
-                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                Text(subtitle)
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-            }
-        }
-    }
-
     // MARK: - Section A: Hero Header
 
     @ViewBuilder
@@ -611,168 +485,7 @@ struct DashboardDetailView: View {
         }
     }
 
-    // MARK: - Section B: Layout
-
-    @ViewBuilder
-    private var layoutSection: some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
-            SectionHeader(
-                title: "LAYOUT",
-                guide: "Choose how your terminal panes are arranged when you launch this workspace."
-            )
-
-            HStack(alignment: .center, spacing: DevtailTokens.Spacing.gapXLarge) {
-                WorkspaceLayoutPicker(
-                    selected: project.layout,
-                    onSelect: { layout in
-                        store.setLayout(for: project, layout: layout)
-                    },
-                    axis: .vertical,
-                    layouts: Array(WorkspaceLayout.allCases.prefix(2))
-                )
-
-                Spacer()
-
-                WorkspaceLayoutThumbnail(
-                    layout: project.layout,
-                    size: CGSize(
-                        width: DevtailTokens.Sizes.layoutPreviewWidth,
-                        height: DevtailTokens.Sizes.layoutPreviewHeight
-                    ),
-                    slotLabels: slotLabels(for: project),
-                    onSlotMenu: { slot in
-                        slotMenuContent(for: slot)
-                    }
-                )
-
-                Spacer()
-
-                WorkspaceLayoutPicker(
-                    selected: project.layout,
-                    onSelect: { layout in
-                        store.setLayout(for: project, layout: layout)
-                    },
-                    axis: .vertical,
-                    layouts: Array(WorkspaceLayout.allCases.suffix(2))
-                )
-            }
-        }
-    }
-
-    // MARK: - Section C: Quick Links
-
-    @ViewBuilder
-    private var quickLinksSection: some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapLarge) {
-            SectionHeader(
-                title: "QUICK LINKS",
-                guide: "Bookmarks to URLs, files, or folders you access frequently for this project."
-            )
-            QuickLinksPanel(projectID: project.id, hideTitle: true)
-        }
-    }
-
     // MARK: - Helpers
-
-    private func slotLabels(for project: Project) -> [Int: String] {
-        var labels: [Int: String] = [:]
-        for pane in sortedPanes where pane.layoutSlot >= 0 {
-            labels[pane.layoutSlot] = pane.label
-        }
-        return labels
-    }
-
-    private func paneInSlot(_ slot: Int) -> WorkspacePane? {
-        sortedPanes.first { $0.layoutSlot == slot }
-    }
-
-    private func unassignedPanes() -> [WorkspacePane] {
-        sortedPanes.filter { $0.layoutSlot < 0 }
-    }
-
-    /// Builds the interactive overlay for a layout slot.
-    /// - Empty slot: shows a "+" button that opens the Add-pane form
-    ///   with this slot preassigned.
-    /// - Filled slot: shows the pane label with a contextual menu
-    ///   (Edit / Delete / Assign another pane).
-    private func slotMenuContent(for slot: Int) -> AnyView {
-        if let pane = paneInSlot(slot) {
-            return AnyView(filledSlotMenu(pane: pane, slot: slot))
-        } else {
-            return AnyView(emptySlotButton(slot: slot))
-        }
-    }
-
-    @ViewBuilder
-    private func filledSlotMenu(pane: WorkspacePane, slot: Int) -> some View {
-        HStack(spacing: DevtailTokens.Spacing.gapTiny) {
-            if paneCanOpenBrowser(pane) {
-                Button {
-                    store.openBrowser(for: pane)
-                } label: {
-                    Image(systemName: "safari")
-                        .font(DevtailTokens.Typography.captionSmall)
-                        .foregroundStyle(DevtailTokens.Colors.accentPrimary)
-                        .padding(.horizontal, DevtailTokens.Spacing.gapTiny)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Open \(pane.localhostUrl ?? "localhost URL") in browser")
-            }
-
-            Menu {
-                if paneCanOpenBrowser(pane) {
-                    Button {
-                        store.openBrowser(for: pane)
-                    } label: {
-                        Label("Open in browser", systemImage: "safari")
-                    }
-                    Divider()
-                }
-
-                Button {
-                    editingPaneID = pane.id
-                } label: {
-                    Label("Edit pane", systemImage: "pencil")
-                }
-
-                if sortedPanes.count > 1 {
-                    Button(role: .destructive) {
-                        store.deleteWorkspacePane(pane)
-                    } label: {
-                        Label("Delete pane", systemImage: "trash")
-                    }
-                }
-
-                let others = unassignedPanes().filter { $0.id != pane.id }
-                if !others.isEmpty {
-                    Divider()
-                    Menu("Assign another pane") {
-                        ForEach(others, id: \.id) { other in
-                            Button(other.label) {
-                                store.assignPaneToSlot(pane: other, slot: slot)
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text(pane.label)
-                    .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textPrimary)
-                    .lineLimit(1)
-                    .padding(.horizontal, DevtailTokens.Spacing.gapSmall)
-            }
-            .menuStyle(.borderlessButton)
-        }
-    }
-
-    /// True when the pane is marked frontend AND has a non-empty
-    /// localhostUrl — the browser launcher validates the scheme
-    /// separately, so here we only gate on "has something to open".
-    private func paneCanOpenBrowser(_ pane: WorkspacePane) -> Bool {
-        pane.isFrontend
-            && !(pane.localhostUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
 
     /// Real VSCode icon pulled from the installed .app bundle via
     /// LaunchServices. Falls back to a generic SF Symbol when VSCode
@@ -792,23 +505,6 @@ struct DashboardDetailView: View {
                 .font(DevtailTokens.Typography.bodyDefault)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
         }
-    }
-
-    @ViewBuilder
-    private func emptySlotButton(slot: Int) -> some View {
-        Button {
-            pendingSlotForNewPane = slot
-            isAddingPane = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 18, weight: .regular))
-                .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(project.directoryPath.isEmpty)
-        .help("Add a new pane to this slot")
     }
 
     private func launchWorkspace() {
