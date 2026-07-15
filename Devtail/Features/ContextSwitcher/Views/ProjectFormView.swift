@@ -79,6 +79,12 @@ struct ProjectFormView: View {
                 paneAddSheet(for: project)
             }
         }
+        .onChange(of: editingProject == nil) { _, isGone in
+            if isGone {
+                editingPane = nil
+                isAddingPane = false
+            }
+        }
     }
 
     // MARK: - Sections
