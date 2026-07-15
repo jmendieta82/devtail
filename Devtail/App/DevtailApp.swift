@@ -23,6 +23,9 @@ struct DevtailApp: App {
         let repository = ProjectRepository(context: container.mainContext)
         let quickLinkRepository = QuickLinkRepository(context: container.mainContext)
         let workspacePaneRepository = WorkspacePaneRepository(context: container.mainContext)
+        // One-shot: retire legacy "claude" seed panes (see LegacyClaudePaneMigration).
+        // Best-effort — a failure here must never block app launch.
+        try? LegacyClaudePaneMigration.run(context: container.mainContext)
         let vscodeLauncher = VSCodeLauncher()
         let browserLauncher = BrowserLauncher()
         let store = ProjectStore(

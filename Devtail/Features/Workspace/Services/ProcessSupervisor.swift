@@ -24,10 +24,14 @@ final class ProcessSupervisor {
 
     /// Build the process list from the project's panes (persisted definitions),
     /// sorted by `order`. `layoutSlot` and the old layout topology are ignored —
-    /// this is the v1 migration semantics for legacy projects.
+    /// this is the v1 migration semantics for legacy projects. Panes with a
+    /// blank (or whitespace-only) command are placeholders, not processes —
+    /// e.g. today's seed default, or a legacy "claude" pane retired by
+    /// LegacyClaudePaneMigration — so they never spawn a session.
     func configure(panes: [WorkspacePane], root: URL) {
         shutdownAll()
         processes = panes
+            .filter { !$0.command.trimmingCharacters(in: .whitespaces).isEmpty }
             .sorted { $0.order < $1.order }
             .map { ManagedProcess(pane: $0, root: root) }
     }

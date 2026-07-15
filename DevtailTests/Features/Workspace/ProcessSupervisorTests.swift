@@ -27,6 +27,24 @@ struct ProcessSupervisorTests {
         #expect(sut.processes.allSatisfy { $0.state == .stopped })
     }
 
+    @Test func configureSkipsBlankCommandPanes() {
+        let (sut, _, _) = makeSUT()
+        let root = URL(fileURLWithPath: "/tmp/proj", isDirectory: true)
+        sut.configure(panes: [pane("placeholder", command: "", order: 0),
+                              pane("back", command: "npm run start:dev", order: 1)], root: root)
+        #expect(sut.processes.count == 1)
+        #expect(sut.processes[0].name == "back")
+    }
+
+    @Test func configureSkipsWhitespaceOnlyCommandPanes() {
+        let (sut, _, _) = makeSUT()
+        let root = URL(fileURLWithPath: "/tmp/proj", isDirectory: true)
+        sut.configure(panes: [pane("placeholder", command: "   ", order: 0),
+                              pane("back", command: "npm run start:dev", order: 1)], root: root)
+        #expect(sut.processes.count == 1)
+        #expect(sut.processes[0].name == "back")
+    }
+
     @Test func startSpawnsReadOnlySessionAndRuns() {
         let (sut, engine, _) = makeSUT()
         sut.configure(panes: [pane("back", cwd: "api", order: 0)], root: URL(fileURLWithPath: "/tmp/p"))
