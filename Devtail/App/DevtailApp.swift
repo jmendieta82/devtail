@@ -88,6 +88,11 @@ struct DevtailApp: App {
         .defaultSize(width: 400, height: 300)
 
         WindowGroup("Workspace", id: WindowID.workspace, for: UUID.self) { $projectId in
+            // If the project backing this window is deleted while the
+            // workspace is open, this condition fails and the view renders
+            // nothing. The resulting `onDisappear` (see WorkspaceRootView)
+            // is what tears down its sessions via `holder.close(projectId:)`
+            // — a coincidental but intended teardown trigger.
             if let projectId,
                let project = projectStore.projects.first(where: { $0.id == projectId }) {
                 WorkspaceRootView(session: workspaceHolder.openSession(for: project))
