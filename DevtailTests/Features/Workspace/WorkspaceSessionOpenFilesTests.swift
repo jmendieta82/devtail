@@ -40,7 +40,9 @@ struct WorkspaceSessionOpenFilesTests {
     /// WorkspaceSessionsHolderTests.makeSUT().
     private func makeSession() -> WorkspaceSession {
         let engine = MockTerminalEngine()
-        let holder = WorkspaceSessionsHolder(engine: engine, browserLauncher: MockBrowserLauncher())
+        let defaults = UserDefaults(suiteName: "WorkspaceSessionOpenFilesTests-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        let holder = WorkspaceSessionsHolder(engine: engine, browserLauncher: MockBrowserLauncher(), settings: settings)
         let p = project("test")
         return holder.openSession(for: p)
     }

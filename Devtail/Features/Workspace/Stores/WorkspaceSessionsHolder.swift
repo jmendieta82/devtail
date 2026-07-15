@@ -25,6 +25,13 @@ final class WorkspaceSession: Identifiable {
     /// at the prompt). No auto-respawn: a crashing shell must not loop: this
     /// only drives the dead-state UI affordance until the user restarts it.
     var interactiveExited = false
+    /// Second first-class terminal session running the configured coding
+    /// agent (e.g. `claude`). Same replace-wholesale-on-restart contract as
+    /// `interactive` — `fileprivate(set)` for the same reason.
+    fileprivate(set) var agent: TerminalSession
+    /// Set true when the agent process exits. Mirrors `interactiveExited`;
+    /// no auto-respawn here either.
+    var agentExited = false
     /// Which center-column tab is showing: interactive terminal, a managed
     /// process's log, or a file viewer.
     var selectedTab: WorkspaceTab = .terminal
@@ -45,6 +52,7 @@ final class WorkspaceSession: Identifiable {
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor, interactive: TerminalSession,
+         agent: TerminalSession,
          currentBranch: String? = nil,
          openedAt: Date = Date()) {
         self.projectId = projectId
@@ -52,6 +60,7 @@ final class WorkspaceSession: Identifiable {
         self.root = root
         self.supervisor = supervisor
         self.interactive = interactive
+        self.agent = agent
         self.currentBranch = currentBranch
         self.openedAt = openedAt
         self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
@@ -87,11 +96,13 @@ final class WorkspaceSession: Identifiable {
 final class WorkspaceSessionsHolder {
     private let engine: TerminalEngine
     private let browserLauncher: BrowserLauncherProtocol
+    private let settings: AppSettings
     private(set) var sessions: [UUID: WorkspaceSession] = [:]
 
-    init(engine: TerminalEngine, browserLauncher: BrowserLauncherProtocol) {
+    init(engine: TerminalEngine, browserLauncher: BrowserLauncherProtocol, settings: AppSettings) {
         self.engine = engine
         self.browserLauncher = browserLauncher
+        self.settings = settings
     }
 
     /// Create (or return the existing) live session for a project: one
@@ -107,16 +118,26 @@ final class WorkspaceSessionsHolder {
             TerminalSessionConfig(command: nil, cwd: root, readOnly: false)
         )
         interactive.start()
+
+        // A runtime-blank setting must not silently spawn a plain shell in
+        // the agent tab — sanitize and fall back to "claude".
+        let command = settings.agentCommand.trimmingCharacters(in: .whitespaces)
+        let agent = engine.makeSession(
+            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: root, readOnly: false)
+        )
+        agent.start()
+
         supervisor.startAll()
 
         let branch = GitBranchDetector().detectBranch(in: root)
 
         let session = WorkspaceSession(
             projectId: project.id, projectName: project.name, root: root,
-            supervisor: supervisor, interactive: interactive,
+            supervisor: supervisor, interactive: interactive, agent: agent,
             currentBranch: branch
         )
         wireInteractiveExit(interactive, on: session)
+        wireAgentExit(agent, on: session)
         sessions[project.id] = session
         return session
     }
@@ -132,6 +153,15 @@ final class WorkspaceSessionsHolder {
         terminal.onExit = { [weak session, weak terminal] _ in
             guard let session, let terminal, session.interactive === terminal else { return }
             session.interactiveExited = true
+        }
+    }
+
+    /// Mirrors `wireInteractiveExit` for the agent session: same identity
+    /// guard against stale exits from a since-replaced (restarted) agent.
+    private func wireAgentExit(_ terminal: TerminalSession, on session: WorkspaceSession) {
+        terminal.onExit = { [weak session, weak terminal] _ in
+            guard let session, let terminal, session.agent === terminal else { return }
+            session.agentExited = true
         }
     }
 
@@ -151,6 +181,24 @@ final class WorkspaceSessionsHolder {
         session.interactiveExited = false
     }
 
+    /// User-initiated restart of the agent session after it exited. Mirrors
+    /// `restartInteractive`: terminate the old session, spawn a fresh one
+    /// with the (sanitized) configured command, re-wire, reset the flag.
+    func restartAgent(projectId: UUID) {
+        guard let session = sessions[projectId] else { return }
+
+        session.agent.terminate()
+
+        let command = settings.agentCommand.trimmingCharacters(in: .whitespaces)
+        let fresh = engine.makeSession(
+            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: session.root, readOnly: false)
+        )
+        fresh.start()
+        session.agent = fresh
+        wireAgentExit(fresh, on: session)
+        session.agentExited = false
+    }
+
     func isOpen(_ projectId: UUID) -> Bool {
         sessions[projectId] != nil
     }
@@ -160,6 +208,7 @@ final class WorkspaceSessionsHolder {
         guard let session = sessions.removeValue(forKey: projectId) else { return }
         session.supervisor.shutdownAll()
         session.interactive.terminate()
+        session.agent.terminate()
     }
 
     /// App-quit teardown: no orphans holding ports.

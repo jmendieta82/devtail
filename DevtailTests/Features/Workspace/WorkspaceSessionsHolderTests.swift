@@ -14,9 +14,17 @@ import Testing
 
 @MainActor
 struct WorkspaceSessionsHolderTests {
-    private func makeSUT() -> (WorkspaceSessionsHolder, MockTerminalEngine) {
+    /// `agentCommand`, when non-nil, is pre-seeded into a fresh, uniquely
+    /// named `UserDefaults` suite BEFORE `AppSettings` reads it — mirrors
+    /// how a user-configured command would already be persisted at launch.
+    private func makeSUT(agentCommand: String? = nil) -> (WorkspaceSessionsHolder, MockTerminalEngine) {
+        let defaults = UserDefaults(suiteName: "WorkspaceSessionsHolderTests-\(UUID().uuidString)")!
+        if let agentCommand {
+            defaults.set(agentCommand, forKey: "agentCommand")
+        }
+        let settings = AppSettings(defaults: defaults)
         let engine = MockTerminalEngine()
-        let holder = WorkspaceSessionsHolder(engine: engine, browserLauncher: MockBrowserLauncher())
+        let holder = WorkspaceSessionsHolder(engine: engine, browserLauncher: MockBrowserLauncher(), settings: settings)
         return (holder, engine)
     }
 
@@ -47,9 +55,10 @@ struct WorkspaceSessionsHolderTests {
         let s1 = holder.openSession(for: p)
         let s2 = holder.openSession(for: p)
         #expect(s1 === s2)
-        // Exactly one interactive (non-readOnly, nil command) session at the root.
-        #expect(engine.configs.count { !$0.readOnly } == 1)
-        let interactive = engine.configs.first { !$0.readOnly }
+        // Exactly two non-readOnly sessions per workspace: the interactive
+        // terminal (nil command) and the agent (configured command).
+        #expect(engine.configs.count { !$0.readOnly } == 2)
+        let interactive = engine.configs.first { !$0.readOnly && $0.command == nil }
         #expect(interactive?.command == nil)
         #expect(interactive?.cwd.path == "/tmp/alpha")
         #expect(holder.isOpen(p.id))
@@ -66,14 +75,14 @@ struct WorkspaceSessionsHolderTests {
         p.workspacePanes.append(pane)
 
         _ = holder.openSession(for: p)
-        // 1 interactive terminal + 1 managed process session.
-        #expect(engine.sessions.count == 2)
+        // 1 interactive terminal + 1 agent session + 1 managed process session.
+        #expect(engine.sessions.count == 3)
 
         holder.close(projectId: p.id)
         #expect(!holder.isOpen(p.id))
         // Proves the holder propagates teardown through the supervisor to
         // every underlying session, not just the interactive terminal.
-        #expect(engine.sessions.count == 2)
+        #expect(engine.sessions.count == 3)
         #expect(engine.sessions.allSatisfy { $0.terminateCount >= 1 })
     }
 
@@ -188,5 +197,58 @@ struct WorkspaceSessionsHolderTests {
         oldInteractive.simulateExit(code: 1)
 
         #expect(!session.interactiveExited)
+    }
+
+    // MARK: - Agent session (first-class, mirrors interactive machinery)
+
+    @Test func openSessionSpawnsAgentWithConfiguredCommand() {
+        let (holder, engine) = makeSUT(agentCommand: "claude --continue")
+        let session = holder.openSession(for: project("alpha"))
+        let agentConfigs = engine.configs.filter { $0.command == "claude --continue" }
+        #expect(agentConfigs.count == 1)
+        #expect(agentConfigs[0].readOnly == false)
+        #expect(session.agentExited == false)
+    }
+
+    @Test func openSessionSpawnsAgentWithDefaultClaude() {
+        let (holder, engine) = makeSUT()
+        _ = holder.openSession(for: project("alpha"))
+        #expect(engine.configs.contains { $0.command == "claude" && !$0.readOnly })
+    }
+
+    @Test func agentExitSetsAgentExitedFlag() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
+        #expect(session.agentExited == true)
+        #expect(session.interactiveExited == false)
+    }
+
+    @Test func restartAgentCreatesFreshSessionAndResetsFlag() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let old = session.agent as? MockTerminalSession
+        old?.simulateExit(code: 1)
+        holder.restartAgent(projectId: session.projectId)
+        #expect(session.agent !== old)
+        #expect(session.agentExited == false)
+        #expect(old?.terminateCount == 1)
+    }
+
+    @Test func staleAgentExitAfterRestartDoesNotReflipFlag() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let old = session.agent as? MockTerminalSession
+        holder.restartAgent(projectId: session.projectId)
+        old?.simulateExit(code: 1)
+        #expect(session.agentExited == false)
+    }
+
+    @Test func closeTerminatesAgentSession() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let agent = session.agent as? MockTerminalSession
+        holder.close(projectId: session.projectId)
+        #expect(agent?.terminateCount == 1)
     }
 }

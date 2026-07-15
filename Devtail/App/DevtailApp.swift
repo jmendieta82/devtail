@@ -14,6 +14,7 @@ struct DevtailApp: App {
     @State private var projectStore: ProjectStore
     @State private var dashboardIntent = DashboardIntentHolder()
     @State private var workspaceHolder: WorkspaceSessionsHolder
+    private let appSettings = AppSettings()
     @Environment(\.openWindow) private var openWindow
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
@@ -36,7 +37,8 @@ struct DevtailApp: App {
 
         let holder = WorkspaceSessionsHolder(
             engine: SwiftTermEngine(),
-            browserLauncher: browserLauncher
+            browserLauncher: browserLauncher,
+            settings: appSettings
         )
         _workspaceHolder = State(initialValue: holder)
         AppDelegate.workspaceHolder = holder
@@ -71,6 +73,7 @@ struct DevtailApp: App {
         .environment(projectStore)
         .environment(dashboardIntent)
         .environment(workspaceHolder)
+        .environment(appSettings)
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
@@ -78,6 +81,7 @@ struct DevtailApp: App {
         Window("Settings", id: WindowID.settings) {
             ComingSoonView(title: "Settings")
         }
+        .environment(appSettings)
         .windowResizability(.contentSize)
         .defaultSize(width: 400, height: 300)
 
@@ -95,6 +99,7 @@ struct DevtailApp: App {
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
+        .environment(appSettings)
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1200, height: 760)
     }
