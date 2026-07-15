@@ -350,7 +350,13 @@ final class AgentTerminalView: LocalProcessTerminalView {
     override func paste(_ sender: Any) {
         if let png = AgentImagePaste.pngData(from: NSPasteboard.general),
            let url = AgentImagePaste.saveTempImage(png, in: imageDir) {
-            insertText(url.path, replacementRange: NSRange(location: 0, length: 0), isPaste: true)
+            // Hand-rolled bracketed-paste wrap: the insertText(...isPaste:)
+            // overload is internal to SwiftTerm. Mirrors its non-kitty paste
+            // path; degrades to an unwrapped path when mode 2004 is off.
+            let bracketed = getTerminal().bracketedPasteMode
+            if bracketed { send(data: EscapeSequences.bracketedPasteStart[0...]) }
+            send(txt: url.path)
+            if bracketed { send(data: EscapeSequences.bracketedPasteEnd[0...]) }
             return
         }
         super.paste(sender)

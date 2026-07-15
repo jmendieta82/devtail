@@ -35,6 +35,7 @@ struct WorkspaceRootView: View {
     private var tabRow: some View {
         HStack(spacing: DevtailTokens.Spacing.gapSmall) {
             tabButton(title: "terminal", tab: .terminal)
+            tabButton(title: "agent", tab: .agent)
             ForEach(session.supervisor.processes) { process in
                 tabButton(title: process.name, tab: .process(process.id))
             }
@@ -78,6 +79,9 @@ struct WorkspaceRootView: View {
             TerminalHostView(terminalView: session.interactive.view)
                 .opacity(session.selectedTab == .terminal ? 1 : 0)
                 .allowsHitTesting(session.selectedTab == .terminal)
+            TerminalHostView(terminalView: session.agent.view)
+                .opacity(session.selectedTab == .agent ? 1 : 0)
+                .allowsHitTesting(session.selectedTab == .agent)
             ForEach(session.supervisor.processes) { process in
                 if let view = process.session?.view {
                     TerminalHostView(terminalView: view)
@@ -98,6 +102,9 @@ struct WorkspaceRootView: View {
             if session.selectedTab == .terminal && session.interactiveExited {
                 deadShellOverlay
             }
+            if session.selectedTab == .agent && session.agentExited {
+                deadAgentOverlay
+            }
         }
     }
 
@@ -108,6 +115,28 @@ struct WorkspaceRootView: View {
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
             Button("Restart shell") {
                 holder.restartInteractive(projectId: session.projectId)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(DevtailTokens.Spacing.cardPadding)
+        .background(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .fill(DevtailTokens.Colors.popoverBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
+        )
+    }
+
+    private var deadAgentOverlay: some View {
+        VStack(spacing: DevtailTokens.Spacing.gapMedium) {
+            Text("agent exited")
+                .font(DevtailTokens.Typography.caption)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            Button("Restart agent") {
+                holder.restartAgent(projectId: session.projectId)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
