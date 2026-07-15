@@ -46,8 +46,8 @@ struct WorkspaceDashboardColumn: View {
             ForEach(session.supervisor.processes) { process in
                 ProcessCardView(
                     process: process,
-                    isSelected: session.selectedTab == process.id,
-                    onSelect: { session.selectedTab = process.id },
+                    isSelected: session.selectedTab == .process(process.id),
+                    onSelect: { session.selectedTab = .process(process.id) },
                     onStart: { session.supervisor.start(process) },
                     onStop: { session.supervisor.stop(process) },
                     onRestart: { session.supervisor.restart(process) }

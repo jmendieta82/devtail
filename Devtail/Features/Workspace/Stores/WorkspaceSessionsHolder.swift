@@ -25,8 +25,9 @@ final class WorkspaceSession: Identifiable {
     /// at the prompt). No auto-respawn: a crashing shell must not loop: this
     /// only drives the dead-state UI affordance until the user restarts it.
     var interactiveExited = false
-    /// nil = interactive terminal tab; otherwise a ManagedProcess id.
-    var selectedTab: UUID?
+    /// Which center-column tab is showing: interactive terminal, a managed
+    /// process's log, or a file viewer.
+    var selectedTab: WorkspaceTab = .terminal
     /// Current git branch of the project root, detected once at session
     /// open. Nil when the root isn't a git repo (or metadata is unreadable).
     let currentBranch: String?
@@ -44,7 +45,6 @@ final class WorkspaceSession: Identifiable {
         self.root = root
         self.supervisor = supervisor
         self.interactive = interactive
-        self.selectedTab = nil
         self.currentBranch = currentBranch
         self.openedAt = openedAt
     }

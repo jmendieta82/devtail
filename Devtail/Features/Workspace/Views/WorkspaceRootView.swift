@@ -34,9 +34,9 @@ struct WorkspaceRootView: View {
 
     private var tabRow: some View {
         HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-            tabButton(title: "terminal", id: nil)
+            tabButton(title: "terminal", tab: .terminal)
             ForEach(session.supervisor.processes) { process in
-                tabButton(title: process.name, id: process.id)
+                tabButton(title: process.name, tab: .process(process.id))
             }
             Spacer()
         }
@@ -44,11 +44,11 @@ struct WorkspaceRootView: View {
         .padding(.vertical, DevtailTokens.Spacing.gapSmall)
     }
 
-    private func tabButton(title: String, id: UUID?) -> some View {
-        Button(title) { session.selectedTab = id }
+    private func tabButton(title: String, tab: WorkspaceTab) -> some View {
+        Button(title) { session.selectedTab = tab }
             .buttonStyle(.plain)
             .font(DevtailTokens.Typography.caption)
-            .foregroundStyle(session.selectedTab == id ? .primary : .secondary)
+            .foregroundStyle(session.selectedTab == tab ? .primary : .secondary)
     }
 
     /// All terminal views stay mounted; opacity flips visibility. allowsHitTesting
@@ -56,20 +56,20 @@ struct WorkspaceRootView: View {
     private var terminalArea: some View {
         ZStack {
             TerminalHostView(terminalView: session.interactive.view)
-                .opacity(session.selectedTab == nil ? 1 : 0)
-                .allowsHitTesting(session.selectedTab == nil)
+                .opacity(session.selectedTab == .terminal ? 1 : 0)
+                .allowsHitTesting(session.selectedTab == .terminal)
             ForEach(session.supervisor.processes) { process in
                 if let view = process.session?.view {
                     TerminalHostView(terminalView: view)
-                        .opacity(session.selectedTab == process.id ? 1 : 0)
-                        .allowsHitTesting(session.selectedTab == process.id)
+                        .opacity(session.selectedTab == .process(process.id) ? 1 : 0)
+                        .allowsHitTesting(session.selectedTab == .process(process.id))
                 }
             }
 
             // Dead-state affordance: the exited terminal view stays mounted
             // underneath (scrollback stays readable) — this just floats a
             // restart prompt over it. User-initiated only, no auto-respawn.
-            if session.selectedTab == nil && session.interactiveExited {
+            if session.selectedTab == .terminal && session.interactiveExited {
                 deadShellOverlay
             }
         }

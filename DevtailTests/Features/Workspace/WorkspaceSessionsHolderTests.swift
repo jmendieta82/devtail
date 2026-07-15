@@ -130,6 +130,15 @@ struct WorkspaceSessionsHolderTests {
         #expect(abs(session.openedAt.timeIntervalSinceNow) < 5)
     }
 
+    @Test func openSessionStartsOnTerminalTab() {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+
+        let session = holder.openSession(for: p)
+
+        #expect(session.selectedTab == .terminal)
+    }
+
     // MARK: - Interactive shell exit / restart (no auto-respawn)
 
     @Test func interactiveExitSetsInteractiveExitedFlag() throws {
