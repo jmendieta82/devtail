@@ -258,10 +258,14 @@ struct DashboardDetailView: View {
             if let stack = pane.stack, !stack.isEmpty {
                 detailsRow(label: "Stack", value: stack)
             }
-            if let branch = branchDetector.detectBranch(
+            // Same guard as MenuBarRootView.resolveBranches: an empty
+            // directoryPath would build a relative URL and the detector
+            // rejects those — skip the row instead of probing garbage.
+            if !project.directoryPath.isEmpty,
+               let branch = branchDetector.detectBranch(
                 in: URL(fileURLWithPath: project.directoryPath)
                     .appendingPathComponent(pane.relativeCwd)
-            ) {
+               ) {
                 detailsRow(label: "Current branch", value: branch)
             }
         }

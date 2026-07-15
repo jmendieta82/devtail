@@ -200,4 +200,20 @@ struct GitBranchDetectorTests {
 
         #expect(result == "feature/x")
     }
+
+    // MARK: - Pathological URLs (regression: infinite walk → 44GB OOM)
+
+    @Test("empty-path URL returns nil instead of walking forever", .timeLimit(.minutes(1)))
+    func emptyPathURLReturnsNil() {
+        // URL(fileURLWithPath: "") yields a RELATIVE "./" URL whose
+        // deletingLastPathComponent grows "../" forever — the walk must
+        // reject it up front, not spin allocating.
+        #expect(GitBranchDetector().detectBranch(in: URL(fileURLWithPath: "")) == nil)
+    }
+
+    @Test("relative file URL returns nil instead of walking forever", .timeLimit(.minutes(1)))
+    func relativeURLReturnsNil() {
+        let relative = URL(string: "file:some/relative/dir")!
+        #expect(GitBranchDetector().detectBranch(in: relative) == nil)
+    }
 }

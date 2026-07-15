@@ -74,9 +74,19 @@ struct GitBranchDetector: Sendable {
         let fm = FileManager.default
         var current = folder.standardizedFileURL
 
+        // Relative URLs (e.g. URL(fileURLWithPath: "") → "./") never converge:
+        // deletingLastPathComponent grows "../" forever instead of reaching "/",
+        // which spins this walk allocating unboundedly. Absolute paths only.
+        guard current.path.hasPrefix("/") else { return nil }
+
+        // Belt-and-suspenders: no real filesystem is deeper than this. If the
+        // termination conditions below ever miss, we bail instead of hanging.
+        var remainingHops = 128
+
         // Walk parents until we hit "/" (which has no parent in URL terms,
         // detected by lastPathComponent == "/" or empty path components).
-        while true {
+        while remainingHops > 0 {
+            remainingHops -= 1
             let candidate = current.appendingPathComponent(".git")
             var isDirectory: ObjCBool = false
             if fm.fileExists(atPath: candidate.path, isDirectory: &isDirectory) {
@@ -99,6 +109,7 @@ struct GitBranchDetector: Sendable {
             }
             current = parent
         }
+        return nil
     }
 
     /// Parses a `.git` file (not directory) and returns the absolute URL
