@@ -34,13 +34,13 @@ struct WorkspaceRootView: View {
 
     private var tabRow: some View {
         HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-            tabButton(title: "terminal", tab: .terminal)
+            terminalTab
             tabButton(title: "agent", tab: .agent)
             ForEach(session.supervisor.processes) { process in
                 // On-demand tab: only processes with a live session (running,
                 // or exited/stopped with scrollback preserved) get a tab.
                 if process.session != nil {
-                    tabButton(title: process.name, tab: .process(process.id))
+                    processTab(for: process)
                 }
             }
             ForEach(session.openFiles) { file in
@@ -52,11 +52,54 @@ struct WorkspaceRootView: View {
         .padding(.vertical, DevtailTokens.Spacing.gapSmall)
     }
 
+    /// Terminal tab is both the opener (click spawns the interactive shell if
+    /// not already live) and, once live, closable — closing kills the PTY.
+    private var terminalTab: some View {
+        HStack(spacing: 4) {
+            Button("terminal") {
+                holder.openInteractive(projectId: session.projectId)
+                session.selectedTab = .terminal
+            }
+            .buttonStyle(.plain)
+            .font(DevtailTokens.Typography.caption)
+            .foregroundStyle(session.selectedTab == .terminal ? .primary : .secondary)
+
+            if session.interactive != nil {
+                Button {
+                    holder.closeInteractive(projectId: session.projectId)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
     private func tabButton(title: String, tab: WorkspaceTab) -> some View {
         Button(title) { session.selectedTab = tab }
             .buttonStyle(.plain)
             .font(DevtailTokens.Typography.caption)
             .foregroundStyle(session.selectedTab == tab ? .primary : .secondary)
+    }
+
+    private func processTab(for process: ManagedProcess) -> some View {
+        HStack(spacing: 4) {
+            Button(process.name) { session.selectedTab = .process(process.id) }
+                .buttonStyle(.plain)
+                .font(DevtailTokens.Typography.caption)
+                .foregroundStyle(session.selectedTab == .process(process.id) ? .primary : .secondary)
+            Button {
+                if session.selectedTab == .process(process.id) { session.selectedTab = .agent }
+                session.supervisor.close(process)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private func fileTab(for file: OpenFile) -> some View {
@@ -76,13 +119,19 @@ struct WorkspaceRootView: View {
         }
     }
 
-    /// All terminal views stay mounted; opacity flips visibility. allowsHitTesting
-    /// keeps hidden terminals from swallowing clicks.
+    /// Terminal views stay mounted while alive; opacity flips visibility.
+    /// allowsHitTesting keeps hidden terminals from swallowing clicks. The
+    /// interactive terminal is mounted conditionally (unlike the agent,
+    /// which is always mounted) — closing it kills the PTY, so there's
+    /// nothing to preserve; while it's alive it stays mounted regardless of
+    /// selection, preserving scrollback across tab switches.
     private var terminalArea: some View {
         ZStack {
-            TerminalHostView(terminalView: session.interactive.view, isActive: session.selectedTab == .terminal)
-                .opacity(session.selectedTab == .terminal ? 1 : 0)
-                .allowsHitTesting(session.selectedTab == .terminal)
+            if let interactive = session.interactive {
+                TerminalHostView(terminalView: interactive.view, isActive: session.selectedTab == .terminal)
+                    .opacity(session.selectedTab == .terminal ? 1 : 0)
+                    .allowsHitTesting(session.selectedTab == .terminal)
+            }
             TerminalHostView(terminalView: session.agent.view, isActive: session.selectedTab == .agent)
                 .opacity(session.selectedTab == .agent ? 1 : 0)
                 .allowsHitTesting(session.selectedTab == .agent)

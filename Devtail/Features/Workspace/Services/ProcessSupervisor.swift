@@ -83,6 +83,18 @@ final class ProcessSupervisor {
         start(process)
     }
 
+    /// Terminate and discard the session entirely — unlike `stop`, which
+    /// preserves the session (and its scrollback) for later restart/reopen,
+    /// `close` drops it so the process tab disappears (WorkspaceRootView only
+    /// renders a tab when `process.session != nil`). Mark stopped FIRST, same
+    /// discipline as `stop`, so a late/async PTY exit callback can't overwrite
+    /// this intentional close with `.exited`.
+    func close(_ process: ManagedProcess) {
+        process.state = .stopped
+        process.session?.terminate()
+        process.session = nil
+    }
+
     func shutdownAll() {
         for process in processes { stop(process) }
     }

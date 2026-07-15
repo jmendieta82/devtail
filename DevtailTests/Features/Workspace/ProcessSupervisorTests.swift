@@ -108,6 +108,27 @@ struct ProcessSupervisorTests {
         #expect(sut.processes[0].state == .stopped)
     }
 
+    /// `close` (unlike `stop`) discards the session entirely — the process
+    /// tab disappears (WorkspaceRootView only renders a tab when
+    /// `process.session != nil`). No scrollback preservation, unlike `stop`.
+    @Test func closeTerminatesSessionDiscardsItAndMarksStopped() {
+        let (sut, engine, _) = makeSUT()
+        sut.configure(panes: [pane("back", order: 0)], root: URL(fileURLWithPath: "/tmp/p"))
+        sut.start(sut.processes[0])
+        sut.close(sut.processes[0])
+        #expect(engine.sessions[0].terminateCount == 1)
+        #expect(sut.processes[0].session == nil)
+        #expect(sut.processes[0].state == .stopped)
+    }
+
+    @Test func closeOnNeverStartedProcessIsSafeNoOp() {
+        let (sut, _, _) = makeSUT()
+        sut.configure(panes: [pane("back", order: 0)], root: URL(fileURLWithPath: "/tmp/p"))
+        sut.close(sut.processes[0])
+        #expect(sut.processes[0].session == nil)
+        #expect(sut.processes[0].state == .stopped)
+    }
+
     @Test func restartCreatesFreshSessionSoLogIsClean() {
         let (sut, engine, _) = makeSUT()
         sut.configure(panes: [pane("back", order: 0)], root: URL(fileURLWithPath: "/tmp/p"))

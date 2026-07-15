@@ -49,25 +49,26 @@ struct WorkspaceSessionsHolderTests {
         return p
     }
 
-    @Test func openSessionSpawnsInteractiveTerminalAtRootAndIsIdempotent() {
+    @Test func openSessionSpawnsOnlyAgentAndIsIdempotent() {
         let (holder, engine) = makeSUT()
         let p = project("alpha")
         let s1 = holder.openSession(for: p)
         let s2 = holder.openSession(for: p)
         #expect(s1 === s2)
-        // Exactly two non-readOnly sessions per workspace: the interactive
-        // terminal (nil command) and the agent (configured command).
-        #expect(engine.configs.count { !$0.readOnly } == 2)
-        let interactive = engine.configs.first { !$0.readOnly && $0.command == nil }
-        #expect(interactive?.command == nil)
-        #expect(interactive?.cwd.path == "/tmp/alpha")
+        // Only the agent is constant/auto-started now — the interactive
+        // terminal is ephemeral (opened on demand via openInteractive).
+        #expect(engine.configs.count { !$0.readOnly } == 1)
+        let agent = engine.configs.first { !$0.readOnly }
+        #expect(agent?.command != nil)
+        #expect(agent?.cwd.path == "/tmp/alpha")
         #expect(holder.isOpen(p.id))
+        #expect(s1.interactive == nil)
     }
 
     /// Managed processes are configured (cards visible, stopped) but must
     /// NOT auto-start on workspace open — the user starts them manually via
-    /// each card's play button. Only the interactive terminal and the agent
-    /// session are spawned automatically.
+    /// each card's play button. Only the agent session is spawned
+    /// automatically; the interactive terminal is ephemeral.
     @Test func openSessionConfiguresButDoesNotStartManagedProcesses() throws {
         let (holder, engine) = makeSUT()
         let context = try makeContext()
@@ -80,14 +81,14 @@ struct WorkspaceSessionsHolderTests {
 
         let session = holder.openSession(for: p)
 
-        // Only the interactive terminal + agent session are spawned. No
-        // session was created for the managed process.
-        #expect(engine.sessions.count == 2)
+        // Only the agent session is spawned. No session was created for the
+        // managed process, and no interactive terminal either (ephemeral).
+        #expect(engine.sessions.count == 1)
         #expect(session.supervisor.processes.count == 1)
         #expect(session.supervisor.processes[0].state == .stopped)
     }
 
-    @Test func closeShutsDownProcessesAndTerminal() throws {
+    @Test func closeShutsDownProcessesAndAgentWithNoInteractiveOpen() throws {
         let (holder, engine) = makeSUT()
         let context = try makeContext()
         let p = project("alpha")
@@ -98,14 +99,34 @@ struct WorkspaceSessionsHolderTests {
         p.workspacePanes.append(pane)
 
         _ = holder.openSession(for: p)
-        // Managed processes are not auto-started: only the interactive
-        // terminal + agent session exist at this point.
+        // Managed processes are not auto-started: only the agent session
+        // exists at this point (interactive is ephemeral, not yet opened).
+        #expect(engine.sessions.count == 1)
+
+        holder.close(projectId: p.id)
+        #expect(!holder.isOpen(p.id))
+        #expect(engine.sessions.count == 1)
+        #expect(engine.sessions.allSatisfy { $0.terminateCount >= 1 })
+    }
+
+    /// Same teardown, but with an interactive session opened first — proves
+    /// `close` still terminates it via the optional-chained call when present.
+    @Test func closeShutsDownProcessesTerminalAndAgentWhenInteractiveIsOpen() throws {
+        let (holder, engine) = makeSUT()
+        let context = try makeContext()
+        let p = project("alpha")
+        context.insert(p)
+        let pane = WorkspacePane(label: "back", relativeCwd: "api", command: "npm run dev",
+                                  order: 0, layoutSlot: 0, project: p)
+        context.insert(pane)
+        p.workspacePanes.append(pane)
+
+        _ = holder.openSession(for: p)
+        holder.openInteractive(projectId: p.id)
         #expect(engine.sessions.count == 2)
 
         holder.close(projectId: p.id)
         #expect(!holder.isOpen(p.id))
-        // Proves the holder propagates teardown through the supervisor to
-        // every underlying session, not just the interactive terminal.
         #expect(engine.sessions.count == 2)
         #expect(engine.sessions.allSatisfy { $0.terminateCount >= 1 })
     }
@@ -163,21 +184,89 @@ struct WorkspaceSessionsHolderTests {
         #expect(abs(session.openedAt.timeIntervalSinceNow) < 5)
     }
 
-    @Test func openSessionStartsOnTerminalTab() {
+    @Test func openSessionStartsOnAgentTab() {
         let (holder, _) = makeSUT()
         let p = project("alpha")
 
         let session = holder.openSession(for: p)
 
-        #expect(session.selectedTab == .terminal)
+        #expect(session.selectedTab == .agent)
     }
 
-    // MARK: - Interactive shell exit / restart (no auto-respawn)
+    // MARK: - Interactive shell (ephemeral: open/close on demand)
+
+    @Test func openInteractiveSpawnsPlainShellSessionAtRoot() {
+        let (holder, engine) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+
+        holder.openInteractive(projectId: p.id)
+
+        #expect(session.interactive != nil)
+        let interactiveMock = session.interactive as? MockTerminalSession
+        #expect(interactiveMock?.startCount == 1)
+        let config = engine.configs.first { $0.command == nil }
+        #expect(config?.readOnly == false)
+        #expect(config?.cwd.path == "/tmp/alpha")
+    }
+
+    @Test func openInteractiveIsIdempotentWhenAlreadyLive() {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+
+        holder.openInteractive(projectId: p.id)
+        let first = session.interactive as? MockTerminalSession
+
+        holder.openInteractive(projectId: p.id)
+
+        #expect(session.interactive === first)
+        #expect(first?.startCount == 1)
+    }
+
+    @Test func closeInteractiveTerminatesNilsAndResetsFlag() {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+        holder.openInteractive(projectId: p.id)
+        let mock = session.interactive as? MockTerminalSession
+        session.selectedTab = .terminal
+
+        holder.closeInteractive(projectId: p.id)
+
+        #expect(mock?.terminateCount == 1)
+        #expect(session.interactive == nil)
+        #expect(session.interactiveExited == false)
+        #expect(session.selectedTab == .agent)
+    }
+
+    @Test func closeInteractiveDoesNotChangeSelectionWhenAnotherTabIsSelected() {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+        holder.openInteractive(projectId: p.id)
+        session.selectedTab = .agent
+
+        holder.closeInteractive(projectId: p.id)
+
+        #expect(session.selectedTab == .agent)
+    }
+
+    @Test func closeInteractiveWhenNoneOpenIsSafeNoOp() {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+
+        holder.closeInteractive(projectId: p.id)
+
+        #expect(session.interactive == nil)
+    }
 
     @Test func interactiveExitSetsInteractiveExitedFlag() throws {
         let (holder, _) = makeSUT()
         let p = project("alpha")
         let session = holder.openSession(for: p)
+        holder.openInteractive(projectId: p.id)
         let interactiveMock = try #require(session.interactive as? MockTerminalSession)
 
         interactiveMock.simulateExit(code: 0)
@@ -189,6 +278,7 @@ struct WorkspaceSessionsHolderTests {
         let (holder, engine) = makeSUT()
         let p = project("alpha")
         let session = holder.openSession(for: p)
+        holder.openInteractive(projectId: p.id)
         let oldInteractive = session.interactive as! MockTerminalSession
         oldInteractive.simulateExit(code: 1)
         #expect(session.interactiveExited)
@@ -209,6 +299,7 @@ struct WorkspaceSessionsHolderTests {
         let (holder, _) = makeSUT()
         let p = project("alpha")
         let session = holder.openSession(for: p)
+        holder.openInteractive(projectId: p.id)
         let oldInteractive = session.interactive as! MockTerminalSession
 
         holder.restartInteractive(projectId: p.id)
@@ -221,6 +312,17 @@ struct WorkspaceSessionsHolderTests {
         oldInteractive.simulateExit(code: 1)
 
         #expect(!session.interactiveExited)
+    }
+
+    @Test func restartInteractiveWhenNoneOpenIsSafeNoOp() {
+        let (holder, engine) = makeSUT()
+        let p = project("alpha")
+        let session = holder.openSession(for: p)
+
+        holder.restartInteractive(projectId: p.id)
+
+        #expect(session.interactive == nil)
+        #expect(engine.sessions.count == 1) // only the agent
     }
 
     // MARK: - Agent session (first-class, mirrors interactive machinery)

@@ -16,11 +16,15 @@ final class WorkspaceSession: Identifiable {
     let projectName: String
     let root: URL
     let supervisor: ProcessSupervisor
-    /// Replaced wholesale on `restartInteractive` — a fresh PTY/session, not
-    /// mutated in place. `fileprivate(set)` (not `private(set)`): the write
-    /// happens from `WorkspaceSessionsHolder` below, a different type in the
-    /// same file — `private` alone would not grant it access.
-    fileprivate(set) var interactive: TerminalSession
+    /// Ephemeral: nil until `openInteractive` is called, terminated and reset
+    /// to nil by `closeInteractive`. Unlike `agent`, the interactive terminal
+    /// is never auto-started — the user opens/closes it at will, and closing
+    /// kills the session. Replaced wholesale on `restartInteractive` — a
+    /// fresh PTY/session, not mutated in place. `fileprivate(set)` (not
+    /// `private(set)`): the write happens from `WorkspaceSessionsHolder`
+    /// below, a different type in the same file — `private` alone would not
+    /// grant it access.
+    fileprivate(set) var interactive: TerminalSession?
     /// Set true when the interactive shell's process exits (e.g. `exit` typed
     /// at the prompt). No auto-respawn: a crashing shell must not loop: this
     /// only drives the dead-state UI affordance until the user restarts it.
@@ -33,8 +37,9 @@ final class WorkspaceSession: Identifiable {
     /// no auto-respawn here either.
     var agentExited = false
     /// Which center-column tab is showing: interactive terminal, a managed
-    /// process's log, or a file viewer.
-    var selectedTab: WorkspaceTab = .terminal
+    /// process's log, or a file viewer. The agent is the only constant tab,
+    /// so it's the default.
+    var selectedTab: WorkspaceTab = .agent
     /// Files open in the workspace (read-only viewer tabs).
     private(set) var openFiles: [OpenFile] = []
     /// Current git branch of the project root, detected once at session
@@ -51,7 +56,7 @@ final class WorkspaceSession: Identifiable {
     let fileTree: FileTreeStore
 
     init(projectId: UUID, projectName: String, root: URL,
-         supervisor: ProcessSupervisor, interactive: TerminalSession,
+         supervisor: ProcessSupervisor,
          agent: TerminalSession,
          currentBranch: String? = nil,
          openedAt: Date = Date()) {
@@ -59,7 +64,6 @@ final class WorkspaceSession: Identifiable {
         self.projectName = projectName
         self.root = root
         self.supervisor = supervisor
-        self.interactive = interactive
         self.agent = agent
         self.currentBranch = currentBranch
         self.openedAt = openedAt
@@ -78,14 +82,14 @@ final class WorkspaceSession: Identifiable {
 
     /// Close a file in the workspace. If the closed file was selected,
     /// selects the previous neighbor (or next if closed file was first).
-    /// If no files remain, selects the terminal tab. No-op if the path
-    /// is not in openFiles.
+    /// If no files remain, selects the agent tab (the terminal tab may not
+    /// exist anymore — it's ephemeral). No-op if the path is not in openFiles.
     func closeFile(at path: String) {
         guard let index = openFiles.firstIndex(where: { $0.path == path }) else { return }
         openFiles.remove(at: index)
         guard selectedTab == .file(path) else { return }
         if openFiles.isEmpty {
-            selectedTab = .terminal
+            selectedTab = .agent
         } else {
             selectedTab = .file(openFiles[max(0, index - 1)].path)
         }
@@ -105,19 +109,16 @@ final class WorkspaceSessionsHolder {
         self.settings = settings
     }
 
-    /// Create (or return the existing) live session for a project: one
-    /// interactive terminal at the root + auto-started managed processes.
+    /// Create (or return the existing) live session for a project: only the
+    /// agent is constant/auto-started. The interactive terminal is ephemeral
+    /// (see `openInteractive`) and managed processes are configured but not
+    /// started.
     func openSession(for project: Project) -> WorkspaceSession {
         if let existing = sessions[project.id] { return existing }
 
         let root = URL(fileURLWithPath: project.directoryPath, isDirectory: true)
         let supervisor = ProcessSupervisor(engine: engine, browserLauncher: browserLauncher)
         supervisor.configure(panes: project.workspacePanes.sorted { $0.order < $1.order }, root: root)
-
-        let interactive = engine.makeSession(
-            TerminalSessionConfig(command: nil, cwd: root, readOnly: false)
-        )
-        interactive.start()
 
         // A runtime-blank setting must not silently spawn a plain shell in
         // the agent tab — sanitize and fall back to "claude".
@@ -134,13 +135,43 @@ final class WorkspaceSessionsHolder {
 
         let session = WorkspaceSession(
             projectId: project.id, projectName: project.name, root: root,
-            supervisor: supervisor, interactive: interactive, agent: agent,
+            supervisor: supervisor, agent: agent,
             currentBranch: branch
         )
-        wireInteractiveExit(interactive, on: session)
         wireAgentExit(agent, on: session)
         sessions[project.id] = session
         return session
+    }
+
+    /// Open the interactive shell tab on demand: idempotent when a live
+    /// session already exists (no-op), otherwise spawns a fresh plain shell
+    /// at the project root. The terminal is never auto-started — this is the
+    /// only way it comes to life.
+    func openInteractive(projectId: UUID) {
+        guard let session = sessions[projectId] else { return }
+        guard session.interactive == nil else { return }
+
+        let interactive = engine.makeSession(
+            TerminalSessionConfig(command: nil, cwd: session.root, readOnly: false)
+        )
+        interactive.start()
+        session.interactive = interactive
+        wireInteractiveExit(interactive, on: session)
+        session.interactiveExited = false
+    }
+
+    /// Close the interactive shell tab: terminates the underlying session
+    /// (killing the PTY — this is a real close, not a hide) and drops it.
+    /// If the terminal tab was selected, falls back to the agent tab (the
+    /// terminal tab may not exist anymore).
+    func closeInteractive(projectId: UUID) {
+        guard let session = sessions[projectId] else { return }
+        session.interactive?.terminate()
+        session.interactive = nil
+        session.interactiveExited = false
+        if session.selectedTab == .terminal {
+            session.selectedTab = .agent
+        }
     }
 
     /// Wires `onExit` so a shell exit (e.g. typing `exit`) flips the
@@ -157,21 +188,14 @@ final class WorkspaceSessionsHolder {
         }
     }
 
-    /// Mirrors `wireInteractiveExit` for the agent session: same identity
-    /// guard against stale exits from a since-replaced (restarted) agent.
-    private func wireAgentExit(_ terminal: TerminalSession, on session: WorkspaceSession) {
-        terminal.onExit = { [weak session, weak terminal] _ in
-            guard let session, let terminal, session.agent === terminal else { return }
-            session.agentExited = true
-        }
-    }
-
-    /// User-initiated restart of the interactive shell after it exited. No
+    /// User-initiated restart of the interactive shell after it exited. Only
+    /// acts when an interactive session currently exists — restart is not a
+    /// way to open one from scratch, that's `openInteractive`'s job. No
     /// automatic respawn anywhere else — a crashing shell must not loop.
     func restartInteractive(projectId: UUID) {
-        guard let session = sessions[projectId] else { return }
+        guard let session = sessions[projectId], let current = session.interactive else { return }
 
-        session.interactive.terminate()
+        current.terminate()
 
         let fresh = engine.makeSession(
             TerminalSessionConfig(command: nil, cwd: session.root, readOnly: false)
@@ -180,6 +204,15 @@ final class WorkspaceSessionsHolder {
         session.interactive = fresh
         wireInteractiveExit(fresh, on: session)
         session.interactiveExited = false
+    }
+
+    /// Mirrors `wireInteractiveExit` for the agent session: same identity
+    /// guard against stale exits from a since-replaced (restarted) agent.
+    private func wireAgentExit(_ terminal: TerminalSession, on session: WorkspaceSession) {
+        terminal.onExit = { [weak session, weak terminal] _ in
+            guard let session, let terminal, session.agent === terminal else { return }
+            session.agentExited = true
+        }
     }
 
     /// User-initiated restart of the agent session after it exited. Mirrors
@@ -208,7 +241,7 @@ final class WorkspaceSessionsHolder {
     func close(projectId: UUID) {
         guard let session = sessions.removeValue(forKey: projectId) else { return }
         session.supervisor.shutdownAll()
-        session.interactive.terminate()
+        session.interactive?.terminate()
         session.agent.terminate()
     }
 
