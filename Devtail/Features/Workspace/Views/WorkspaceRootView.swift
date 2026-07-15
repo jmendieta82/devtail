@@ -25,7 +25,7 @@ struct WorkspaceRootView: View {
             }
             .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
 
-            FileTreePlaceholderColumn()
+            FileTreeColumn(session: session)
                 .frame(minWidth: 220, maxWidth: 300)
         }
         .navigationTitle(session.projectName)
