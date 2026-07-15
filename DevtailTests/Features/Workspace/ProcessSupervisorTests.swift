@@ -48,6 +48,31 @@ struct ProcessSupervisorTests {
         #expect(browser.urlStrings == ["http://localhost:4200"])
     }
 
+    @Test func startAllOpensEveryFrontendURLInOrder() {
+        let (sut, _, browser) = makeSUT()
+        sut.configure(panes: [pane("front1", order: 0, frontend: true, url: "http://localhost:3000"),
+                              pane("front2", order: 1, frontend: true, url: "http://localhost:4200")],
+                      root: URL(fileURLWithPath: "/tmp/p"))
+        sut.startAll()
+        #expect(browser.urlStrings == ["http://localhost:3000", "http://localhost:4200"])
+    }
+
+    @Test func startDoesNotOpenBrowserWhenFrontendLocalhostUrlIsNil() {
+        let (sut, _, browser) = makeSUT()
+        sut.configure(panes: [pane("front", order: 0, frontend: true, url: nil)],
+                      root: URL(fileURLWithPath: "/tmp/p"))
+        sut.startAll()
+        #expect(browser.urlStrings.isEmpty)
+    }
+
+    @Test func startDoesNotOpenBrowserWhenFrontendLocalhostUrlIsBlank() {
+        let (sut, _, browser) = makeSUT()
+        sut.configure(panes: [pane("front", order: 0, frontend: true, url: "  ")],
+                      root: URL(fileURLWithPath: "/tmp/p"))
+        sut.startAll()
+        #expect(browser.urlStrings.isEmpty)
+    }
+
     @Test func exitCallbackMovesStateToExitedWithCode() {
         let (sut, engine, _) = makeSUT()
         sut.configure(panes: [pane("back", order: 0)], root: URL(fileURLWithPath: "/tmp/p"))
