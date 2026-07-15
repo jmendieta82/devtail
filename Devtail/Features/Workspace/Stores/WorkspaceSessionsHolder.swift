@@ -123,7 +123,7 @@ final class WorkspaceSessionsHolder {
         // the agent tab — sanitize and fall back to "claude".
         let command = settings.agentCommand.trimmingCharacters(in: .whitespaces)
         let agent = engine.makeSession(
-            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: root, readOnly: false)
+            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: root, readOnly: false, imagePaste: true)
         )
         agent.start()
 
@@ -191,7 +191,7 @@ final class WorkspaceSessionsHolder {
 
         let command = settings.agentCommand.trimmingCharacters(in: .whitespaces)
         let fresh = engine.makeSession(
-            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: session.root, readOnly: false)
+            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: session.root, readOnly: false, imagePaste: true)
         )
         fresh.start()
         session.agent = fresh

@@ -16,6 +16,16 @@ struct TerminalSessionConfig {
     let cwd: URL
     /// Read-only sessions render output but swallow keyboard input (process logs).
     let readOnly: Bool
+    /// Image-paste sessions (the agent tab) intercept paste: clipboard images
+    /// are written to a temp PNG and its path is bracketed-pasted instead.
+    let imagePaste: Bool
+
+    init(command: String?, cwd: URL, readOnly: Bool, imagePaste: Bool = false) {
+        self.command = command
+        self.cwd = cwd
+        self.readOnly = readOnly
+        self.imagePaste = imagePaste
+    }
 }
 
 @MainActor

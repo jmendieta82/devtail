@@ -30,9 +30,13 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
 
     init(config: TerminalSessionConfig) {
         self.config = config
-        self.terminalView = config.readOnly
-            ? ReadOnlyLocalProcessTerminalView(frame: .zero)
-            : LocalProcessTerminalView(frame: .zero)
+        if config.readOnly {
+            self.terminalView = ReadOnlyLocalProcessTerminalView(frame: .zero)
+        } else if config.imagePaste {
+            self.terminalView = AgentTerminalView(frame: .zero)
+        } else {
+            self.terminalView = LocalProcessTerminalView(frame: .zero)
+        }
         super.init()
         terminalView.processDelegate = self
     }
@@ -51,6 +55,7 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
 
     func terminate() {
         guard !exited else { return }
+        (terminalView as? AgentTerminalView)?.cleanupImages()
         let pid = terminalView.process.shellPid
         guard pid > 0 else { return }
         killpg(pid, SIGTERM)
