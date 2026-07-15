@@ -25,4 +25,24 @@ struct ShellCommandTests {
         let inv = ShellCommand.loginShellInvocation(command: #"echo "hola mundo""#, shell: "/bin/zsh")
         #expect(inv[2] == #"echo "hola mundo""#)
     }
+
+    @Test func sessionEnvironmentInheritsBaseAndOverlaysTerm() {
+        let env = ShellCommand.sessionEnvironment(
+            base: ["PATH": "/opt/homebrew/bin:/usr/bin", "HOME": "/Users/x", "SHELL": "/bin/zsh", "LANG": "es_CO.UTF-8"],
+            termName: "xterm-256color"
+        )
+        #expect(env.contains("PATH=/opt/homebrew/bin:/usr/bin"))
+        #expect(env.contains("HOME=/Users/x"))
+        #expect(env.contains("SHELL=/bin/zsh"))
+        #expect(env.contains("TERM=xterm-256color"))
+        #expect(env.contains("COLORTERM=truecolor"))
+        // Existing LANG wins over the fallback.
+        #expect(env.contains("LANG=es_CO.UTF-8"))
+        #expect(!env.contains("LANG=en_US.UTF-8"))
+    }
+
+    @Test func sessionEnvironmentAddsLangFallbackWhenMissing() {
+        let env = ShellCommand.sessionEnvironment(base: [:], termName: "xterm-256color")
+        #expect(env.contains("LANG=en_US.UTF-8"))
+    }
 }

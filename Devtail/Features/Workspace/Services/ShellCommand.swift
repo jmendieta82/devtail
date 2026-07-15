@@ -27,4 +27,19 @@ enum ShellCommand {
         guard !trimmed.isEmpty else { return [shell, "-il"] }
         return [shell, "-ilc", trimmed]
     }
+
+    /// Environment for a PTY child: the app's FULL inherited environment
+    /// (HOME, PATH, SHELL, TMPDIR, everything — like real terminal emulators
+    /// do) overlaid with terminal identity vars. SwiftTerm's own env builder
+    /// drops PATH deliberately and starves login shells; we don't use it.
+    static func sessionEnvironment(
+        base: [String: String] = ProcessInfo.processInfo.environment,
+        termName: String = "xterm-256color"
+    ) -> [String] {
+        var merged = base
+        merged["TERM"] = termName
+        merged["COLORTERM"] = "truecolor"
+        if merged["LANG"] == nil { merged["LANG"] = "en_US.UTF-8" }
+        return merged.map { "\($0.key)=\($0.value)" }.sorted()
+    }
 }

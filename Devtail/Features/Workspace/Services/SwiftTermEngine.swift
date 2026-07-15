@@ -43,7 +43,7 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
         terminalView.startProcess(
             executable: invocation[0],
             args: Array(invocation.dropFirst()),
-            environment: Terminal.getEnvironmentVariables(termName: "xterm-256color"),
+            environment: ShellCommand.sessionEnvironment(),
             execName: nil,
             currentDirectory: config.cwd.path
         )
