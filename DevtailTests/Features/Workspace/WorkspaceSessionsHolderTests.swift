@@ -140,6 +140,15 @@ struct WorkspaceSessionsHolderTests {
         #expect(session.quickLinks.isEmpty)
     }
 
+    @Test func openSessionStampsOpenedAt() {
+        let (holder, _) = makeSUT()
+        let p = project("alpha")
+
+        let session = holder.openSession(for: p)
+
+        #expect(abs(session.openedAt.timeIntervalSinceNow) < 5)
+    }
+
     // MARK: - Interactive shell exit / restart (no auto-respawn)
 
     @Test func interactiveExitSetsInteractiveExitedFlag() throws {

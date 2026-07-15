@@ -32,10 +32,15 @@ final class WorkspaceSession: Identifiable {
     let currentBranch: String?
     /// Project quick links, order-sorted, snapshotted at session open.
     let quickLinks: [(title: String, url: String)]
+    /// Timestamp the workspace was opened — feeds the elapsed-time card via
+    /// `WorkspaceSessionClock`. `Date()` is nonisolated, so it's safe as a
+    /// default even though this class is `@MainActor` by default isolation.
+    let openedAt: Date
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor, interactive: TerminalSession,
-         currentBranch: String? = nil, quickLinks: [(title: String, url: String)] = []) {
+         currentBranch: String? = nil, quickLinks: [(title: String, url: String)] = [],
+         openedAt: Date = Date()) {
         self.projectId = projectId
         self.projectName = projectName
         self.root = root
@@ -44,6 +49,7 @@ final class WorkspaceSession: Identifiable {
         self.selectedTab = nil
         self.currentBranch = currentBranch
         self.quickLinks = quickLinks
+        self.openedAt = openedAt
     }
 }
 
