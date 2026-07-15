@@ -27,12 +27,11 @@ Full product spec lives in Notion: page id `33b51204-0274-810d-a954-cd13a46e23c5
 
 ## Critical decisions (do not violate without explicit user confirmation)
 
-1. **Mac App Store only.** App Sandbox is ON. Hardened Runtime is ON. This means:
-   - No direct `Process` calls for launching external apps
-   - Use `NSWorkspace.open(_:configuration:)` instead
-   - Filesystem access requires `NSOpenPanel` + security-scoped bookmarks
-   - No Sparkle (App Store handles updates)
-   - All entitlements must be App Store compatible
+1. **App Sandbox is OFF (decided 2026-07-14).** Devtail is a personal tool distributed directly — not via Mac App Store. Hardened Runtime stays ON. This means:
+   - PTY sessions and managed processes are allowed (the reason sandbox was dropped)
+   - `ENABLE_APP_SANDBOX = NO` in the pbxproj — the build setting injects the entitlement at signing regardless of the entitlements file; never set it back to YES (incident 2026-07-15: it silently re-sandboxed every build)
+   - Security-scoped bookmarks are legacy (kept dormant, cleanup deferred)
+   - macOS TCC still applies (external volumes, Documents, etc.) — expect one-time permission prompts
 2. **macOS 15 Sequoia minimum.** Do not use APIs newer than Sequoia without confirming.
 3. **No backend.** Everything is local. SwiftData + Keychain. Cloud calls go directly client → provider API.
 4. **Zero telemetry.** No analytics SDKs, no logging to remote servers.
