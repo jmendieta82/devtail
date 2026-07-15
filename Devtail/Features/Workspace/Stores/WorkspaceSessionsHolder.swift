@@ -37,6 +37,11 @@ final class WorkspaceSession: Identifiable {
     /// `WorkspaceSessionClock`. `Date()` is nonisolated, so it's safe as a
     /// default even though this class is `@MainActor` by default isolation.
     let openedAt: Date
+    /// Lazy file tree for the project root, backing the file-tree column.
+    /// Constructed here (not as a default param) — `FileManagerDirectoryLister()`
+    /// is `@MainActor`-isolated under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
+    /// and cannot be a default parameter value.
+    let fileTree: FileTreeStore
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor, interactive: TerminalSession,
@@ -49,6 +54,7 @@ final class WorkspaceSession: Identifiable {
         self.interactive = interactive
         self.currentBranch = currentBranch
         self.openedAt = openedAt
+        self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
     }
 
     /// Open a file in the workspace (append to openFiles if not already open,
