@@ -38,6 +38,9 @@ struct WorkspaceRootView: View {
             ForEach(session.supervisor.processes) { process in
                 tabButton(title: process.name, tab: .process(process.id))
             }
+            ForEach(session.openFiles) { file in
+                fileTab(for: file)
+            }
             Spacer()
         }
         .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
@@ -49,6 +52,23 @@ struct WorkspaceRootView: View {
             .buttonStyle(.plain)
             .font(DevtailTokens.Typography.caption)
             .foregroundStyle(session.selectedTab == tab ? .primary : .secondary)
+    }
+
+    private func fileTab(for file: OpenFile) -> some View {
+        HStack(spacing: 4) {
+            Button(file.name) { session.selectedTab = .file(file.path) }
+                .buttonStyle(.plain)
+                .font(DevtailTokens.Typography.caption)
+                .foregroundStyle(session.selectedTab == .file(file.path) ? .primary : .secondary)
+            Button {
+                session.closeFile(at: file.path)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     /// All terminal views stay mounted; opacity flips visibility. allowsHitTesting
@@ -64,6 +84,12 @@ struct WorkspaceRootView: View {
                         .opacity(session.selectedTab == .process(process.id) ? 1 : 0)
                         .allowsHitTesting(session.selectedTab == .process(process.id))
                 }
+            }
+
+            // File viewer tab: mounted conditionally (no PTY to preserve, unlike
+            // the terminal views above which stay mounted always).
+            if case .file(let path) = session.selectedTab {
+                FileViewerTabView(path: path)
             }
 
             // Dead-state affordance: the exited terminal view stays mounted
