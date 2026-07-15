@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4399E48A300702B4006E97E3 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = DE5717E1000000000000A002 /* SwiftTerm */; };
+		4399E48B300702B4006E97E4 /* Highlighter in Frameworks */ = {isa = PBXBuildFile; productRef = DE5717E3000000000000A004 /* Highlighter */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +52,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4399E48A300702B4006E97E3 /* SwiftTerm in Frameworks */,
+				4399E48B300702B4006E97E4 /* Highlighter in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +121,7 @@
 			name = Devtail;
 			packageProductDependencies = (
 				DE5717E1000000000000A002 /* SwiftTerm */,
+				DE5717E3000000000000A004 /* Highlighter */,
 			);
 			productName = Devtail;
 			productReference = 439B96692F84BF1D0065D2C3 /* Devtail.app */;
@@ -154,6 +157,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				DE5717E0000000000000A001 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+				DE5717E2000000000000A003 /* XCRemoteSwiftPackageReference "HighlighterSwift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 439B966A2F84BF1D0065D2C3 /* Products */;
@@ -482,6 +486,14 @@
 				minimumVersion = 1.2.0;
 			};
 		};
+		DE5717E2000000000000A003 /* XCRemoteSwiftPackageReference "HighlighterSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/smittytone/HighlighterSwift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -489,6 +501,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DE5717E0000000000000A001 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;
+		};
+		DE5717E3000000000000A004 /* Highlighter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DE5717E2000000000000A003 /* XCRemoteSwiftPackageReference "HighlighterSwift" */;
+			productName = Highlighter;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
