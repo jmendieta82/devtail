@@ -16,13 +16,16 @@ struct WorkspaceRootView: View {
 
     var body: some View {
         HSplitView {
+            WorkspaceDashboardColumn(session: session)
+                .frame(minWidth: 260, maxWidth: 340)
+
             VStack(spacing: 0) {
                 tabRow
                 terminalArea
             }
             .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
 
-            WorkspaceDashboardColumn(session: session)
+            FileTreePlaceholderColumn()
                 .frame(minWidth: 220, maxWidth: 300)
         }
         .navigationTitle(session.projectName)
