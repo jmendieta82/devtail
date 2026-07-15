@@ -14,7 +14,9 @@ struct DevtailApp: App {
     @State private var projectStore: ProjectStore
     @State private var activityMonitor = WorkspaceActivityMonitor()
     @State private var dashboardIntent = DashboardIntentHolder()
+    @State private var workspaceHolder: WorkspaceSessionsHolder
     @Environment(\.openWindow) private var openWindow
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
         let container = PersistenceController.makeContainer()
@@ -35,6 +37,13 @@ struct DevtailApp: App {
         )
         _modelContainer = State(initialValue: container)
         _projectStore = State(initialValue: store)
+
+        let holder = WorkspaceSessionsHolder(
+            engine: SwiftTermEngine(),
+            browserLauncher: browserLauncher
+        )
+        _workspaceHolder = State(initialValue: holder)
+        AppDelegate.workspaceHolder = holder
     }
 
     var body: some Scene {
@@ -48,6 +57,7 @@ struct DevtailApp: App {
         .environment(projectStore)
         .environment(activityMonitor)
         .environment(dashboardIntent)
+        .environment(workspaceHolder)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Project") {
@@ -66,6 +76,7 @@ struct DevtailApp: App {
         .environment(projectStore)
         .environment(activityMonitor)
         .environment(dashboardIntent)
+        .environment(workspaceHolder)
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
@@ -75,12 +86,35 @@ struct DevtailApp: App {
         }
         .windowResizability(.contentSize)
         .defaultSize(width: 400, height: 300)
+
+        WindowGroup("Workspace", id: WindowID.workspace, for: UUID.self) { $projectId in
+            if let projectId,
+               let project = projectStore.projects.first(where: { $0.id == projectId }) {
+                WorkspaceRootView(session: workspaceHolder.openSession(for: project))
+                    .environment(workspaceHolder)
+            }
+        }
+        .modelContainer(modelContainer)
+        .environment(projectStore)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1200, height: 760)
     }
 }
 
 enum WindowID {
     static let dashboard = "devtail.dashboard"
     static let settings  = "devtail.settings"
+    static let workspace = "devtail.workspace"
+}
+
+/// Quit-time teardown. SwiftUI has no reliable "app will quit" hook for
+/// scene-owned state, so the holder is bridged through a static.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    static var workspaceHolder: WorkspaceSessionsHolder?
+
+    func applicationWillTerminate(_ notification: Notification) {
+        AppDelegate.workspaceHolder?.shutdownAll()
+    }
 }
 
 /// Intent the dashboard window should apply the next time it appears
