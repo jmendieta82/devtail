@@ -54,8 +54,8 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
     }
 
     func terminate() {
-        guard !exited else { return }
         (terminalView as? AgentTerminalView)?.cleanupImages()
+        guard !exited else { return }
         let pid = terminalView.process.shellPid
         guard pid > 0 else { return }
         killpg(pid, SIGTERM)

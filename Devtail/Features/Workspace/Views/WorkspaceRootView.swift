@@ -76,15 +76,15 @@ struct WorkspaceRootView: View {
     /// keeps hidden terminals from swallowing clicks.
     private var terminalArea: some View {
         ZStack {
-            TerminalHostView(terminalView: session.interactive.view)
+            TerminalHostView(terminalView: session.interactive.view, isActive: session.selectedTab == .terminal)
                 .opacity(session.selectedTab == .terminal ? 1 : 0)
                 .allowsHitTesting(session.selectedTab == .terminal)
-            TerminalHostView(terminalView: session.agent.view)
+            TerminalHostView(terminalView: session.agent.view, isActive: session.selectedTab == .agent)
                 .opacity(session.selectedTab == .agent ? 1 : 0)
                 .allowsHitTesting(session.selectedTab == .agent)
             ForEach(session.supervisor.processes) { process in
                 if let view = process.session?.view {
-                    TerminalHostView(terminalView: view)
+                    TerminalHostView(terminalView: view, isActive: session.selectedTab == .process(process.id))
                         .opacity(session.selectedTab == .process(process.id) ? 1 : 0)
                         .allowsHitTesting(session.selectedTab == .process(process.id))
                 }

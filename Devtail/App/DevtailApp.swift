@@ -14,7 +14,7 @@ struct DevtailApp: App {
     @State private var projectStore: ProjectStore
     @State private var dashboardIntent = DashboardIntentHolder()
     @State private var workspaceHolder: WorkspaceSessionsHolder
-    private let appSettings = AppSettings()
+    @State private var appSettings: AppSettings
     @Environment(\.openWindow) private var openWindow
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
@@ -35,10 +35,13 @@ struct DevtailApp: App {
         _modelContainer = State(initialValue: container)
         _projectStore = State(initialValue: store)
 
+        let settings = AppSettings()
+        _appSettings = State(initialValue: settings)
+
         let holder = WorkspaceSessionsHolder(
             engine: SwiftTermEngine(),
             browserLauncher: browserLauncher,
-            settings: appSettings
+            settings: settings
         )
         _workspaceHolder = State(initialValue: holder)
         AppDelegate.workspaceHolder = holder

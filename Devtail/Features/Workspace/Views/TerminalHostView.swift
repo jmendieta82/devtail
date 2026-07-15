@@ -12,10 +12,17 @@ import SwiftUI
 
 struct TerminalHostView: NSViewRepresentable {
     let terminalView: NSView
+    var isActive: Bool = false
 
-    func makeNSView(context: Context) -> NSView {
-        terminalView
+    func makeNSView(context: Context) -> NSView { terminalView }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard isActive else { return }
+        // Defer: updateNSView runs mid view-update; moving key focus inline can warn.
+        DispatchQueue.main.async { [weak nsView] in
+            guard let nsView, let window = nsView.window,
+                  window.firstResponder !== nsView else { return }
+            window.makeFirstResponder(nsView)
+        }
     }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
 }
