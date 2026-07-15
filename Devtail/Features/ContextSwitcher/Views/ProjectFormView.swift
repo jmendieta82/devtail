@@ -34,6 +34,9 @@ struct ProjectFormView: View {
     @State private var suppressNameChangeTracking: Bool = false
     @State private var initialSnapshot: FormSnapshot?
 
+    @State private var editingPane: WorkspacePane?
+    @State private var isAddingPane: Bool = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSection) {
@@ -44,6 +47,11 @@ struct ProjectFormView: View {
                     claudeCodeToggle
                 }
                 preview
+                if isEditMode, let project = editingProject {
+                    layoutSection(for: project)
+                    processesSection(for: project)
+                    quickLinksSection(for: project)
+                }
                 if showError, let error = store.lastError {
                     Text(error.localizedDescription)
                         .font(DevtailTokens.Typography.caption)
@@ -63,6 +71,14 @@ struct ProjectFormView: View {
             recomputeDirty()
         }
         .onChange(of: directoryPath) { _, _ in recomputeDirty() }
+        .sheet(item: $editingPane) { pane in
+            paneEditSheet(for: pane)
+        }
+        .sheet(isPresented: $isAddingPane) {
+            if let project = editingProject {
+                paneAddSheet(for: project)
+            }
+        }
     }
 
     // MARK: - Sections
@@ -177,6 +193,118 @@ struct ProjectFormView: View {
         .padding(.top, DevtailTokens.Spacing.gapLarge)
     }
 
+    // MARK: - Edit-mode sections (live on the store)
+
+    private func sortedPanes(for project: Project) -> [WorkspacePane] {
+        project.workspacePanes.sorted { $0.order < $1.order }
+    }
+
+    private func layoutSection(for project: Project) -> some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
+            SectionHeader(title: "LAYOUT")
+            WorkspaceLayoutPicker(
+                selected: project.layout,
+                onSelect: { store.setLayout(for: project, layout: $0) },
+                axis: .horizontal
+            )
+        }
+    }
+
+    private func processesSection(for project: Project) -> some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
+            SectionHeader(title: "PROCESSES")
+            ForEach(sortedPanes(for: project)) { pane in
+                HStack {
+                    VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                        Text(pane.label)
+                            .font(DevtailTokens.Typography.bodySmall)
+                            .foregroundStyle(DevtailTokens.Colors.textPrimary)
+                        Text(pane.command)
+                            .font(DevtailTokens.Typography.caption.monospaced())
+                            .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Button("Edit") { editingPane = pane }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    Button(role: .destructive) {
+                        store.deleteWorkspacePane(pane)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+            Button {
+                isAddingPane = true
+            } label: {
+                Label("Add process", systemImage: "plus")
+            }
+        }
+    }
+
+    private func quickLinksSection(for project: Project) -> some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
+            SectionHeader(title: "QUICK LINKS")
+            QuickLinksPanel(projectID: project.id, hideTitle: true)
+        }
+    }
+
+    @ViewBuilder
+    private func paneEditSheet(for pane: WorkspacePane) -> some View {
+        if let project = editingProject {
+            WorkspacePaneEditRow(
+                projectRoot: project.directoryPath,
+                initialLabel: pane.label,
+                initialRelativeCwd: pane.relativeCwd,
+                initialCommand: pane.command,
+                initialStack: pane.stack,
+                initialIsFrontend: pane.isFrontend,
+                initialLocalhostUrl: pane.localhostUrl,
+                initialEnvironment: pane.environment,
+                onSave: { label, cwd, command, stack, isFrontend, localhostUrl, env in
+                    store.updateWorkspacePane(
+                        pane,
+                        label: label,
+                        relativeCwd: cwd,
+                        command: command,
+                        stack: stack,
+                        isFrontend: isFrontend,
+                        localhostUrl: localhostUrl,
+                        environment: env
+                    )
+                    editingPane = nil
+                },
+                onCancel: { editingPane = nil }
+            )
+            .padding(DevtailTokens.Spacing.dashboardPadding)
+        }
+    }
+
+    @ViewBuilder
+    private func paneAddSheet(for project: Project) -> some View {
+        WorkspacePaneEditRow(
+            projectRoot: project.directoryPath,
+            onSave: { label, cwd, command, stack, isFrontend, localhostUrl, env in
+                store.addWorkspacePane(
+                    label: label,
+                    relativeCwd: cwd,
+                    command: command,
+                    stack: stack,
+                    isFrontend: isFrontend,
+                    localhostUrl: localhostUrl,
+                    environment: env,
+                    to: project
+                )
+                isAddingPane = false
+            },
+            onCancel: { isAddingPane = false }
+        )
+        .padding(DevtailTokens.Spacing.dashboardPadding)
+    }
+
     // MARK: - Helpers
 
     private func fieldLabel(_ text: String) -> some View {
@@ -205,6 +333,11 @@ struct ProjectFormView: View {
 
     private var isEditMode: Bool {
         projectID != nil
+    }
+
+    private var editingProject: Project? {
+        guard let projectID else { return nil }
+        return store.projects.first(where: { $0.id == projectID })
     }
 
     private var title: String {
