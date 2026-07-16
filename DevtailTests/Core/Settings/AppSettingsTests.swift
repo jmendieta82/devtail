@@ -79,4 +79,62 @@ struct AppSettingsTests {
         settings.agentCommand = "claude --continue"
         #expect(defaults.string(forKey: "agentCommand") == "claude --continue")
     }
+
+    // MARK: - Terminal appearance defaults
+
+    @Test("terminal appearance fields default to Javier's Ghostty config when keys are absent")
+    func terminalAppearanceDefaultsWhenKeysAbsent() {
+        let settings = AppSettings(defaults: freshDefaults())
+        #expect(settings.terminalThemeId == "catppuccin-mocha")
+        #expect(settings.terminalFontName == "JetBrainsMono-Regular")
+        #expect(settings.terminalFontSize == 14)
+        #expect(settings.terminalCursorBlock == true)
+        #expect(settings.terminalCursorBlinks == false)
+        #expect(settings.terminalCopyOnSelect == true)
+        #expect(settings.terminalHideMouseWhileTyping == true)
+    }
+
+    @Test("terminal appearance fields read persisted values")
+    func terminalAppearanceReadsStoredValues() {
+        let defaults = freshDefaults()
+        defaults.set("dracula", forKey: "terminalThemeId")
+        defaults.set("Menlo-Regular", forKey: "terminalFontName")
+        defaults.set(16.0, forKey: "terminalFontSize")
+        defaults.set(false, forKey: "terminalCursorBlock")
+        defaults.set(true, forKey: "terminalCursorBlinks")
+        defaults.set(false, forKey: "terminalCopyOnSelect")
+        defaults.set(false, forKey: "terminalHideMouseWhileTyping")
+
+        let settings = AppSettings(defaults: defaults)
+
+        #expect(settings.terminalThemeId == "dracula")
+        #expect(settings.terminalFontName == "Menlo-Regular")
+        #expect(settings.terminalFontSize == 16)
+        #expect(settings.terminalCursorBlock == false)
+        #expect(settings.terminalCursorBlinks == true)
+        #expect(settings.terminalCopyOnSelect == false)
+        #expect(settings.terminalHideMouseWhileTyping == false)
+    }
+
+    @Test("terminal appearance fields persist on change")
+    func terminalAppearanceFieldsPersistOnChange() {
+        let defaults = freshDefaults()
+        let settings = AppSettings(defaults: defaults)
+
+        settings.terminalThemeId = "one-dark"
+        settings.terminalFontName = "Menlo-Regular"
+        settings.terminalFontSize = 18
+        settings.terminalCursorBlock = false
+        settings.terminalCursorBlinks = true
+        settings.terminalCopyOnSelect = false
+        settings.terminalHideMouseWhileTyping = false
+
+        #expect(defaults.string(forKey: "terminalThemeId") == "one-dark")
+        #expect(defaults.string(forKey: "terminalFontName") == "Menlo-Regular")
+        #expect(defaults.double(forKey: "terminalFontSize") == 18)
+        #expect(defaults.bool(forKey: "terminalCursorBlock") == false)
+        #expect(defaults.bool(forKey: "terminalCursorBlinks") == true)
+        #expect(defaults.bool(forKey: "terminalCopyOnSelect") == false)
+        #expect(defaults.bool(forKey: "terminalHideMouseWhileTyping") == false)
+    }
 }
