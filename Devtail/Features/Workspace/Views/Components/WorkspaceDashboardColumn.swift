@@ -15,6 +15,7 @@ struct WorkspaceDashboardColumn: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
                 headerCard
+                processesSection
                 branchSection
                 quickLinksSection
                 sessionSection
@@ -37,6 +38,33 @@ struct WorkspaceDashboardColumn: View {
                     .foregroundStyle(DevtailTokens.Colors.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+            }
+        }
+    }
+
+    /// Live status of every managed process — read-only mirror of the side
+    /// panel's cards (lifecycle actions stay there).
+    private var processesSection: some View {
+        Group {
+            if !session.supervisor.processes.isEmpty {
+                card(title: "Processes") {
+                    VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
+                        ForEach(session.supervisor.processes) { process in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(process.state.displayColor)
+                                    .frame(width: 6, height: 6)
+                                Text(process.name)
+                                    .font(DevtailTokens.Typography.caption)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(process.state.displayLabel)
+                                    .font(DevtailTokens.Typography.captionSmall)
+                                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

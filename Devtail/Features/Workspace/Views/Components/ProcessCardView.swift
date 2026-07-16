@@ -54,8 +54,16 @@ struct ProcessCardView: View {
         }
     }
 
-    private var stateColor: Color {
-        switch process.state {
+    private var stateColor: Color { process.state.displayColor }
+
+    private var stateLabel: String { process.state.displayLabel }
+}
+
+/// Shared display mapping for a process state — used by the sidebar cards
+/// and the dashboard column so both surfaces stay in sync.
+extension ProcessRunState {
+    var displayColor: Color {
+        switch self {
         case .running: .green
         case .starting: .yellow
         case .stopped: .gray
@@ -63,8 +71,8 @@ struct ProcessCardView: View {
         }
     }
 
-    private var stateLabel: String {
-        switch process.state {
+    var displayLabel: String {
+        switch self {
         case .running: "running"
         case .starting: "starting…"
         case .stopped: "stopped"
