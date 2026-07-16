@@ -12,6 +12,7 @@ import SwiftUI
 
 struct WorkspaceRootView: View {
     @Environment(WorkspaceSessionsHolder.self) private var holder
+    @Environment(AppSettings.self) private var settings
     let session: WorkspaceSession
 
     var body: some View {
@@ -123,7 +124,28 @@ struct WorkspaceRootView: View {
     /// which is always mounted) — closing it kills the PTY, so there's
     /// nothing to preserve; while it's alive it stays mounted regardless of
     /// selection, preserving scrollback across tab switches.
+    ///
+    /// Padded and backed by the active theme's background color so the
+    /// frame reads as one surface with the terminal itself — overlays (file
+    /// viewer, settings tab, dead-state prompts) render inside this same
+    /// frame, per spec.
     private var terminalArea: some View {
+        terminalStack
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(themeBackgroundColor)
+    }
+
+    private var themeBackgroundColor: Color {
+        let background = TerminalTheme.theme(id: settings.terminalThemeId).background
+        return Color(
+            red: Double(background.red) / 255,
+            green: Double(background.green) / 255,
+            blue: Double(background.blue) / 255
+        )
+    }
+
+    private var terminalStack: some View {
         ZStack {
             if let interactive = session.interactive {
                 TerminalHostView(terminalView: interactive.view, isActive: session.selectedTab == .terminal)
