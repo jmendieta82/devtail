@@ -15,6 +15,9 @@ struct WorkspaceSettingsTabView: View {
     let session: WorkspaceSession
     @State private var isDirty = false
 
+    /// Cap on the form's readable width inside the center column.
+    private static let contentMaxWidth: CGFloat = 720
+
     private var project: Project? {
         store.projects.first { $0.id == session.projectId }
     }
@@ -30,6 +33,11 @@ struct WorkspaceSettingsTabView: View {
                     onDismiss: { session.selectedTab = .agent },
                     isDirty: $isDirty
                 )
+                // Readable measure: the center column can span the whole
+                // window, so cap the form's width and center it instead of
+                // letting fields stretch edge to edge.
+                .frame(maxWidth: Self.contentMaxWidth)
+                .padding(.horizontal, DevtailTokens.Spacing.dashboardPadding)
                 .onChange(of: panesSignature(of: project)) {
                     session.supervisor.reconfigure(
                         panes: project.workspacePanes.sorted { $0.order < $1.order },
