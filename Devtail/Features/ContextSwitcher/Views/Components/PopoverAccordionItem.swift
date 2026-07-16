@@ -95,12 +95,12 @@ struct PopoverAccordionItem: View {
             .help("Launch workspace")
 
             Button(action: onOpenDashboard) {
-                Text("Configure in Dashboard...")
+                Text("View in Dashboard...")
                     .font(DevtailTokens.Typography.caption)
                     .foregroundStyle(DevtailTokens.Colors.textTertiary)
             }
             .buttonStyle(.plain)
-            .help("Open full dashboard to configure this workspace")
+            .help("Open the dashboard with this project selected")
         }
         .padding(.horizontal, DevtailTokens.Spacing.cardPadding)
         .padding(.bottom, DevtailTokens.Spacing.cardPadding)
