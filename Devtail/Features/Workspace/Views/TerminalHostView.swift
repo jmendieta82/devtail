@@ -24,15 +24,22 @@ import SwiftUI
 /// terminal, not just newly created ones. The Coordinator (not @State — this
 /// is a representable) holds the last-applied token so unrelated SwiftUI
 /// updates don't redundantly rebuild colors/font/cursor on every render.
+///
+/// IMPORTANT: this view does NOT read `AppSettings` itself — SwiftUI
+/// Observation only tracks reads made during a tracked `body` evaluation, and
+/// `updateNSView` runs outside of that, so reading settings here would
+/// register no dependency and silently never re-run on setting changes. The
+/// parent (a tracked body, e.g. `WorkspaceRootView.terminalArea`) must
+/// construct `TerminalAppearance` itself and pass it in, so the settings
+/// reads happen where Observation can actually see them.
 struct TerminalHostView: NSViewRepresentable {
-    @Environment(AppSettings.self) private var settings
     let terminalView: NSView
+    let appearance: TerminalAppearance
     var isActive: Bool = false
 
     func makeNSView(context: Context) -> NSView { terminalView }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        let appearance = TerminalAppearance(settings: settings)
         if appearance.token != context.coordinator.lastAppliedToken, let terminalView = nsView as? TerminalView {
             appearance.apply(to: terminalView)
             context.coordinator.lastAppliedToken = appearance.token

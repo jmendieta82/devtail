@@ -129,8 +129,17 @@ struct WorkspaceRootView: View {
     /// frame reads as one surface with the terminal itself — overlays (file
     /// viewer, settings tab, dead-state prompts) render inside this same
     /// frame, per spec.
+    ///
+    /// `appearance` is constructed here, inside this tracked SwiftUI body
+    /// context — that read touches all 7 `AppSettings` terminal fields, so
+    /// Observation registers a dependency on every one of them. Any field
+    /// change re-renders this body, rebuilds `appearance` with a new token,
+    /// and reconstructs every `TerminalHostView` below with it — which is
+    /// what makes `updateNSView`'s token guard actually re-fire. See
+    /// `TerminalHostView` for why it can't read settings itself.
     private var terminalArea: some View {
-        terminalStack
+        let appearance = TerminalAppearance(settings: settings)
+        return terminalStack(appearance: appearance)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(themeBackgroundColor)
@@ -145,19 +154,19 @@ struct WorkspaceRootView: View {
         )
     }
 
-    private var terminalStack: some View {
+    private func terminalStack(appearance: TerminalAppearance) -> some View {
         ZStack {
             if let interactive = session.interactive {
-                TerminalHostView(terminalView: interactive.view, isActive: session.selectedTab == .terminal)
+                TerminalHostView(terminalView: interactive.view, appearance: appearance, isActive: session.selectedTab == .terminal)
                     .opacity(session.selectedTab == .terminal ? 1 : 0)
                     .allowsHitTesting(session.selectedTab == .terminal)
             }
-            TerminalHostView(terminalView: session.agent.view, isActive: session.selectedTab == .agent)
+            TerminalHostView(terminalView: session.agent.view, appearance: appearance, isActive: session.selectedTab == .agent)
                 .opacity(session.selectedTab == .agent ? 1 : 0)
                 .allowsHitTesting(session.selectedTab == .agent)
             ForEach(session.supervisor.processes) { process in
                 if let view = process.session?.view {
-                    TerminalHostView(terminalView: view, isActive: session.selectedTab == .process(process.id))
+                    TerminalHostView(terminalView: view, appearance: appearance, isActive: session.selectedTab == .process(process.id))
                         .opacity(session.selectedTab == .process(process.id) ? 1 : 0)
                         .allowsHitTesting(session.selectedTab == .process(process.id))
                 }
