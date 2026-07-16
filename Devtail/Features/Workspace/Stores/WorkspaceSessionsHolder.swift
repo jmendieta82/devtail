@@ -42,6 +42,16 @@ final class WorkspaceSession: Identifiable {
     var selectedTab: WorkspaceTab = .agent
     /// Files open in the workspace (read-only viewer tabs).
     private(set) var openFiles: [OpenFile] = []
+    /// Paths of env files with unsaved edits, reported in by the editor in
+    /// `FileViewerTabView`. Drives the dirty indicator on the tab chip and
+    /// the close-confirmation guard. Not used by non-env (read-only) files.
+    private(set) var dirtyFilePaths: Set<String> = []
+    /// Registered by the currently-mounted env file editor (there is at most
+    /// one, since `FileViewerTabView` only stays mounted while its tab is
+    /// selected) so the close-confirmation dialog in `WorkspaceRootView` —
+    /// which lives outside the editor — can trigger "Save and close".
+    /// Reports success/failure so the caller only closes the tab on success.
+    var pendingEnvSave: ((@escaping (Bool) -> Void) -> Void)?
     /// Current git branch of the project root, detected once at session
     /// open. Nil when the root isn't a git repo (or metadata is unreadable).
     let currentBranch: String?
@@ -89,11 +99,28 @@ final class WorkspaceSession: Identifiable {
     func closeFile(at path: String) {
         guard let index = openFiles.firstIndex(where: { $0.path == path }) else { return }
         openFiles.remove(at: index)
+        dirtyFilePaths.remove(path)
         guard selectedTab == .file(path) else { return }
         if openFiles.isEmpty {
             selectedTab = .agent
         } else {
             selectedTab = .file(openFiles[max(0, index - 1)].path)
+        }
+    }
+
+    /// Whether `path` currently has unsaved edits.
+    func isDirty(path: String) -> Bool {
+        dirtyFilePaths.contains(path)
+    }
+
+    /// Reports dirty/clean for `path` into the session. Called by the env
+    /// file editor as its text diverges from (or returns to match) the
+    /// loaded content.
+    func setDirty(_ dirty: Bool, path: String) {
+        if dirty {
+            dirtyFilePaths.insert(path)
+        } else {
+            dirtyFilePaths.remove(path)
         }
     }
 }
