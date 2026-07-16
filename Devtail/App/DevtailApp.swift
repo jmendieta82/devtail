@@ -42,7 +42,7 @@ struct DevtailApp: App {
         _appSettings = State(initialValue: settings)
 
         let holder = WorkspaceSessionsHolder(
-            engine: SwiftTermEngine(),
+            engine: SwiftTermEngine { TerminalAppearance(settings: settings) },
             browserLauncher: browserLauncher,
             settings: settings
         )

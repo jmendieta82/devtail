@@ -15,8 +15,17 @@ import AppKit
 import SwiftTerm
 
 final class SwiftTermEngine: TerminalEngine {
+    /// Resolves the appearance to apply at first paint (see `SwiftTermSession.init`).
+    /// Defaults to `.fallback` so test/mock call sites that construct this
+    /// engine directly (no real `AppSettings` around) still compile.
+    let appearanceProvider: @MainActor () -> TerminalAppearance
+
+    init(appearanceProvider: @MainActor @escaping () -> TerminalAppearance = { .fallback }) {
+        self.appearanceProvider = appearanceProvider
+    }
+
     func makeSession(_ config: TerminalSessionConfig) -> TerminalSession {
-        SwiftTermSession(config: config)
+        SwiftTermSession(config: config, appearance: appearanceProvider())
     }
 }
 
@@ -28,17 +37,18 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
     var onExit: ((Int32?) -> Void)?
     var view: NSView { terminalView }
 
-    init(config: TerminalSessionConfig) {
+    init(config: TerminalSessionConfig, appearance: TerminalAppearance) {
         self.config = config
         if config.readOnly {
             self.terminalView = ReadOnlyLocalProcessTerminalView(frame: .zero)
         } else if config.imagePaste {
             self.terminalView = AgentTerminalView(frame: .zero)
         } else {
-            self.terminalView = LocalProcessTerminalView(frame: .zero)
+            self.terminalView = DevtailTerminalView(frame: .zero)
         }
         super.init()
         terminalView.processDelegate = self
+        appearance.apply(to: terminalView)
     }
 
     func start() {
@@ -96,6 +106,14 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
 /// the adapter's `writeToStdin` are ALSO no-ops on read-only sessions. This
 /// is the documented `TerminalSession.writeToStdin` contract; consumers that
 /// need to type into a session must create it with `readOnly: false`.
-final class ReadOnlyLocalProcessTerminalView: LocalProcessTerminalView {
+///
+/// Extends `DevtailTerminalView` (not `LocalProcessTerminalView` directly) so
+/// it inherits the appearance applier's theme/font/cursor handling, but its
+/// `send` override below intentionally does NOT call `super.send` — the
+/// mouse-hide-while-typing behavior lives in `DevtailTerminalView.send` and
+/// is therefore never reached here. Read-only terminals stay visually
+/// themed but never hide the mouse: acceptable per the appearance plan,
+/// since there's no typing to hide it from.
+final class ReadOnlyLocalProcessTerminalView: DevtailTerminalView {
     override func send(source: TerminalView, data: ArraySlice<UInt8>) { /* read-only: swallow */ }
 }

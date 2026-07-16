@@ -4,7 +4,7 @@ import SwiftTerm
 /// Interactive terminal for the agent tab. Overrides paste so images land as
 /// bracketed-pasted temp-file paths (the agent TUI renders them as [Image #N]);
 /// plain text falls through to SwiftTerm's normal paste.
-final class AgentTerminalView: LocalProcessTerminalView {
+final class AgentTerminalView: DevtailTerminalView {
     private var imageDir: URL?
 
     override func paste(_ sender: Any) {
