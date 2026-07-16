@@ -20,11 +20,11 @@ enum ProcessRunState: Equatable {
 @Observable
 final class ManagedProcess: Identifiable {
     let id: UUID
-    let name: String
-    let command: String
-    let cwd: URL
-    let isFrontend: Bool
-    let localhostUrl: String?
+    private(set) var name: String
+    private(set) var command: String
+    private(set) var cwd: URL
+    private(set) var isFrontend: Bool
+    private(set) var localhostUrl: String?
 
     var state: ProcessRunState = .stopped
     /// The live PTY session (also the log view's source). Replaced on restart.
@@ -36,8 +36,23 @@ final class ManagedProcess: Identifiable {
         self.command = pane.command
         self.isFrontend = pane.isFrontend
         self.localhostUrl = pane.localhostUrl
-        let folder = pane.relativeCwd.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.cwd = (folder.isEmpty || folder == ".")
+        self.cwd = Self.resolveCwd(relativeCwd: pane.relativeCwd, root: root)
+    }
+
+    /// Refreshes the pane-derived fields after a settings edit. The live
+    /// session (if any) keeps running its already-spawned command; the new
+    /// command takes effect on the next start/restart.
+    func apply(pane: WorkspacePane, root: URL) {
+        name = pane.label
+        command = pane.command
+        cwd = Self.resolveCwd(relativeCwd: pane.relativeCwd, root: root)
+        isFrontend = pane.isFrontend
+        localhostUrl = pane.localhostUrl
+    }
+
+    private static func resolveCwd(relativeCwd: String, root: URL) -> URL {
+        let folder = relativeCwd.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (folder.isEmpty || folder == ".")
             ? root
             : root.appendingPathComponent(
                 folder.hasPrefix("./") ? String(folder.dropFirst(2)) : folder,

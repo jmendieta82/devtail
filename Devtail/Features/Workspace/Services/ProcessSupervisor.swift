@@ -24,16 +24,43 @@ final class ProcessSupervisor {
 
     /// Build the process list from the project's panes (persisted definitions),
     /// sorted by `order`. `layoutSlot` and the old layout topology are ignored —
-    /// this is the v1 migration semantics for legacy projects. Panes with a
-    /// blank (or whitespace-only) command are placeholders, not processes —
-    /// e.g. today's seed default, or a legacy "claude" pane retired by
-    /// LegacyClaudePaneMigration — so they never spawn a session.
+    /// this is the v1 migration semantics for legacy projects. See
+    /// `activePanes(from:)` for how blank-command panes are filtered out.
     func configure(panes: [WorkspacePane], root: URL) {
         shutdownAll()
-        processes = panes
+        processes = Self.activePanes(from: panes)
+            .map { ManagedProcess(pane: $0, root: root) }
+    }
+
+    /// Incremental re-sync after a settings edit: surviving panes keep their
+    /// ManagedProcess (and live session) by pane id, removed panes are
+    /// closed, new panes appear as stopped cards. Never auto-starts anything.
+    func reconfigure(panes: [WorkspacePane], root: URL) {
+        let incoming = Self.activePanes(from: panes)
+        let incomingIds = Set(incoming.map(\.id))
+
+        for process in processes where !incomingIds.contains(process.id) {
+            close(process)
+        }
+
+        let existing = Dictionary(uniqueKeysWithValues: processes.map { ($0.id, $0) })
+        processes = incoming.map { pane in
+            if let current = existing[pane.id] {
+                current.apply(pane: pane, root: root)
+                return current
+            }
+            return ManagedProcess(pane: pane, root: root)
+        }
+    }
+
+    /// Blank (or whitespace-only) command panes are placeholders, not
+    /// processes — e.g. today's seed default, or a legacy "claude" pane
+    /// retired by LegacyClaudePaneMigration — so they never spawn a session.
+    /// Shared by `configure` and `reconfigure` to keep filter/sort in sync.
+    private static func activePanes(from panes: [WorkspacePane]) -> [WorkspacePane] {
+        panes
             .filter { !$0.command.trimmingCharacters(in: .whitespaces).isEmpty }
             .sorted { $0.order < $1.order }
-            .map { ManagedProcess(pane: $0, root: root) }
     }
 
     func startAll() {
