@@ -11,6 +11,14 @@ struct WorkspaceTabChipTests {
         #expect(WorkspaceTabChip.truncated(exactly28) == exactly28)
     }
 
+    @Test func emojiTitleTruncatesOnCharacterBoundaries() {
+        let name = String(repeating: "🚀", count: 30) + ".md"
+        let result = WorkspaceTabChip.truncated(name)
+        #expect(result.count == 28)
+        #expect(result.hasSuffix(".md"))
+        #expect(result.contains("…"))
+    }
+
     @Test func longTitleIsMiddleTruncated() {
         let name = "2026-06-22-frontend-extraccion-contratos.md"
         let result = WorkspaceTabChip.truncated(name)
