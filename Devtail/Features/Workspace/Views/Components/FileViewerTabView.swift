@@ -13,15 +13,29 @@ import SwiftUI
 struct FileViewerTabView: View {
     let path: String
 
+    private enum ViewerMode: String, CaseIterable, Identifiable {
+        case preview = "Preview"
+        case source = "Source"
+
+        var id: String { rawValue }
+    }
+
     private enum ViewerState {
         case loading
         case binary
         case tooLarge(Int)
         case unreadable(String)
-        case ready(NSAttributedString, NSColor)
+        case ready(NSAttributedString, NSColor, rawText: String)
     }
 
     @State private var state: ViewerState = .loading
+    @State private var mode: ViewerMode = .preview
+
+    private static let markdownExtensions: Set<String> = ["md", "markdown", "mdown"]
+
+    private var isMarkdown: Bool {
+        Self.markdownExtensions.contains(URL(fileURLWithPath: path).pathExtension.lowercased())
+    }
 
     var body: some View {
         Group {
@@ -36,8 +50,33 @@ struct FileViewerTabView: View {
                             detail: "\(bytes / (1024 * 1024)) MB exceeds the viewer limit.")
             case .unreadable(let reason):
                 placeholder(icon: "exclamationmark.triangle", title: "Can't read file", detail: reason)
-            case .ready(let attributed, let background):
-                CodeViewerView(attributedText: attributed, backgroundColor: background)
+            case .ready(let attributed, let background, let rawText):
+                if isMarkdown {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Spacer()
+                            Picker("View", selection: $mode) {
+                                ForEach(ViewerMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 160)
+                        }
+                        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+                        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+
+                        switch mode {
+                        case .preview:
+                            MarkdownDocumentView(text: rawText)
+                        case .source:
+                            CodeViewerView(attributedText: attributed, backgroundColor: background)
+                        }
+                    }
+                } else {
+                    CodeViewerView(attributedText: attributed, backgroundColor: background)
+                }
             }
         }
         .task(id: path) {
@@ -66,7 +105,7 @@ struct FileViewerTabView: View {
                 ])
             }
             let background = highlightable ? CodeHighlighter.shared.backgroundColor : .textBackgroundColor
-            return .ready(attributed, background)
+            return .ready(attributed, background, rawText: text)
         }
     }
 
