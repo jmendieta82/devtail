@@ -41,6 +41,22 @@ struct EnvFileDetectorTests {
         #expect(EnvFileDetector.isEnvFile(path: "/tmp/project/environment.ts") == false)
     }
 
+    @Test func dotEnvironmentIsNotEditable() {
+        #expect(EnvFileDetector.isEnvFile(path: "/tmp/project/.environment") == false)
+    }
+
+    @Test func dotEnvIsEditable() {
+        #expect(EnvFileDetector.isEnvFile(path: "/tmp/project/.env") == true)
+    }
+
+    @Test func dotEnvDotLocalIsEditable() {
+        #expect(EnvFileDetector.isEnvFile(path: "/tmp/project/.env.local") == true)
+    }
+
+    @Test func uppercaseDotEnvDotLocalIsEditable() {
+        #expect(EnvFileDetector.isEnvFile(path: "/tmp/project/.ENV.LOCAL") == true)
+    }
+
     @Test func onlyLastPathComponentMatters() {
         #expect(EnvFileDetector.isEnvFile(path: "/tmp/.env/nested/main.swift") == false)
     }

@@ -47,9 +47,7 @@ struct WorkspaceRootView: View {
             presenting: pendingCloseFilePath
         ) { path in
             Button("Save and close") {
-                session.pendingEnvSave?({ success in
-                    if success { session.closeFile(at: path) }
-                })
+                session.saveAndCloseFile(at: path)
                 pendingCloseFilePath = nil
             }
             Button("Discard", role: .destructive) {

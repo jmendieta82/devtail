@@ -10,12 +10,13 @@
 import Foundation
 
 enum EnvFileDetector {
-    /// A file is env-editable when its last path component, lowercased,
-    /// starts with ".env" — this covers `.env`, `.env.local`,
-    /// `.env.development`, etc., but not files that merely contain "env"
-    /// elsewhere in the name (`whatever.env`, `environment.ts`).
+    /// A file is env-editable when its last path component, lowercased, is
+    /// exactly ".env" or starts with ".env." — this covers `.env`,
+    /// `.env.local`, `.env.development`, etc., but not files that merely
+    /// start with the same four characters (`.environment`) or contain "env"
+    /// elsewhere in the name (`whatever.env`).
     static func isEnvFile(path: String) -> Bool {
         let name = (path as NSString).lastPathComponent.lowercased()
-        return name.hasPrefix(".env")
+        return name == ".env" || name.hasPrefix(".env.")
     }
 }

@@ -10,6 +10,21 @@
 
 import Foundation
 
+/// In-flight edit state for one open env file, keyed by path in
+/// `WorkspaceSession.envDrafts`. Survives `EnvFileEditorView` unmount/remount
+/// (tab switches) because it lives on the session, not on view-local
+/// `@State` — the whole point of this type. `loadedText` and
+/// `recordedModificationDate` are the values read from disk when the draft
+/// was created (or last synced after a save/reload); `isDirty` compares
+/// `text` against `loadedText`.
+struct EnvDraft {
+    var text: String
+    var loadedText: String
+    var recordedModificationDate: Date?
+
+    var isDirty: Bool { text != loadedText }
+}
+
 @Observable
 final class WorkspaceSession: Identifiable {
     let projectId: UUID
@@ -42,16 +57,12 @@ final class WorkspaceSession: Identifiable {
     var selectedTab: WorkspaceTab = .agent
     /// Files open in the workspace (read-only viewer tabs).
     private(set) var openFiles: [OpenFile] = []
-    /// Paths of env files with unsaved edits, reported in by the editor in
-    /// `FileViewerTabView`. Drives the dirty indicator on the tab chip and
-    /// the close-confirmation guard. Not used by non-env (read-only) files.
-    private(set) var dirtyFilePaths: Set<String> = []
-    /// Registered by the currently-mounted env file editor (there is at most
-    /// one, since `FileViewerTabView` only stays mounted while its tab is
-    /// selected) so the close-confirmation dialog in `WorkspaceRootView` —
-    /// which lives outside the editor — can trigger "Save and close".
-    /// Reports success/failure so the caller only closes the tab on success.
-    var pendingEnvSave: ((@escaping (Bool) -> Void) -> Void)?
+    /// In-flight edit state for open env files, keyed by path. This is the
+    /// single source of truth for both draft text and dirty state — it
+    /// lives on the session (not view-local `@State`) so it survives
+    /// `EnvFileEditorView` unmount/remount across tab switches, and so
+    /// "Save and close" can act on it even when the editor isn't mounted.
+    private(set) var envDrafts: [String: EnvDraft] = [:]
     /// Current git branch of the project root, detected once at session
     /// open. Nil when the root isn't a git repo (or metadata is unreadable).
     let currentBranch: String?
@@ -99,7 +110,7 @@ final class WorkspaceSession: Identifiable {
     func closeFile(at path: String) {
         guard let index = openFiles.firstIndex(where: { $0.path == path }) else { return }
         openFiles.remove(at: index)
-        dirtyFilePaths.remove(path)
+        clearDraft(for: path)
         guard selectedTab == .file(path) else { return }
         if openFiles.isEmpty {
             selectedTab = .agent
@@ -108,19 +119,70 @@ final class WorkspaceSession: Identifiable {
         }
     }
 
-    /// Whether `path` currently has unsaved edits.
+    /// Whether `path` currently has unsaved edits. Derives from the draft
+    /// (if one exists) rather than a separate tracked set — one source of
+    /// truth, so a stuck-dirty chip with no draft behind it is structurally
+    /// impossible.
     func isDirty(path: String) -> Bool {
-        dirtyFilePaths.contains(path)
+        envDrafts[path]?.isDirty ?? false
     }
 
-    /// Reports dirty/clean for `path` into the session. Called by the env
-    /// file editor as its text diverges from (or returns to match) the
-    /// loaded content.
-    func setDirty(_ dirty: Bool, path: String) {
-        if dirty {
-            dirtyFilePaths.insert(path)
-        } else {
-            dirtyFilePaths.remove(path)
+    /// The current draft for `path`, if one has been created.
+    func draft(for path: String) -> EnvDraft? {
+        envDrafts[path]
+    }
+
+    /// Creates the draft for `path` if one doesn't already exist yet — used
+    /// by `EnvFileEditorView` on (re)mount. If a draft already exists (e.g.
+    /// the tab was switched away and back), it is left untouched: that's the
+    /// survival behavior this type exists for.
+    func createDraftIfNeeded(for path: String, loadedText: String, recordedModificationDate: Date?) {
+        guard envDrafts[path] == nil else { return }
+        envDrafts[path] = EnvDraft(text: loadedText, loadedText: loadedText, recordedModificationDate: recordedModificationDate)
+    }
+
+    /// Overwrites the whole draft for `path` — used after a successful save
+    /// (loadedText/recordedModificationDate advance to the just-written
+    /// state) and after an explicit reload from disk.
+    func setDraft(_ draft: EnvDraft, for path: String) {
+        envDrafts[path] = draft
+    }
+
+    /// Updates only the in-progress text for `path`, called on every
+    /// keystroke from the bound `TextEditor`. No-op if there is no draft yet
+    /// (shouldn't happen in practice — the editor creates one on mount).
+    func updateDraft(text: String, for path: String) {
+        guard envDrafts[path] != nil else { return }
+        envDrafts[path]?.text = text
+    }
+
+    /// Drops the draft for `path` entirely — called on close.
+    func clearDraft(for path: String) {
+        envDrafts.removeValue(forKey: path)
+    }
+
+    /// Session-level "Save and close", usable even when the file's editor
+    /// view isn't mounted (e.g. the tab was switched away from). Saves
+    /// straight from the stored draft via `EnvFileSaver` — no dependency on
+    /// a mounted view's closure. On success, clears the draft and closes the
+    /// tab. On an mtime conflict, does NOT silently overwrite: instead it
+    /// selects the file's tab so the editor mounts and can show its own
+    /// conflict alert, and the tab stays open.
+    func saveAndCloseFile(at path: String) {
+        guard let draft = envDrafts[path] else {
+            closeFile(at: path)
+            return
+        }
+        if let recorded = draft.recordedModificationDate,
+           EnvFileSaver.hasConflict(path: path, recordedModificationDate: recorded) {
+            selectedTab = .file(path)
+            return
+        }
+        do {
+            try EnvFileSaver.save(text: draft.text, to: path)
+            closeFile(at: path)
+        } catch {
+            selectedTab = .file(path)
         }
     }
 }

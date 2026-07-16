@@ -7,31 +7,30 @@
 //  Save action (button + Cmd+S), and mtime-conflict handling around
 //  EnvFileSaver. Everything else in the viewer stays read-only.
 //
+//  Draft state (text, loaded snapshot, recorded mtime) lives on
+//  `session.envDrafts`, NOT view-local `@State` — `FileViewerTabView` (and
+//  this view with it) unmounts when its tab isn't selected, so view-local
+//  state would silently lose edits on every tab switch. On (re)mount this
+//  view reuses the existing session draft when present instead of reloading
+//  from disk; that reuse is what makes edits survive.
+//
 
 import SwiftUI
 
 struct EnvFileEditorView: View {
     let path: String
+    let loadedText: String
+    let loadedModificationDate: Date?
     let session: WorkspaceSession
 
-    @State private var text: String
-    /// The last text known to match disk — updated after a successful save
-    /// or reload. Dirty = `text != savedText`. Starts as the text loaded by
-    /// `FileViewerTabView`.
-    @State private var savedText: String
-    @State private var recordedModificationDate: Date?
     @State private var saveError: String?
     @State private var showConflictAlert = false
 
-    init(path: String, loadedText: String, loadedModificationDate: Date?, session: WorkspaceSession) {
-        self.path = path
-        self.session = session
-        _text = State(initialValue: loadedText)
-        _savedText = State(initialValue: loadedText)
-        _recordedModificationDate = State(initialValue: loadedModificationDate)
+    private var text: String {
+        session.draft(for: path)?.text ?? loadedText
     }
 
-    private var isDirty: Bool { text != savedText }
+    private var isDirty: Bool { session.isDirty(path: path) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,22 +48,17 @@ struct EnvFileEditorView: View {
             .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
             .padding(.vertical, DevtailTokens.Spacing.gapSmall)
 
-            TextEditor(text: $text)
-                .font(DevtailTokens.Typography.mono)
-                .scrollContentBackground(.hidden)
-                .background(Color(nsColor: .textBackgroundColor))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .onChange(of: text) { _, newValue in
-            session.setDirty(newValue != savedText, path: path)
+            TextEditor(text: Binding(
+                get: { text },
+                set: { session.updateDraft(text: $0, for: path) }
+            ))
+            .font(DevtailTokens.Typography.mono)
+            .scrollContentBackground(.hidden)
+            .background(Color(nsColor: .textBackgroundColor))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
-            session.pendingEnvSave = { completion in
-                save(then: completion)
-            }
-        }
-        .onDisappear {
-            session.pendingEnvSave = nil
+            session.createDraftIfNeeded(for: path, loadedText: loadedText, recordedModificationDate: loadedModificationDate)
         }
         .alert("File changed on disk", isPresented: $showConflictAlert) {
             Button("Overwrite") { forceSave() }
@@ -79,14 +73,14 @@ struct EnvFileEditorView: View {
     /// modification date against the one recorded at load/last-save time
     /// first — a mismatch means an external edit happened, so we ask before
     /// overwriting rather than clobbering it silently.
-    private func save(then completion: ((Bool) -> Void)? = nil) {
+    private func save() {
         saveError = nil
+        let recordedModificationDate = session.draft(for: path)?.recordedModificationDate
         if let recordedModificationDate, EnvFileSaver.hasConflict(path: path, recordedModificationDate: recordedModificationDate) {
             showConflictAlert = true
-            completion?(false)
             return
         }
-        performSave(then: completion)
+        performSave()
     }
 
     /// User explicitly chose "Overwrite" in the conflict alert — skip the
@@ -95,27 +89,26 @@ struct EnvFileEditorView: View {
         performSave()
     }
 
-    private func performSave(then completion: ((Bool) -> Void)? = nil) {
+    private func performSave() {
         do {
             try EnvFileSaver.save(text: text, to: path)
-            savedText = text
-            recordedModificationDate = EnvFileSaver.modificationDate(at: path)
-            session.setDirty(false, path: path)
-            completion?(true)
+            let newModificationDate = EnvFileSaver.modificationDate(at: path)
+            session.setDraft(
+                EnvDraft(text: text, loadedText: text, recordedModificationDate: newModificationDate),
+                for: path
+            )
         } catch {
             saveError = error.localizedDescription
-            completion?(false)
         }
     }
 
     /// User explicitly chose "Reload" in the conflict alert — discards
     /// local edits and re-reads the file from disk.
     private func reload() {
-        if case .text(let freshText, _, _) = FileContentLoader.load(path: path) {
-            text = freshText
-            savedText = freshText
-        }
-        recordedModificationDate = EnvFileSaver.modificationDate(at: path)
-        session.setDirty(false, path: path)
+        guard case .text(let freshText, _, _) = FileContentLoader.load(path: path) else { return }
+        session.setDraft(
+            EnvDraft(text: freshText, loadedText: freshText, recordedModificationDate: EnvFileSaver.modificationDate(at: path)),
+            for: path
+        )
     }
 }
