@@ -23,6 +23,9 @@ struct WorkspaceRootView: View {
         HSplitView {
             HStack(spacing: 0) {
                 ActivityBar(session: session)
+                Rectangle()
+                    .fill(DevtailTokens.Colors.borderSubtle)
+                    .frame(width: DevtailTokens.BorderWidth.default)
                 WorkspaceSidePanel(session: session)
             }
             .frame(minWidth: 48 + 220, maxWidth: 48 + 300)
