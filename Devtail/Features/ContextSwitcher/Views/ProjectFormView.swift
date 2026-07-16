@@ -44,7 +44,6 @@ struct ProjectFormView: View {
                 nameField
                 preview
                 if isEditMode, let project = editingProject {
-                    layoutSection(for: project)
                     processesSection(for: project)
                     quickLinksSection(for: project)
                 }
@@ -181,17 +180,6 @@ struct ProjectFormView: View {
 
     private func sortedPanes(for project: Project) -> [WorkspacePane] {
         project.workspacePanes.sorted { $0.order < $1.order }
-    }
-
-    private func layoutSection(for project: Project) -> some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
-            SectionHeader(title: "LAYOUT")
-            WorkspaceLayoutPicker(
-                selected: project.layout,
-                onSelect: { store.setLayout(for: project, layout: $0) },
-                axis: .horizontal
-            )
-        }
     }
 
     private func processesSection(for project: Project) -> some View {

@@ -381,26 +381,6 @@ final class ProjectStore {
 
     // MARK: - Layout Management
 
-    /// Changes the layout for a project, displacing any panes whose
-    /// `layoutSlot` falls outside the new layout's valid range to -1
-    /// (unassigned). No panes are deleted.
-    func setLayout(for project: Project, layout newLayout: WorkspaceLayout) {
-        do {
-            project.layout = newLayout
-            for pane in project.workspacePanes where pane.layoutSlot >= newLayout.slotCount {
-                pane.layoutSlot = -1
-                try workspacePaneRepository.update(pane)
-            }
-            try repository.update(project)
-            if let idx = projects.firstIndex(where: { $0.id == project.id }) {
-                projects[idx] = project
-            }
-            lastError = nil
-        } catch {
-            lastError = error
-        }
-    }
-
     /// Assigns a pane to a specific slot within its project's layout.
     /// If another pane already occupies the target slot, it is displaced
     /// to -1 (unassigned). Validates that the slot is within the layout's

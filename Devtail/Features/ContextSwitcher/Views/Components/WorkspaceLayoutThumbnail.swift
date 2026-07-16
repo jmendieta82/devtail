@@ -5,10 +5,14 @@
 //  Geometric thumbnail that visually represents a WorkspaceLayout. Used in
 //  two modes:
 //    - Picker mode (slotLabels == nil, onSlotMenu == nil): draws bare rects,
-//      no overlays. Used inside WorkspaceLayoutPicker for the selection row.
+//      no overlays.
 //    - Assignment mode (slotLabels and onSlotMenu provided): overlays each
 //      rect with a Menu button showing the current label or "—", allowing
 //      the user to assign panes to slots.
+//
+//  The model-level layout fields (Project.layout, WorkspacePane.layoutSlot)
+//  remain dormant in the UI as of the LAYOUT picker retirement — this view
+//  currently has no production caller (see its #Preview only).
 //
 
 import SwiftUI

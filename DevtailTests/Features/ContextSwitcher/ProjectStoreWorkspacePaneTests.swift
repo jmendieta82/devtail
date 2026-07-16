@@ -3,7 +3,7 @@
 //  DevtailTests
 //
 //  Unit tests for ProjectStore's WorkspacePane CRUD operations, layout
-//  management (setLayout, assignPaneToSlot), and auto-seed behavior.
+//  management (assignPaneToSlot), and auto-seed behavior.
 //  Uses mock repositories — no SwiftData container involved.
 //
 
@@ -296,66 +296,6 @@ struct ProjectStoreWorkspacePaneTests {
 
         #expect(projectRepo.updateCallCount == 0)
         #expect(store.projects.first?.directoryPath == "")
-    }
-
-    // MARK: - setLayout
-
-    @Test("setLayout shrink — pane at excess slot moved to -1, others unchanged")
-    func setLayoutShrink() {
-        let (store, projectRepo, _) = makeStore()
-        let project = Project(name: "P", color: .green)
-        project.layout = .mainSideStack  // 3 slots
-
-        let paneA = WorkspacePane(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
-        let paneB = WorkspacePane(label: "B", relativeCwd: "api", command: "", order: 1, layoutSlot: 1, project: project)
-        let paneC = WorkspacePane(label: "C", relativeCwd: "web", command: "", order: 2, layoutSlot: 2, project: project)
-        project.workspacePanes = [paneA, paneB, paneC]
-        projectRepo.projectsToReturn = [project]
-        store.loadProjects()
-
-        store.setLayout(for: project, layout: .halvesVertical)  // 2 slots
-
-        #expect(project.layout == .halvesVertical)
-        #expect(paneA.layoutSlot == 0)
-        #expect(paneB.layoutSlot == 1)
-        #expect(paneC.layoutSlot == -1)  // displaced
-    }
-
-    @Test("setLayout grow — existing panes are not affected")
-    func setLayoutGrow() {
-        let (store, projectRepo, _) = makeStore()
-        let project = Project(name: "P", color: .green)
-        project.layout = .halvesVertical  // 2 slots
-
-        let paneA = WorkspacePane(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
-        let paneB = WorkspacePane(label: "B", relativeCwd: "api", command: "", order: 1, layoutSlot: 1, project: project)
-        project.workspacePanes = [paneA, paneB]
-        projectRepo.projectsToReturn = [project]
-        store.loadProjects()
-
-        store.setLayout(for: project, layout: .mainSideStack)  // 3 slots
-
-        #expect(project.layout == .mainSideStack)
-        #expect(paneA.layoutSlot == 0)
-        #expect(paneB.layoutSlot == 1)
-    }
-
-    @Test("setLayout same layout — no pane slot changes")
-    func setLayoutSame() {
-        let (store, projectRepo, _) = makeStore()
-        let project = Project(name: "P", color: .green)
-        project.layout = .halvesVertical
-
-        let paneA = WorkspacePane(label: "A", relativeCwd: ".", command: "", order: 0, layoutSlot: 0, project: project)
-        let paneB = WorkspacePane(label: "B", relativeCwd: "api", command: "", order: 1, layoutSlot: 1, project: project)
-        project.workspacePanes = [paneA, paneB]
-        projectRepo.projectsToReturn = [project]
-        store.loadProjects()
-
-        store.setLayout(for: project, layout: .halvesVertical)
-
-        #expect(paneA.layoutSlot == 0)
-        #expect(paneB.layoutSlot == 1)
     }
 
     // MARK: - assignPaneToSlot
