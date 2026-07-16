@@ -24,8 +24,16 @@ Editar un proyecto hoy obliga a saltar del workspace a la ventana del dashboard 
 ### Contenido: reutilización de ProjectFormView
 
 - `WorkspaceSettingsTabView` presenta `ProjectFormView(projectID: session.projectId, ...)` en modo edición. El entorno del workspace ya inyecta `modelContainer` y `ProjectStore` (`DevtailApp` líneas 94–110) — no hay plomería nueva de datos.
-- `onDismiss` del form (Save o Close) selecciona `.agent` (cierra la tab settings).
+- `onDismiss` del form selecciona `.agent` (cierra la tab settings).
 - Sin sección LAYOUT (ver abajo).
+
+### Autosave en modo edición (decisión post-review, Javier 2026-07-16)
+
+La review final encontró que nombre/directorio editados sin Save se descartaban en silencio al cambiar de tab. Decisión: **autosave**, no dirty guard — una settings tab no tiene semántica de Save explícito (patrón System Settings/VS Code), y procesos/quick links ya guardaban al instante.
+
+- En modo **edición**: nombre, directorio y launch target se commitean cuando el campo pierde foco (o al elegir carpeta) si el valor es válido; red de seguridad adicional al desmontar la vista. El botón "Save project" desaparece; queda solo "Close". Un valor inválido (nombre vacío) no se commitea nunca y se descarta al desmontar.
+- En modo **create** (hub): semántica intacta — "Create project" explícito con su dirty guard existente.
+- Con esto, cerrar la tab settings de cualquier forma no pierde nada válido.
 
 ### Reflejo en vivo: ProcessSupervisor.reconfigure
 
@@ -54,8 +62,8 @@ Disparo: el form guarda los panes al instante (`store.addWorkspacePane` / `updat
 
 ## Límites aceptados (disclosed)
 
-- Renombrar el proyecto o cambiar su directorio desde settings **no** se propaga a la sesión abierta (`projectName`/`root` son `let` en `WorkspaceSession`): título de ventana y cwd de terminales nuevas se actualizan al reabrir el workspace. Los procesos conservados tampoco recalculan `cwd` hasta reabrir si solo cambió el directorio raíz.
-- `isDirty` del form sigue trackeando solo name/directory/launchTarget (los panes guardan al instante) — sin cambios.
+- Renombrar el proyecto o cambiar su directorio desde settings **no** se propaga a la sesión abierta (`projectName`/`root` son `let` en `WorkspaceSession`): título de ventana y cwd de terminales nuevas se actualizan al reabrir el workspace. Los procesos conservados tampoco recalculan `cwd` hasta reabrir si solo cambió el directorio raíz. Con autosave esto es más visible (el rename se guarda al instante) — sigue aceptado.
+- Un nombre inválido (vacío) tipeado y abandonado se descarta al desmontar la tab — no hay nada válido que guardar.
 
 ## Fuera de alcance
 
