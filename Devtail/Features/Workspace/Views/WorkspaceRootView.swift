@@ -16,8 +16,11 @@ struct WorkspaceRootView: View {
 
     var body: some View {
         HSplitView {
-            WorkspaceDashboardColumn(session: session)
-                .frame(minWidth: 260, maxWidth: 340)
+            HStack(spacing: 0) {
+                ActivityBar(session: session)
+                WorkspaceSidePanel(session: session)
+            }
+            .frame(minWidth: 48 + 220, maxWidth: 48 + 300)
 
             VStack(spacing: 0) {
                 tabRow
@@ -25,8 +28,8 @@ struct WorkspaceRootView: View {
             }
             .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
 
-            FileTreeColumn(session: session)
-                .frame(minWidth: 220, maxWidth: 300)
+            WorkspaceDashboardColumn(session: session)
+                .frame(minWidth: 260, maxWidth: 340)
         }
         .navigationTitle(session.projectName)
         .onDisappear { holder.close(projectId: session.projectId) }
