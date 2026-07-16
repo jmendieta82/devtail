@@ -385,4 +385,22 @@ struct WorkspaceSessionsHolderTests {
         let session = holder.openSession(for: project("alpha"))
         #expect(session.sidePanel == .files)
     }
+
+    // MARK: - Settings tab (ephemeral, opened from the activity rail gear)
+
+    /// The settings tab is opened by direct assignment (activity rail gear
+    /// button) rather than a holder method — this just proves the session's
+    /// selection round-trips through it like any other tab and that closing
+    /// it (mirrors the file viewer: nothing to preserve) returns to agent.
+    @Test func selectedTabCanSwitchToSettingsAndBackToAgent() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        #expect(session.selectedTab == .agent)
+
+        session.selectedTab = .settings
+        #expect(session.selectedTab == .settings)
+
+        session.selectedTab = .agent
+        #expect(session.selectedTab == .agent)
+    }
 }

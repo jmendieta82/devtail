@@ -21,6 +21,19 @@ struct ActivityBar: View {
                 .help(view.help)
             }
             Spacer()
+
+            Button {
+                session.selectedTab = .settings
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 16))
+                    .foregroundStyle(session.selectedTab == .settings
+                        ? DevtailTokens.Colors.accentPrimary
+                        : DevtailTokens.Colors.textTertiary)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+            .help("Project settings")
         }
         .padding(.vertical, DevtailTokens.Spacing.gapSmall)
         .frame(width: 48)

@@ -56,6 +56,15 @@ struct WorkspaceRootView: View {
                 ForEach(session.openFiles) { file in
                     fileTab(for: file)
                 }
+                if session.selectedTab == .settings {
+                    WorkspaceTabChip(
+                        icon: "gearshape",
+                        title: "settings",
+                        isSelected: true,
+                        select: {},
+                        close: { session.selectedTab = .agent }
+                    )
+                }
             }
             .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
             .padding(.vertical, DevtailTokens.Spacing.gapSmall)
@@ -136,6 +145,12 @@ struct WorkspaceRootView: View {
             // the terminal views above which stay mounted always).
             if case .file(let path) = session.selectedTab {
                 FileViewerTabView(path: path)
+            }
+
+            // Settings tab: mounted conditionally (no PTY to preserve), mirrors
+            // the file viewer above.
+            if session.selectedTab == .settings {
+                WorkspaceSettingsTabView(session: session)
             }
 
             // Dead-state affordance: the exited terminal view stays mounted

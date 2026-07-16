@@ -13,4 +13,6 @@ enum WorkspaceTab: Hashable {
     case file(String)
     /// First-class interactive agent tab (auto-launched agent command).
     case agent
+    /// Project settings form, rendered as an ephemeral center tab.
+    case settings
 }
