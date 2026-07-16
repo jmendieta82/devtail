@@ -36,90 +36,76 @@ struct WorkspaceRootView: View {
     }
 
     private var tabRow: some View {
-        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-            terminalTab
-            tabButton(title: "agent", tab: .agent)
-            ForEach(session.supervisor.processes) { process in
-                // On-demand tab: only processes with a live session (running,
-                // or exited/stopped with scrollback preserved) get a tab.
-                if process.session != nil {
-                    processTab(for: process)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                terminalTab
+                WorkspaceTabChip(
+                    icon: "sparkles",
+                    title: "agent",
+                    isSelected: session.selectedTab == .agent,
+                    select: { session.selectedTab = .agent },
+                    close: nil
+                )
+                ForEach(session.supervisor.processes) { process in
+                    // On-demand tab: only processes with a live session (running,
+                    // or exited/stopped with scrollback preserved) get a tab.
+                    if process.session != nil {
+                        processTab(for: process)
+                    }
+                }
+                ForEach(session.openFiles) { file in
+                    fileTab(for: file)
                 }
             }
-            ForEach(session.openFiles) { file in
-                fileTab(for: file)
-            }
-            Spacer()
+            .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+            .padding(.vertical, DevtailTokens.Spacing.gapSmall)
         }
-        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
-        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+        .background(DevtailTokens.Colors.titleBar)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(DevtailTokens.Colors.borderSubtle)
+                .frame(height: DevtailTokens.BorderWidth.default)
+        }
     }
 
     /// Terminal tab is both the opener (click spawns the interactive shell if
     /// not already live) and, once live, closable — closing kills the PTY.
     private var terminalTab: some View {
-        HStack(spacing: 4) {
-            Button("terminal") {
+        WorkspaceTabChip(
+            icon: "terminal",
+            title: "terminal",
+            isSelected: session.selectedTab == .terminal,
+            select: {
                 holder.openInteractive(projectId: session.projectId)
                 session.selectedTab = .terminal
+            },
+            close: session.interactive == nil ? nil : {
+                holder.closeInteractive(projectId: session.projectId)
             }
-            .buttonStyle(.plain)
-            .font(DevtailTokens.Typography.caption)
-            .foregroundStyle(session.selectedTab == .terminal ? .primary : .secondary)
-
-            if session.interactive != nil {
-                Button {
-                    holder.closeInteractive(projectId: session.projectId)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func tabButton(title: String, tab: WorkspaceTab) -> some View {
-        Button(title) { session.selectedTab = tab }
-            .buttonStyle(.plain)
-            .font(DevtailTokens.Typography.caption)
-            .foregroundStyle(session.selectedTab == tab ? .primary : .secondary)
+        )
     }
 
     private func processTab(for process: ManagedProcess) -> some View {
-        HStack(spacing: 4) {
-            Button(process.name) { session.selectedTab = .process(process.id) }
-                .buttonStyle(.plain)
-                .font(DevtailTokens.Typography.caption)
-                .foregroundStyle(session.selectedTab == .process(process.id) ? .primary : .secondary)
-            Button {
+        WorkspaceTabChip(
+            icon: "gearshape",
+            title: process.name,
+            isSelected: session.selectedTab == .process(process.id),
+            select: { session.selectedTab = .process(process.id) },
+            close: {
                 if session.selectedTab == .process(process.id) { session.selectedTab = .agent }
                 session.supervisor.close(process)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 8))
-                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-        }
+        )
     }
 
     private func fileTab(for file: OpenFile) -> some View {
-        HStack(spacing: 4) {
-            Button(file.name) { session.selectedTab = .file(file.path) }
-                .buttonStyle(.plain)
-                .font(DevtailTokens.Typography.caption)
-                .foregroundStyle(session.selectedTab == .file(file.path) ? .primary : .secondary)
-            Button {
-                session.closeFile(at: file.path)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 8))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
+        WorkspaceTabChip(
+            icon: "doc.text",
+            title: file.name,
+            isSelected: session.selectedTab == .file(file.path),
+            select: { session.selectedTab = .file(file.path) },
+            close: { session.closeFile(at: file.path) }
+        )
     }
 
     /// Terminal views stay mounted while alive; opacity flips visibility.
@@ -206,5 +192,69 @@ struct WorkspaceRootView: View {
             RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
                 .stroke(DevtailTokens.Colors.borderSubtle, lineWidth: DevtailTokens.BorderWidth.default)
         )
+    }
+}
+
+/// One tab in the workspace tab row: icon + title, selected/hover backgrounds,
+/// and an optional close button. Long titles are middle-truncated in code —
+/// `.frame(maxWidth:)` on Text balloons the chip inside a horizontal ScrollView,
+/// so layout-based truncation is not an option here.
+struct WorkspaceTabChip: View {
+    let icon: String
+    let title: String
+    let isSelected: Bool
+    let select: () -> Void
+    let close: (() -> Void)?
+
+    @State private var isHovering = false
+
+    private static let maxTitleLength = 28
+
+    var body: some View {
+        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+            Button(action: select) {
+                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                    Image(systemName: icon)
+                        .font(.system(size: 9))
+                    Text(Self.truncated(title))
+                        .font(DevtailTokens.Typography.caption)
+                        .lineLimit(1)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if let close {
+                Button(action: close) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .semibold))
+                        .frame(width: 14, height: 14)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .foregroundStyle(isSelected ? DevtailTokens.Colors.textPrimary : DevtailTokens.Colors.textSecondary)
+        .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+        .background(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
+                .fill(isSelected ? DevtailTokens.Colors.activeRow : (isHovering ? DevtailTokens.Colors.hoverState.opacity(0.5) : .clear))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
+                .stroke(isSelected ? DevtailTokens.Colors.borderSubtle : .clear, lineWidth: DevtailTokens.BorderWidth.default)
+        )
+        .onHover { isHovering = $0 }
+    }
+
+    /// Middle truncation keeps both the name's start and its extension visible
+    /// (file tabs are often long dated names like `2026-06-22-frontend-….md`).
+    static func truncated(_ title: String) -> String {
+        guard title.count > maxTitleLength else { return title }
+        let head = title.prefix(14)
+        let tail = title.suffix(13)
+        return "\(head)…\(tail)"
     }
 }
