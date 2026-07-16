@@ -33,23 +33,20 @@ struct LegacyPaneMigrationTests {
 /// placeholder, per ProcessSupervisorTests.configureSkipsBlankCommandPanes)
 /// rather than being deleted — a project's only pane must survive.
 ///
-/// CHECKPOINT FIX (wave 2): the original broad migration ("claude" -> "" for
-/// ANY pane) over-reached — real user panes whose command happened to be
-/// exactly "claude" (e.g. a pane labeled "Backend" with cwd "Backend") were
-/// blanked and then vanished from the UI (the supervisor skips blank
-/// commands). Only the SEEDED root pane must retire. Seed signature (from
-/// ProjectStore.createProject's now-retired seeding call): `relativeCwd == "."`
-/// AND `pane.label == pane.project?.name`.
+/// CHECKPOINT FIX (wave 3): the wave-2 repair pass (blank non-seed panes
+/// restored to "claude") turned into an injection vector: blank commands are
+/// a legitimate state today (ProjectStore seeds root panes blank, the
+/// repository accepts blank on create/edit), and the migration runs on every
+/// launch — so any pane the user left blank got "claude" written into it on
+/// the next start (field finding: a "Backend" pane spawning Claude Code).
+/// The repair window closed the day wave 1 ran; the pass is REMOVED.
 ///
-/// `run(context:)` is now two idempotent passes:
-///   1. Repair pass (runs first): blank-command panes that do NOT match the
-///      seed signature get restored to "claude" — heals machines where the
-///      old broad migration already blanked real user panes. Before the
-///      broad migration existed, the ONLY blank-command panes in existence
-///      were the seeds, so any other blank pane today was collateral damage.
-///   2. Retire pass: "claude" panes that DO match the seed signature get
-///      blanked. Non-seed "claude" panes are left alone — they're real user
-///      data and will render as stopped process cards.
+/// Wave 3 also drops `label == project.name` from the seed signature:
+/// renaming a project orphaned its real seed pane (field finding: two
+/// renamed projects whose root panes escaped retirement and were re-claude'd
+/// by the repair pass). A ROOT pane (`relativeCwd == "."`) running exactly
+/// "claude" is redundant with the agent tab by definition — retire it
+/// regardless of label. Non-root "claude" panes remain untouched user data.
 @MainActor
 struct LegacyClaudePaneMigrationTests {
     private func makeContext() throws -> ModelContext {
@@ -96,7 +93,7 @@ struct LegacyClaudePaneMigrationTests {
         #expect(pane.command == "")
     }
 
-    @Test func nonSeedPaneWithClaudeCommandIsUntouchedByRetirePass() throws {
+    @Test func nonRootPaneWithClaudeCommandIsUntouchedByRetirePass() throws {
         let context = try makeContext()
         // Real user pane: label/cwd "Backend", unrelated to the project name,
         // whose command just happens to be exactly "claude".
@@ -109,6 +106,22 @@ struct LegacyClaudePaneMigrationTests {
         try LegacyClaudePaneMigration.run(context: context)
 
         #expect(pane.command == "claude")
+    }
+
+    /// Wave-3 field finding: renaming a project breaks `label == project.name`,
+    /// so its seed pane escaped retirement under the wave-2 signature. A root
+    /// pane running exactly "claude" retires regardless of label.
+    @Test func renamedProjectRootClaudePaneIsRetired() throws {
+        let context = try makeContext()
+        let (_, pane) = makePane(
+            context: context, projectName: "INCLUSIVA PROYECTO",
+            label: "PROYECTO", relativeCwd: ".", command: "claude"
+        )
+        try context.save()
+
+        try LegacyClaudePaneMigration.run(context: context)
+
+        #expect(pane.command == "")
     }
 
     @Test func userConfiguredClaudeContinueCommandIsUntouched() throws {
@@ -151,12 +164,12 @@ struct LegacyClaudePaneMigrationTests {
         #expect(pane.command == "")
     }
 
-    // MARK: - Repair pass: collateral damage from the old broad migration
+    // MARK: - Blank panes are a legitimate state (wave 3: repair pass removed)
 
-    @Test func blankNonSeedPaneIsRepairedToClaude() throws {
+    /// Regression for the wave-2 injection bug: a user pane left with a blank
+    /// command must NEVER have "claude" written into it by the migration.
+    @Test func blankNonSeedPaneStaysBlank() throws {
         let context = try makeContext()
-        // This models a machine where the old (wave 1) broad migration
-        // already ran and blanked a real user pane labeled "Backend".
         let (_, pane) = makePane(
             context: context, projectName: "alpha",
             label: "Backend", relativeCwd: "Backend", command: ""
@@ -165,7 +178,7 @@ struct LegacyClaudePaneMigrationTests {
 
         try LegacyClaudePaneMigration.run(context: context)
 
-        #expect(pane.command == "claude")
+        #expect(pane.command == "")
     }
 
     @Test func blankSeedPaneStaysBlank() throws {
@@ -181,7 +194,7 @@ struct LegacyClaudePaneMigrationTests {
         #expect(pane.command == "")
     }
 
-    @Test func runningTwiceIsStableForRepairedPane() throws {
+    @Test func runningTwiceIsStableForBlankPane() throws {
         let context = try makeContext()
         let (_, pane) = makePane(
             context: context, projectName: "alpha",
@@ -192,31 +205,29 @@ struct LegacyClaudePaneMigrationTests {
         try LegacyClaudePaneMigration.run(context: context)
         try LegacyClaudePaneMigration.run(context: context)
 
-        #expect(pane.command == "claude")
+        #expect(pane.command == "")
     }
 
-    /// End-to-end scenario matching the checkpoint finding: a machine with
-    /// one real seed pane already retired to "" AND one real user pane
-    /// ("Backend") collaterally blanked by the old broad migration. After
-    /// running the new two-pass migration, the seed stays blank and the
-    /// user's Backend pane is restored to "claude" so it shows up again.
-    @Test func mixedMachineRepairsCollateralAndKeepsSeedRetired() throws {
+    /// End-to-end scenario matching the wave-3 field finding: a retired seed,
+    /// a user pane left blank on purpose, and a renamed project's root claude
+    /// pane. Blanks stay blank; the renamed root retires.
+    @Test func mixedMachineLeavesBlanksAloneAndRetiresRenamedRoot() throws {
         let context = try makeContext()
-        let project = Project(name: "alpha")
+        let project = Project(name: "INCLUSIVA PROYECTO")
         context.insert(project)
-        let seed = WorkspacePane(label: "alpha", relativeCwd: ".", command: "",
-                                  order: 0, layoutSlot: 0, project: project)
+        let renamedRoot = WorkspacePane(label: "PROYECTO", relativeCwd: ".", command: "claude",
+                                        order: 0, layoutSlot: 0, project: project)
         let backend = WorkspacePane(label: "Backend", relativeCwd: "Backend", command: "",
                                      order: 1, layoutSlot: 1, project: project)
-        context.insert(seed)
+        context.insert(renamedRoot)
         context.insert(backend)
-        project.workspacePanes.append(seed)
+        project.workspacePanes.append(renamedRoot)
         project.workspacePanes.append(backend)
         try context.save()
 
         try LegacyClaudePaneMigration.run(context: context)
 
-        #expect(seed.command == "")
-        #expect(backend.command == "claude")
+        #expect(renamedRoot.command == "")
+        #expect(backend.command == "")
     }
 }
