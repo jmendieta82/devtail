@@ -89,7 +89,7 @@ struct DevtailApp: App {
         }
         .environment(appSettings)
         .windowResizability(.contentSize)
-        .defaultSize(width: 400, height: 300)
+        .defaultSize(width: 500, height: 620)
 
         WindowGroup("Workspace", id: WindowID.workspace, for: UUID.self) { $projectId in
             // If the project backing this window is deleted while the
