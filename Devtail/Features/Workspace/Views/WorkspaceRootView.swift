@@ -15,6 +15,10 @@ struct WorkspaceRootView: View {
     @Environment(AppSettings.self) private var settings
     let session: WorkspaceSession
 
+    /// Set when a dirty env file tab's close button is clicked — drives the
+    /// close-confirmation dialog below. Nil the rest of the time.
+    @State private var pendingCloseFilePath: String?
+
     var body: some View {
         HSplitView {
             HStack(spacing: 0) {
@@ -34,6 +38,28 @@ struct WorkspaceRootView: View {
         }
         .navigationTitle(session.projectName)
         .onDisappear { holder.close(projectId: session.projectId) }
+        .confirmationDialog(
+            "Save changes before closing?",
+            isPresented: Binding(
+                get: { pendingCloseFilePath != nil },
+                set: { if !$0 { pendingCloseFilePath = nil } }
+            ),
+            presenting: pendingCloseFilePath
+        ) { path in
+            Button("Save and close") {
+                session.pendingEnvSave?({ success in
+                    if success { session.closeFile(at: path) }
+                })
+                pendingCloseFilePath = nil
+            }
+            Button("Discard", role: .destructive) {
+                session.closeFile(at: path)
+                pendingCloseFilePath = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingCloseFilePath = nil
+            }
+        }
     }
 
     private var tabRow: some View {
@@ -114,8 +140,20 @@ struct WorkspaceRootView: View {
             title: file.name,
             isSelected: session.selectedTab == .file(file.path),
             select: { session.selectedTab = .file(file.path) },
-            close: { session.closeFile(at: file.path) }
+            close: { requestCloseFile(at: file.path) },
+            isDirty: session.isDirty(path: file.path)
         )
+    }
+
+    /// Closing a dirty env file tab needs confirmation first (Save and
+    /// close / Discard / Cancel) — everything else closes immediately, same
+    /// as before this feature existed.
+    private func requestCloseFile(at path: String) {
+        guard session.isDirty(path: path) else {
+            session.closeFile(at: path)
+            return
+        }
+        pendingCloseFilePath = path
     }
 
     /// Terminal views stay mounted while alive; opacity flips visibility.
@@ -175,7 +213,7 @@ struct WorkspaceRootView: View {
             // File viewer tab: mounted conditionally (no PTY to preserve, unlike
             // the terminal views above which stay mounted always).
             if case .file(let path) = session.selectedTab {
-                FileViewerTabView(path: path)
+                FileViewerTabView(path: path, session: session)
             }
 
             // Settings tab: mounted conditionally (no PTY to preserve), mirrors
@@ -251,6 +289,12 @@ struct WorkspaceTabChip: View {
     let isSelected: Bool
     let select: () -> Void
     let close: (() -> Void)?
+    /// Shows a small dot before the title when true — the unsaved-changes
+    /// indicator for a dirty env file tab. Defaults to false so every other
+    /// caller (terminal, agent, process tabs) is unaffected. A separate
+    /// glyph rather than a title prefix: keeps `truncated()` pure and out of
+    /// the business of accounting for a marker in its character budget.
+    var isDirty: Bool = false
 
     @State private var isHovering = false
 
@@ -262,6 +306,11 @@ struct WorkspaceTabChip: View {
                 HStack(spacing: DevtailTokens.Spacing.gapSmall) {
                     Image(systemName: icon)
                         .font(.system(size: 9))
+                    if isDirty {
+                        Circle()
+                            .fill(DevtailTokens.Colors.accentPrimary)
+                            .frame(width: 6, height: 6)
+                    }
                     Text(Self.truncated(title))
                         .font(DevtailTokens.Typography.caption)
                         .lineLimit(1)

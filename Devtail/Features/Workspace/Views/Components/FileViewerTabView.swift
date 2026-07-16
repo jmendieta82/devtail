@@ -2,16 +2,20 @@
 //  FileViewerTabView.swift
 //  Devtail
 //
-//  Center-column tab content for an open file (read-only). Loads the file
-//  via FileContentLoader's guardrails and renders CodeViewerView, or a
-//  placeholder for binary/too-large/unreadable files.
+//  Center-column tab content for an open file. Read-only for everything
+//  except the .env family (see EnvFileDetector), which gets an editable
+//  surface (EnvFileEditorView) instead — the first write path in the
+//  viewer. Loads the file via FileContentLoader's guardrails and renders
+//  CodeViewerView, or a placeholder for binary/too-large/unreadable files.
 //
 
 import SwiftUI
 
-/// Center-column tab content for an open file (read-only).
+/// Center-column tab content for an open file: read-only, except .env
+/// family files which become editable.
 struct FileViewerTabView: View {
     let path: String
+    let session: WorkspaceSession
 
     private enum ViewerMode: String, CaseIterable, Identifiable {
         case preview = "Preview"
@@ -33,11 +37,16 @@ struct FileViewerTabView: View {
 
     @State private var state: ViewerState = .loading
     @State private var mode: ViewerMode = .preview
+    @State private var loadedModificationDate: Date?
 
     private static let markdownExtensions: Set<String> = ["md", "markdown", "mdown"]
 
     private var isMarkdown: Bool {
         Self.markdownExtensions.contains(URL(fileURLWithPath: path).pathExtension.lowercased())
+    }
+
+    private var isEnvFile: Bool {
+        EnvFileDetector.isEnvFile(path: path)
     }
 
     var body: some View {
@@ -54,7 +63,14 @@ struct FileViewerTabView: View {
             case .unreadable(let reason):
                 placeholder(icon: "exclamationmark.triangle", title: "Can't read file", detail: reason)
             case .ready(let attributed, let background, let rawText, let markdownBlocks):
-                if isMarkdown {
+                if isEnvFile {
+                    EnvFileEditorView(
+                        path: path,
+                        loadedText: rawText,
+                        loadedModificationDate: loadedModificationDate,
+                        session: session
+                    )
+                } else if isMarkdown {
                     VStack(spacing: 0) {
                         HStack {
                             Spacer()
@@ -89,6 +105,7 @@ struct FileViewerTabView: View {
         .task(id: path) {
             state = .loading
             let content = FileContentLoader.load(path: path)
+            loadedModificationDate = EnvFileSaver.modificationDate(at: path)
             state = Self.viewerState(for: content, isMarkdown: isMarkdown)
         }
     }
@@ -142,9 +159,4 @@ struct FileViewerTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-}
-
-#Preview {
-    FileViewerTabView(path: #file)
-        .frame(width: 640, height: 480)
 }
