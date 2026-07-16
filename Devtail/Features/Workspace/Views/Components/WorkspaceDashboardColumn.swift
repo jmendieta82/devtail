@@ -2,7 +2,7 @@
 //  WorkspaceDashboardColumn.swift
 //  Devtail
 //
-//  Left column of the workspace window: live project dashboard.
+//  Right column of the workspace window: live project dashboard.
 //  Read-only surface — all editing lives in ProjectFormView.
 //
 

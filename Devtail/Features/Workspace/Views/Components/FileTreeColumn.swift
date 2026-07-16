@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Right column: lazy project file tree. File clicks open viewer tabs.
+/// Side panel view: lazy project file tree. File clicks open viewer tabs.
 struct FileTreeColumn: View {
     let session: WorkspaceSession
 
