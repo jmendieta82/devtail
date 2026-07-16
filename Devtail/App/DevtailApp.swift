@@ -84,13 +84,6 @@ struct DevtailApp: App {
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
 
-        Window("Settings", id: WindowID.settings) {
-            SettingsView()
-        }
-        .environment(appSettings)
-        .windowResizability(.contentSize)
-        .defaultSize(width: 500, height: 620)
-
         WindowGroup("Workspace", id: WindowID.workspace, for: UUID.self) { $projectId in
             // If the project backing this window is deleted while the
             // workspace is open, this condition fails and the view renders
@@ -113,7 +106,6 @@ struct DevtailApp: App {
 
 enum WindowID {
     static let dashboard = "devtail.dashboard"
-    static let settings  = "devtail.settings"
     static let workspace = "devtail.workspace"
 }
 

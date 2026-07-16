@@ -1,13 +1,16 @@
 //
-//  SettingsView.swift
+//  AppSettingsPane.swift
 //  Devtail
 //
-//  Real settings pane (replaces the ComingSoon placeholder).
+//  Application-wide settings (Agent, Terminal), mounted inside the
+//  workspace settings tab's "Application" scope. Extracted from the
+//  retired standalone Settings window so the same controls now live
+//  next to the project-scoped settings.
 //
 
 import SwiftUI
 
-struct SettingsView: View {
+struct AppSettingsPane: View {
     @Environment(AppSettings.self) private var settings
 
     private var fontFamilies: [MonospaceFontCatalog.FontChoice] {
@@ -49,7 +52,5 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
-        .padding()
     }
 }
