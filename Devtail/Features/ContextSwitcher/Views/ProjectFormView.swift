@@ -9,7 +9,13 @@
 //    - projectID: nil for create, UUID for edit
 //    - onDismiss: callback invoked on save or cancel
 //    - isDirty:   binding the form updates whenever fields differ from
-//                 the initial snapshot
+//                 the initial snapshot (create mode only — edit mode
+//                 autosaves valid changes, so it never reports dirty)
+//
+//  Edit mode autosaves name/directory/launchTarget: on name-field focus
+//  loss, on folder pick, and as a safety net on view unmount. Invalid or
+//  unchanged values never trigger a write. Create mode is untouched —
+//  explicit "Create project" submit with its existing dirty guard.
 //
 
 import SwiftUI
@@ -35,6 +41,8 @@ struct ProjectFormView: View {
 
     @State private var editingPane: WorkspacePane?
     @State private var isAddingPane: Bool = false
+
+    @FocusState private var isNameFieldFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -66,6 +74,11 @@ struct ProjectFormView: View {
             recomputeDirty()
         }
         .onChange(of: directoryPath) { _, _ in recomputeDirty() }
+        .onChange(of: isNameFieldFocused) { wasFocused, isFocused in
+            if wasFocused && !isFocused {
+                autosaveIfNeeded()
+            }
+        }
         .sheet(item: $editingPane) { pane in
             paneEditSheet(for: pane)
         }
@@ -80,6 +93,7 @@ struct ProjectFormView: View {
                 isAddingPane = false
             }
         }
+        .onDisappear { autosaveIfNeeded() }
     }
 
     // MARK: - Sections
@@ -123,6 +137,7 @@ struct ProjectFormView: View {
                     ? "Choose a directory first"
                     : "My awesome project")
             )
+            .focused($isNameFieldFocused)
             .textFieldStyle(.plain)
             .font(DevtailTokens.Typography.bodyDefault)
             .foregroundStyle(DevtailTokens.Colors.textPrimary)
@@ -168,10 +183,13 @@ struct ProjectFormView: View {
                 .keyboardShortcut(.cancelAction)
                 .buttonStyle(.bordered)
 
-            Button(submitLabel) { submit() }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .disabled(!canSubmit)
+            // Edit mode autosaves — no explicit submit button, just Close.
+            if !isEditMode {
+                Button(submitLabel) { submit() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canSubmit)
+            }
         }
         .padding(.top, DevtailTokens.Spacing.gapLarge)
     }
@@ -367,7 +385,10 @@ struct ProjectFormView: View {
     }
 
     private func recomputeDirty() {
-        guard let initialSnapshot else { return }
+        // Edit mode autosaves valid changes, so nothing is ever "pending" —
+        // the dirty guard (and its discard-confirmation UI) is a create-mode
+        // only concept.
+        guard !isEditMode, let initialSnapshot else { return }
         let newValue = currentSnapshot() != initialSnapshot
         if newValue != isDirty {
             isDirty = newValue
@@ -411,6 +432,38 @@ struct ProjectFormView: View {
         onDismiss()
     }
 
+    /// Edit-mode autosave: commits name/directory/launchTarget when the
+    /// current values are valid and differ from what's persisted. Called on
+    /// name-field focus loss, after picking a folder, and on view unmount.
+    /// Mirrors `submit()`'s edit-mode store call exactly (same method, same
+    /// arguments) — an invalid or unchanged value is simply left alone, and
+    /// an invalid pending edit is discarded rather than committed.
+    private func autosaveIfNeeded() {
+        guard isEditMode,
+              let projectID,
+              let project = store.projects.first(where: { $0.id == projectID }) else { return }
+
+        let shouldCommit = ProjectFormAutosave.shouldCommit(
+            trimmedName: trimmedName,
+            directoryPath: directoryPath,
+            launchTarget: launchTarget,
+            persistedName: project.name,
+            persistedDirectoryPath: project.directoryPath,
+            persistedLaunchTarget: project.launchTarget
+        )
+        guard shouldCommit else { return }
+
+        project.launchTarget = launchTarget
+        store.updateProject(
+            project,
+            name: trimmedName,
+            notes: project.notes,
+            directoryPath: directoryPath,
+            directoryBookmark: directoryBookmark
+        )
+        showError = store.lastError != nil
+    }
+
     private func chooseDirectory() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -433,6 +486,7 @@ struct ProjectFormView: View {
                     suppressNameChangeTracking = false
                 }
             }
+            autosaveIfNeeded()
         }
     }
 
@@ -453,4 +507,27 @@ private struct FormSnapshot: Equatable {
     let name: String
     let directoryPath: String
     let launchTarget: LaunchTarget
+}
+
+// MARK: - ProjectFormAutosave
+
+/// Pure commit decision for edit-mode autosave, extracted so it can be
+/// unit-tested without spinning up the view. A commit happens only when the
+/// pending values are valid (mirrors `canSubmit`: trimmed name and directory
+/// both non-empty) AND at least one of them differs from what's already
+/// persisted — redundant writes are skipped.
+enum ProjectFormAutosave {
+    static func shouldCommit(
+        trimmedName: String,
+        directoryPath: String,
+        launchTarget: LaunchTarget,
+        persistedName: String,
+        persistedDirectoryPath: String,
+        persistedLaunchTarget: LaunchTarget
+    ) -> Bool {
+        guard !trimmedName.isEmpty, !directoryPath.isEmpty else { return false }
+        return trimmedName != persistedName
+            || directoryPath != persistedDirectoryPath
+            || launchTarget != persistedLaunchTarget
+    }
 }
