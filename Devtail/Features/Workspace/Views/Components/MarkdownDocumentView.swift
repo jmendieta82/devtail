@@ -12,10 +12,10 @@ import SwiftUI
 /// Renders a markdown string as formatted content (headings, inline styles,
 /// lists, code blocks, block quotes, thematic breaks).
 struct MarkdownDocumentView: View {
-    /// Parsed once in `init` and stored — `text` is immutable for the
-    /// lifetime of a view instance (a new file means a new `FileViewerTabView`
-    /// and thus a new `MarkdownDocumentView`), so re-parsing on every body
-    /// evaluation was wasted work. See `Devtail/Features/Workspace/Services/MarkdownBlockParser.swift`.
+    /// Parsed once and stored — FileViewerTabView parses at file-load time
+    /// (its `.task(id: path)` reloads state when the path changes on the
+    /// reused view instance), so re-parsing on every body evaluation was
+    /// wasted work. See `Devtail/Features/Workspace/Services/MarkdownBlockParser.swift`.
     let blocks: [MarkdownBlock]
 
     /// Cap on the document's readable width, centered in the available
