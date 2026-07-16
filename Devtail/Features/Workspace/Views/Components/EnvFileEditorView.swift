@@ -59,6 +59,18 @@ struct EnvFileEditorView: View {
         }
         .onAppear {
             session.createDraftIfNeeded(for: path, loadedText: loadedText, recordedModificationDate: loadedModificationDate)
+            if session.consumeEnvConflict(for: path) {
+                showConflictAlert = true
+            }
+        }
+        // Covers the already-mounted case: `saveAndCloseFile` can hit the
+        // conflict branch while this exact tab is selected (the dirty tab
+        // IS the one being saved-and-closed), so `.onAppear` never fires
+        // again — the signal has to be caught as it changes instead.
+        .onChange(of: session.envConflictPath) {
+            if session.consumeEnvConflict(for: path) {
+                showConflictAlert = true
+            }
         }
         .alert("File changed on disk", isPresented: $showConflictAlert) {
             Button("Overwrite") { forceSave() }

@@ -63,6 +63,14 @@ final class WorkspaceSession: Identifiable {
     /// `EnvFileEditorView` unmount/remount across tab switches, and so
     /// "Save and close" can act on it even when the editor isn't mounted.
     private(set) var envDrafts: [String: EnvDraft] = [:]
+    /// Set by `saveAndCloseFile` when it hits an mtime conflict, alongside
+    /// (not instead of) selecting the file's tab: `selectedTab` alone doesn't
+    /// tell `EnvFileEditorView` *why* it was selected, so a fresh mount can't
+    /// distinguish "user clicked the tab" from "conflict re-selected me" and
+    /// would never show the alert. `EnvFileEditorView` consumes this via
+    /// `consumeEnvConflict(for:)` on mount (or `.onChange` if already
+    /// mounted) to decide whether to raise its conflict alert.
+    private(set) var envConflictPath: String?
     /// Current git branch of the project root, detected once at session
     /// open. Nil when the root isn't a git repo (or metadata is unreadable).
     let currentBranch: String?
@@ -161,6 +169,17 @@ final class WorkspaceSession: Identifiable {
         envDrafts.removeValue(forKey: path)
     }
 
+    /// Consumes the pending env conflict signal for `path`: if it matches,
+    /// clears it and returns true (the caller should surface its conflict
+    /// alert); otherwise leaves it untouched and returns false. One-shot by
+    /// design — a second mount/onChange firing for the same path must not
+    /// re-show the alert.
+    func consumeEnvConflict(for path: String) -> Bool {
+        guard envConflictPath == path else { return false }
+        envConflictPath = nil
+        return true
+    }
+
     /// Session-level "Save and close", usable even when the file's editor
     /// view isn't mounted (e.g. the tab was switched away from). Saves
     /// straight from the stored draft via `EnvFileSaver` — no dependency on
@@ -175,6 +194,7 @@ final class WorkspaceSession: Identifiable {
         }
         if let recorded = draft.recordedModificationDate,
            EnvFileSaver.hasConflict(path: path, recordedModificationDate: recorded) {
+            envConflictPath = path
             selectedTab = .file(path)
             return
         }

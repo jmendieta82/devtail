@@ -148,7 +148,54 @@ struct WorkspaceSessionDirtyFilesTests {
         #expect(s.openFiles.contains { $0.path == url.path } == true)
         #expect(s.selectedTab == .file(url.path))
         #expect(s.draft(for: url.path)?.text == "A=2\n")
+        #expect(s.envConflictPath == url.path)
         let onDisk = try String(contentsOf: url, encoding: .utf8)
         #expect(onDisk == "A=EXTERNAL\n")
+    }
+
+    // MARK: - envConflictPath signal consumption
+
+    @Test func consumeEnvConflictReturnsTrueOnceThenFalse() throws {
+        let (url, cleanup) = try makeEnvFile("A=1\n")
+        defer { cleanup() }
+        let s = makeSession()
+        s.openFile(at: url.path)
+        let recorded = EnvFileSaver.modificationDate(at: url.path)
+        s.createDraftIfNeeded(for: url.path, loadedText: "A=1\n", recordedModificationDate: recorded)
+        s.updateDraft(text: "A=2\n", for: url.path)
+
+        try Data("A=EXTERNAL\n".utf8).write(to: url)
+        try FileManager.default.setAttributes(
+            [.modificationDate: (recorded ?? Date()).addingTimeInterval(5)],
+            ofItemAtPath: url.path
+        )
+
+        s.saveAndCloseFile(at: url.path)
+        #expect(s.envConflictPath == url.path)
+
+        #expect(s.consumeEnvConflict(for: url.path) == true)
+        #expect(s.envConflictPath == nil)
+        #expect(s.consumeEnvConflict(for: url.path) == false)
+    }
+
+    @Test func consumeEnvConflictForNonMatchingPathReturnsFalseAndDoesNotClear() throws {
+        let (url, cleanup) = try makeEnvFile("A=1\n")
+        defer { cleanup() }
+        let s = makeSession()
+        s.openFile(at: url.path)
+        let recorded = EnvFileSaver.modificationDate(at: url.path)
+        s.createDraftIfNeeded(for: url.path, loadedText: "A=1\n", recordedModificationDate: recorded)
+        s.updateDraft(text: "A=2\n", for: url.path)
+
+        try Data("A=EXTERNAL\n".utf8).write(to: url)
+        try FileManager.default.setAttributes(
+            [.modificationDate: (recorded ?? Date()).addingTimeInterval(5)],
+            ofItemAtPath: url.path
+        )
+
+        s.saveAndCloseFile(at: url.path)
+
+        #expect(s.consumeEnvConflict(for: "/tmp/other-file.env") == false)
+        #expect(s.envConflictPath == url.path)
     }
 }
