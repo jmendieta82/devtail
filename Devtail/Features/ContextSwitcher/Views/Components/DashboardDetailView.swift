@@ -6,7 +6,6 @@ import AppKit
 /// shows the read-only full project info (layout, panes, quick links, metadata).
 struct DashboardDetailView: View {
     let project: Project
-    let onEditProject: (UUID) -> Void
     let onDeleteProject: (Project) -> Void
 
     @Environment(ProjectStore.self) private var store
@@ -314,18 +313,12 @@ struct DashboardDetailView: View {
             Spacer()
 
             HStack(spacing: DevtailTokens.Spacing.gapMedium) {
-                // Project actions menu (Details / Edit / Delete)
+                // Project actions menu (Details / Delete)
                 Menu {
                     Button {
                         isShowingDetails = true
                     } label: {
                         Label("View details", systemImage: "info.circle")
-                    }
-
-                    Button {
-                        onEditProject(project.id)
-                    } label: {
-                        Label("Edit project", systemImage: "pencil")
                     }
 
                     Divider()

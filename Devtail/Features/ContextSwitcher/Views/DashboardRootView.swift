@@ -8,7 +8,6 @@
 //
 //    .browsing              → DashboardDetailView or empty state
 //    .creatingProject       → ProjectFormView inline
-//    .editingProject(id)    → ProjectFormView inline
 //
 
 import SwiftUI
@@ -307,15 +306,6 @@ struct DashboardRootView: View {
             .environment(store)
             .id("project-form-create")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .editingProject(let id):
-            ProjectFormView(
-                projectID: id,
-                onDismiss: { exitFormMode() },
-                isDirty: $isFormDirty
-            )
-            .environment(store)
-            .id(id)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -324,7 +314,6 @@ struct DashboardRootView: View {
         if let project = currentProject {
             DashboardDetailView(
                 project: project,
-                onEditProject: { id in startEditing(id) },
                 onDeleteProject: { project in store.deleteProject(project) }
             )
         } else {
@@ -356,12 +345,6 @@ struct DashboardRootView: View {
         mode = .creatingProject
     }
 
-    private func startEditing(_ id: UUID) {
-        selectedProjectID = id
-        isFormDirty = false
-        mode = .editingProject(id)
-    }
-
     private func exitFormMode() {
         isFormDirty = false
         mode = .browsing
@@ -372,7 +355,7 @@ struct DashboardRootView: View {
         case .browsing:
             selectedProjectID = id
 
-        case .creatingProject, .editingProject:
+        case .creatingProject:
             if isFormDirty {
                 pendingSelection = id
             } else {
@@ -430,9 +413,6 @@ struct DashboardRootView: View {
         guard let id = selectedProjectID else { return }
         if !newProjects.contains(where: { $0.id == id }) {
             selectedProjectID = nil
-            if case .editingProject(let editingID) = mode, editingID == id {
-                exitFormMode()
-            }
         }
     }
 
@@ -447,15 +427,15 @@ struct DashboardRootView: View {
             break
         case .createProject:
             startCreating()
-        case .editProject(let id):
-            startEditing(id)
+        case .showProject(let id):
+            selectedProjectID = id
+            mode = .browsing
         }
     }
 }
 
-/// The three modes the dashboard's right pane can be in.
+/// The two modes the dashboard's right pane can be in.
 enum DashboardMode: Equatable {
     case browsing
     case creatingProject
-    case editingProject(UUID)
 }

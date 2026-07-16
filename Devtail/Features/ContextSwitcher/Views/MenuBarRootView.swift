@@ -249,7 +249,7 @@ struct MenuBarRootView: View {
 
     private func openDashboardForProject(_ projectID: UUID) {
         NSApp.activate(ignoringOtherApps: true)
-        intentHolder.pending = .editProject(projectID)
+        intentHolder.pending = .showProject(projectID)
         openWindow(id: WindowID.dashboard)
     }
 }

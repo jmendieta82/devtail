@@ -138,5 +138,5 @@ final class DashboardIntentHolder {
 enum DashboardIntent: Equatable {
     case none
     case createProject
-    case editProject(UUID)
+    case showProject(UUID)
 }
