@@ -46,6 +46,7 @@ struct TerminalThemePicker: View {
                 RoundedRectangle(cornerRadius: DevtailTokens.Radius.chip)
                     .fill(isSelected ? Color.activeProjectBg : Color.clear)
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

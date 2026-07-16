@@ -10,7 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
 
-    private var fontFamilies: [String] {
+    private var fontFamilies: [MonospaceFontCatalog.FontChoice] {
         MonospaceFontCatalog.families()
     }
 
@@ -29,10 +29,10 @@ struct SettingsView: View {
                 TerminalThemePicker(selectedThemeId: $settings.terminalThemeId)
 
                 Picker("Font", selection: $settings.terminalFontName) {
-                    ForEach(fontFamilies, id: \.self) { name in
-                        Text(name)
-                            .font(.custom(name, size: 12))
-                            .tag(name)
+                    ForEach(fontFamilies) { choice in
+                        Text(choice.displayName)
+                            .font(.custom(choice.faceName, size: 12))
+                            .tag(choice.faceName)
                     }
                 }
 
