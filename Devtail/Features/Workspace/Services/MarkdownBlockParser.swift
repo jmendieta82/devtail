@@ -114,9 +114,19 @@ enum MarkdownBlockParser {
 private extension PresentationIntent {
     /// A stable identity for the *innermost* block this intent describes,
     /// used to detect when consecutive runs belong to the same block vs.
-    /// a new one. Two intents describe the same block when their component
-    /// arrays match by kind description.
-    var identity: AnyHashable {
-        AnyHashable(components.map { "\($0.kind)" }.joined(separator: "|"))
+    /// a new one.
+    ///
+    /// Empirically verified (see scratch probes referenced in the review that
+    /// found this bug): each `PresentationIntent.IntentType` component carries
+    /// a distinct numeric `identity: Int` per block instance. Two adjacent
+    /// blocks of the same kind — e.g. "First paragraph.\n\nSecond
+    /// paragraph." or two back-to-back fenced code blocks — produce
+    /// components with the *same kind description* but *different
+    /// `identity`*. Grouping on the kind description merges them; grouping on
+    /// `components.first?.identity` (the innermost component) does not,
+    /// because that identity is unique per block instance even when the
+    /// kind repeats.
+    var identity: Int? {
+        components.first?.identity
     }
 }

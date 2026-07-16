@@ -175,4 +175,56 @@ struct MarkdownBlockParserTests {
             "paragraph",
         ])
     }
+
+    @Test func consecutiveParagraphsStayDistinctBlocks() {
+        let blocks = MarkdownBlockParser.parse("First paragraph.\n\nSecond paragraph.")
+        guard blocks.count == 2 else {
+            Issue.record("expected two blocks, got \(blocks.count): \(blocks)")
+            return
+        }
+        guard case .paragraph(let text1) = blocks[0],
+              case .paragraph(let text2) = blocks[1] else {
+            Issue.record("expected two paragraph blocks")
+            return
+        }
+        #expect(String(text1.characters) == "First paragraph.")
+        #expect(String(text2.characters) == "Second paragraph.")
+    }
+
+    @Test func consecutiveFencedCodeBlocksStayDistinctBlocks() {
+        let markdown = "```\ncode one\n```\n\n```\ncode two\n```"
+        let blocks = MarkdownBlockParser.parse(markdown)
+        guard blocks.count == 2 else {
+            Issue.record("expected two blocks, got \(blocks.count): \(blocks)")
+            return
+        }
+        guard case .codeBlock(let language1, let text1) = blocks[0],
+              case .codeBlock(let language2, let text2) = blocks[1] else {
+            Issue.record("expected two code blocks")
+            return
+        }
+        #expect(language1 == nil)
+        #expect(text1 == "code one\n")
+        #expect(language2 == nil)
+        #expect(text2 == "code two\n")
+    }
+
+    @Test func consecutiveBlockQuotesStayDistinctBlocks() {
+        // Empirically verified: AttributedString(markdown:) with .full syntax
+        // does NOT merge adjacent block quotes into one intent — each quote
+        // gets its own paragraph/blockQuote component pair with a distinct
+        // identity. This test locks that behavior in.
+        let blocks = MarkdownBlockParser.parse("> quote one\n\n> quote two")
+        guard blocks.count == 2 else {
+            Issue.record("expected two blocks, got \(blocks.count): \(blocks)")
+            return
+        }
+        guard case .blockQuote(let text1) = blocks[0],
+              case .blockQuote(let text2) = blocks[1] else {
+            Issue.record("expected two block quote blocks")
+            return
+        }
+        #expect(String(text1.characters) == "quote one")
+        #expect(String(text2.characters) == "quote two")
+    }
 }

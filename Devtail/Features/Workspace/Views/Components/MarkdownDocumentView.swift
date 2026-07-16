@@ -12,14 +12,22 @@ import SwiftUI
 /// Renders a markdown string as formatted content (headings, inline styles,
 /// lists, code blocks, block quotes, thematic breaks).
 struct MarkdownDocumentView: View {
-    let text: String
+    /// Parsed once in `init` and stored — `text` is immutable for the
+    /// lifetime of a view instance (a new file means a new `FileViewerTabView`
+    /// and thus a new `MarkdownDocumentView`), so re-parsing on every body
+    /// evaluation was wasted work. See `Devtail/Features/Workspace/Services/MarkdownBlockParser.swift`.
+    let blocks: [MarkdownBlock]
 
     /// Cap on the document's readable width, centered in the available
     /// space — same pattern as WorkspaceSettingsTabView.contentMaxWidth.
     private static let contentMaxWidth: CGFloat = 760
 
-    private var blocks: [MarkdownBlock] {
-        MarkdownBlockParser.parse(text)
+    init(text: String) {
+        self.blocks = MarkdownBlockParser.parse(text)
+    }
+
+    init(blocks: [MarkdownBlock]) {
+        self.blocks = blocks
     }
 
     var body: some View {

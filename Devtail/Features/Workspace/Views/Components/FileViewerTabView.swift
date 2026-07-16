@@ -25,7 +25,10 @@ struct FileViewerTabView: View {
         case binary
         case tooLarge(Int)
         case unreadable(String)
-        case ready(NSAttributedString, NSColor, rawText: String)
+        /// `markdownBlocks` is parsed once when the file loads (not on every
+        /// body evaluation) and reused both for the fallback decision and for
+        /// `MarkdownDocumentView` itself.
+        case ready(NSAttributedString, NSColor, rawText: String, markdownBlocks: [MarkdownBlock])
     }
 
     @State private var state: ViewerState = .loading
@@ -50,7 +53,7 @@ struct FileViewerTabView: View {
                             detail: "\(bytes / (1024 * 1024)) MB exceeds the viewer limit.")
             case .unreadable(let reason):
                 placeholder(icon: "exclamationmark.triangle", title: "Can't read file", detail: reason)
-            case .ready(let attributed, let background, let rawText):
+            case .ready(let attributed, let background, let rawText, let markdownBlocks):
                 if isMarkdown {
                     VStack(spacing: 0) {
                         HStack {
@@ -69,7 +72,11 @@ struct FileViewerTabView: View {
 
                         switch mode {
                         case .preview:
-                            MarkdownDocumentView(text: rawText)
+                            if Self.shouldFallBackToSource(rawText: rawText, blocks: markdownBlocks) {
+                                CodeViewerView(attributedText: attributed, backgroundColor: background)
+                            } else {
+                                MarkdownDocumentView(blocks: markdownBlocks)
+                            }
                         case .source:
                             CodeViewerView(attributedText: attributed, backgroundColor: background)
                         }
@@ -82,11 +89,22 @@ struct FileViewerTabView: View {
         .task(id: path) {
             state = .loading
             let content = FileContentLoader.load(path: path)
-            state = Self.viewerState(for: content)
+            state = Self.viewerState(for: content, isMarkdown: isMarkdown)
         }
     }
 
-    private static func viewerState(for content: FileViewerContent) -> ViewerState {
+    /// Decides whether Preview mode should fall back to rendering the raw
+    /// Source view instead of a blank markdown pane. `AttributedString(markdown:)`
+    /// can throw on malformed input, in which case `MarkdownBlockParser.parse`
+    /// returns `[]`. If the file actually has content, showing nothing would
+    /// silently hide it — falling back to Source guarantees the user always
+    /// sees something.
+    static func shouldFallBackToSource(rawText: String, blocks: [MarkdownBlock]) -> Bool {
+        guard !rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return blocks.isEmpty
+    }
+
+    private static func viewerState(for content: FileViewerContent, isMarkdown: Bool) -> ViewerState {
         switch content {
         case .binary:
             return .binary
@@ -105,7 +123,8 @@ struct FileViewerTabView: View {
                 ])
             }
             let background = highlightable ? CodeHighlighter.shared.backgroundColor : .textBackgroundColor
-            return .ready(attributed, background, rawText: text)
+            let markdownBlocks = isMarkdown ? MarkdownBlockParser.parse(text) : []
+            return .ready(attributed, background, rawText: text, markdownBlocks: markdownBlocks)
         }
     }
 
