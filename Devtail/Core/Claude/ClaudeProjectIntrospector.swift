@@ -1,0 +1,225 @@
+//
+//  ClaudeProjectIntrospector.swift
+//  Devtail
+//
+//  Reads a project's Claude Code configuration off disk: skills, agents,
+//  slash commands, MCP servers, and historical token usage. Best-effort by
+//  design — every section is independently optional, a missing/unreadable
+//  file or directory simply yields an empty result for that section rather
+//  than throwing. `home` is injected (not resolved via
+//  FileManager.default.homeDirectoryForCurrentUser internally) so tests can
+//  point it at a temp directory instead of the real `~`.
+//
+//  See docs/superpowers/specs/2026-07-16-claude-introspection-design.md for
+//  the exact verified on-disk formats this reads.
+//
+
+import Foundation
+
+/// Where a discovered item (skill/agent/command) or MCP server came from:
+/// the project's own `.claude/` directory, or the user's global `~/.claude/`.
+enum ClaudeScope: Sendable {
+    case project
+    case global
+}
+
+/// One discovered skill, agent, or command.
+struct ClaudeItem: Equatable, Sendable {
+    let name: String
+    let detail: String?
+    let scope: ClaudeScope
+
+    static func == (lhs: ClaudeItem, rhs: ClaudeItem) -> Bool {
+        lhs.name == rhs.name && lhs.detail == rhs.detail && lhs.scope == rhs.scope
+    }
+}
+
+extension ClaudeScope: Equatable {}
+
+/// Full snapshot of a project's Claude Code configuration, as read by
+/// `ClaudeProjectIntrospector.introspect(projectRoot:home:)`.
+struct ClaudeIntrospection: Sendable {
+    let skills: [ClaudeItem]
+    let agents: [ClaudeItem]
+    let commands: [ClaudeItem]
+    let mcpServers: [String]
+    let tokenUsage: TokenUsage?
+
+    static let empty = ClaudeIntrospection(skills: [], agents: [], commands: [], mcpServers: [], tokenUsage: nil)
+
+    /// True when there is nothing at all to show: no items in any category,
+    /// no MCP servers, and no token usage. Drives the "No Claude config"
+    /// fallback in the dashboard card.
+    var isEmpty: Bool {
+        skills.isEmpty && agents.isEmpty && commands.isEmpty && mcpServers.isEmpty && tokenUsage == nil
+    }
+}
+
+/// Injection seam for `WorkspaceSession`'s claude-info loading: the real
+/// implementation reads the filesystem (not headless-mockable in the usual
+/// sense, but slow/best-effort enough to warrant a seam for cancellation
+/// testing the same way `GitStatusReading` does).
+protocol ClaudeIntrospecting: Sendable {
+    func introspect(projectRoot: URL, home: URL) async -> ClaudeIntrospection
+}
+
+struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
+    init() {}
+
+    /// Synchronous, pure-disk-reading entry point used directly by tests
+    /// (temp directories, no need to hop actors) and by the `async`
+    /// `ClaudeIntrospecting` conformance below, which just wraps this for
+    /// the real off-main-actor call site in `WorkspaceSession`. Named
+    /// distinctly from the protocol's `introspect(projectRoot:home:)` async
+    /// requirement to avoid same-name overload ambiguity at the call site
+    /// in the `async` wrapper below.
+    func introspectSync(projectRoot: URL, home: URL) -> ClaudeIntrospection {
+        let skills = discoverItems(
+            projectDir: projectRoot.appendingPathComponent(".claude/skills", isDirectory: true),
+            globalDir: home.appendingPathComponent(".claude/skills", isDirectory: true),
+            fileName: "SKILL.md",
+            isSkill: true
+        )
+        let agents = discoverItems(
+            projectDir: projectRoot.appendingPathComponent(".claude/agents", isDirectory: true),
+            globalDir: home.appendingPathComponent(".claude/agents", isDirectory: true),
+            fileName: nil,
+            isSkill: false
+        )
+        let commands = discoverItems(
+            projectDir: projectRoot.appendingPathComponent(".claude/commands", isDirectory: true),
+            globalDir: home.appendingPathComponent(".claude/commands", isDirectory: true),
+            fileName: nil,
+            isSkill: false
+        )
+        let mcpServers = discoverMCPServers(projectRoot: projectRoot, home: home)
+        let tokenUsage = readTokenUsage(projectRoot: projectRoot, home: home)
+
+        return ClaudeIntrospection(
+            skills: skills,
+            agents: agents,
+            commands: commands,
+            mcpServers: mcpServers,
+            tokenUsage: tokenUsage
+        )
+    }
+
+    func introspect(projectRoot: URL, home: URL) async -> ClaudeIntrospection {
+        introspectSync(projectRoot: projectRoot, home: home)
+    }
+
+    // MARK: - Skills / Agents / Commands
+
+    /// Discovers items in both `projectDir` and `globalDir`.
+    ///
+    /// - When `fileName` is provided (skills): each item lives in its own
+    ///   subdirectory as `<subdir>/<fileName>` (e.g. `SKILL.md`), and the
+    ///   item's name comes from frontmatter `name`, falling back to the
+    ///   subdirectory name.
+    /// - When `fileName` is nil (agents/commands): each item is a single
+    ///   `.md` file directly inside the directory, and the item's name
+    ///   comes from frontmatter `name`, falling back to the filename
+    ///   (without extension).
+    private func discoverItems(projectDir: URL, globalDir: URL, fileName: String?, isSkill: Bool) -> [ClaudeItem] {
+        discoverItems(in: projectDir, scope: .project, fileName: fileName)
+            + discoverItems(in: globalDir, scope: .global, fileName: fileName)
+    }
+
+    private func discoverItems(in directory: URL, scope: ClaudeScope, fileName: String?) -> [ClaudeItem] {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey]) else {
+            return []
+        }
+
+        var items: [ClaudeItem] = []
+        for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            if let fileName {
+                // Skills: <entry>/<fileName>
+                var isDirectory: ObjCBool = false
+                guard fm.fileExists(atPath: entry.path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
+                let markdownURL = entry.appendingPathComponent(fileName)
+                guard let content = try? String(contentsOf: markdownURL, encoding: .utf8) else { continue }
+                let frontmatter = FrontmatterParser.parse(content)
+                let name = frontmatter["name"] ?? entry.lastPathComponent
+                items.append(ClaudeItem(name: name, detail: frontmatter["description"], scope: scope))
+            } else {
+                // Agents/commands: flat *.md files
+                guard entry.pathExtension == "md" else { continue }
+                guard let content = try? String(contentsOf: entry, encoding: .utf8) else { continue }
+                let frontmatter = FrontmatterParser.parse(content)
+                let name = frontmatter["name"] ?? entry.deletingPathExtension().lastPathComponent
+                items.append(ClaudeItem(name: name, detail: frontmatter["description"], scope: scope))
+            }
+        }
+        return items
+    }
+
+    // MARK: - MCP servers
+
+    private func discoverMCPServers(projectRoot: URL, home: URL) -> [String] {
+        let globalNames = readGlobalMCPServerNames(projectRoot: projectRoot, home: home)
+        let projectNames = readProjectMCPServerNames(projectRoot: projectRoot)
+        return MCPMerger.merge(global: globalNames, project: projectNames)
+    }
+
+    /// Reads `~/.claude.json`'s top-level `mcpServers` plus
+    /// `projects["<projectRoot>"].mcpServers`, merged (order: top-level
+    /// first, then per-project).
+    private func readGlobalMCPServerNames(projectRoot: URL, home: URL) -> [String] {
+        let configURL = home.appendingPathComponent(".claude.json")
+        guard let data = try? Data(contentsOf: configURL),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return []
+        }
+
+        var names: [String] = []
+        if let topLevel = json["mcpServers"] as? [String: Any] {
+            names.append(contentsOf: topLevel.keys.sorted())
+        }
+        if let projects = json["projects"] as? [String: Any],
+           let projectEntry = projects[projectRoot.path] as? [String: Any],
+           let perProject = projectEntry["mcpServers"] as? [String: Any] {
+            for name in perProject.keys.sorted() where !names.contains(name) {
+                names.append(name)
+            }
+        }
+        return names
+    }
+
+    /// Reads `<projectRoot>/.mcp.json`'s `mcpServers`.
+    private func readProjectMCPServerNames(projectRoot: URL) -> [String] {
+        let configURL = projectRoot.appendingPathComponent(".mcp.json")
+        guard let data = try? Data(contentsOf: configURL),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let servers = json["mcpServers"] as? [String: Any] else {
+            return []
+        }
+        return servers.keys.sorted()
+    }
+
+    // MARK: - Token usage
+
+    /// Reads every `*.jsonl` transcript under
+    /// `~/.claude/projects/<encoded-root>/` and sums their token usage.
+    /// Returns nil when the directory doesn't exist or has no transcripts —
+    /// distinct from a zeroed `TokenUsage`, so the card can hide the row
+    /// entirely rather than showing "0 tokens".
+    private func readTokenUsage(projectRoot: URL, home: URL) -> TokenUsage? {
+        let encoded = ClaudePathEncoder.encode(projectRoot.path)
+        let transcriptsDir = home.appendingPathComponent(".claude/projects/\(encoded)", isDirectory: true)
+
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(at: transcriptsDir, includingPropertiesForKeys: nil) else {
+            return nil
+        }
+        let jsonlFiles = entries.filter { $0.pathExtension == "jsonl" }
+        guard !jsonlFiles.isEmpty else { return nil }
+
+        var allLines: [String] = []
+        for file in jsonlFiles {
+            guard let content = try? String(contentsOf: file, encoding: .utf8) else { continue }
+            allLines.append(contentsOf: content.components(separatedBy: "\n"))
+        }
+        return TokenAggregator.sum(jsonlLines: allLines)
+    }
+}
