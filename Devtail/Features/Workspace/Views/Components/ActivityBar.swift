@@ -17,7 +17,7 @@ struct ActivityBar: View {
                             : DevtailTokens.Colors.textTertiary)
                         .frame(width: 32, height: 32)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.icon)
                 .help(view.help)
             }
             Spacer()
@@ -32,7 +32,7 @@ struct ActivityBar: View {
                         : DevtailTokens.Colors.textTertiary)
                     .frame(width: 32, height: 32)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.icon)
             .help("Project settings")
         }
         .padding(.vertical, DevtailTokens.Spacing.gapSmall)

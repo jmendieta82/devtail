@@ -39,7 +39,7 @@ struct FileTreeColumn: View {
                 .frame(width: 16, height: 16)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.icon)
         .foregroundStyle(DevtailTokens.Colors.accentPrimary)
         .help(help)
     }
@@ -75,7 +75,7 @@ private struct FileTreeNodeRow: View {
                         .truncationMode(.middle)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.icon)
             .opacity(node.isDotfile ? 0.5 : 1)
             .padding(.leading, CGFloat(node.depth) * 12)
 

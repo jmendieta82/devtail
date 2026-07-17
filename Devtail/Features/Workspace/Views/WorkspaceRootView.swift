@@ -333,7 +333,7 @@ struct WorkspaceTabChip: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.icon)
             // Full name on hover — the tab label is middle-truncated at 28 chars.
             .help(title)
 
@@ -344,7 +344,7 @@ struct WorkspaceTabChip: View {
                         .frame(width: 14, height: 14)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.icon)
                 .foregroundStyle(.secondary)
                 .help("Close")
             }

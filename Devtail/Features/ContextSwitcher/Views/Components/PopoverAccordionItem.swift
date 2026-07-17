@@ -70,7 +70,7 @@ struct PopoverAccordionItem: View {
             .padding(.vertical, DevtailTokens.Spacing.sidebarItemVertical)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.icon)
         .contextMenu {
             Button {
                 onOpenInVSCode()
@@ -126,7 +126,7 @@ struct PopoverAccordionItem: View {
                             )
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.icon)
                 .disabled(sortedPanes.isEmpty || project.directoryPath.isEmpty)
                 .help("Resume last session")
             }
@@ -149,7 +149,7 @@ struct PopoverAccordionItem: View {
                     in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.icon)
             .disabled(sortedPanes.isEmpty || project.directoryPath.isEmpty)
             .help("Launch workspace")
         }

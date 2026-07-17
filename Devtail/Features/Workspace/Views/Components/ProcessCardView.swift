@@ -38,19 +38,19 @@ struct ProcessCardView: View {
                     .fill(isSelected ? Color.primary.opacity(0.08) : .clear)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.icon)
     }
 
     @ViewBuilder private var actions: some View {
         switch process.state {
         case .running, .starting:
             Button("Restart", systemImage: "arrow.clockwise", action: onRestart)
-                .labelStyle(.iconOnly).buttonStyle(.plain).help("Restart")
+                .labelStyle(.iconOnly).buttonStyle(.icon).help("Restart")
             Button("Stop", systemImage: "stop.fill", action: onStop)
-                .labelStyle(.iconOnly).buttonStyle(.plain).help("Stop")
+                .labelStyle(.iconOnly).buttonStyle(.icon).help("Stop")
         case .stopped, .exited:
             Button("Start", systemImage: "play.fill", action: onStart)
-                .labelStyle(.iconOnly).buttonStyle(.plain).help("Start")
+                .labelStyle(.iconOnly).buttonStyle(.icon).help("Start")
         }
     }
 
