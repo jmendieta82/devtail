@@ -92,12 +92,22 @@ final class WorkspaceSession: Identifiable {
     let fileTree: FileTreeStore
     /// Which side panel view is showing: files or processes.
     var sidePanel: SidePanelView = .files
+    /// Injected git status reader — real `GitStatusReader()` in production,
+    /// a fake in tests. Lets `refreshGitStatus()` be exercised without
+    /// shelling out to a real `git` process.
+    private let gitStatusReader: GitStatusReading
+    /// Handle to the in-flight `refreshGitStatus()` task, if any. Cancelled
+    /// before starting a new refresh and on `close(projectId:)` teardown —
+    /// otherwise a stale refresh from a closed (or since-reopened) session
+    /// could assign `gitStatus` after the session is gone.
+    private var gitStatusTask: Task<Void, Never>?
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor,
          agent: TerminalSession,
          currentBranch: String? = nil,
-         openedAt: Date = Date()) {
+         openedAt: Date = Date(),
+         gitStatusReader: GitStatusReading = GitStatusReader()) {
         self.projectId = projectId
         self.projectName = projectName
         self.root = root
@@ -106,6 +116,7 @@ final class WorkspaceSession: Identifiable {
         self.currentBranch = currentBranch
         self.openedAt = openedAt
         self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
+        self.gitStatusReader = gitStatusReader
     }
 
     /// Open a file in the workspace (append to openFiles if not already open,
@@ -214,16 +225,33 @@ final class WorkspaceSession: Identifiable {
     }
 
     /// Loads (or reloads) the enriched git status for this session's root
-    /// and assigns it on the main actor. Fire-and-forget by design — called
-    /// once at session open and again on user-initiated refresh
-    /// (`branchSection`'s refresh button). `GitStatusReader` runs off the
-    /// main actor internally, so this hop is the only main-actor work here.
+    /// and assigns it on the main actor. Called once at session open and
+    /// again on user-initiated refresh (`branchSection`'s refresh button).
+    /// `GitStatusReader` runs off the main actor internally, so this hop is
+    /// the only main-actor work here.
+    ///
+    /// The previous in-flight refresh (if any) is cancelled before starting
+    /// a new one, and the new task's handle is stored so `close(projectId:)`
+    /// can cancel it too — otherwise a stale refresh could assign
+    /// `gitStatus` after the session was torn down or superseded. The task
+    /// checks `Task.isCancelled` after the `await` and bails before
+    /// assigning if cancellation happened while the read was in flight.
     func refreshGitStatus() {
-        Task { @MainActor [weak self] in
+        gitStatusTask?.cancel()
+        gitStatusTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let status = await GitStatusReader().status(in: self.root)
+            let status = await self.gitStatusReader.status(in: self.root)
+            guard !Task.isCancelled else { return }
             self.gitStatus = status
         }
+    }
+
+    /// Cancels the in-flight git status refresh, if any. Called from
+    /// `WorkspaceSessionsHolder.close(projectId:)` alongside the other
+    /// teardown steps.
+    func cancelGitStatusRefresh() {
+        gitStatusTask?.cancel()
+        gitStatusTask = nil
     }
 }
 
@@ -375,6 +403,7 @@ final class WorkspaceSessionsHolder {
         session.supervisor.shutdownAll()
         session.interactive?.terminate()
         session.agent.terminate()
+        session.cancelGitStatusRefresh()
     }
 
     /// App-quit teardown: no orphans holding ports.

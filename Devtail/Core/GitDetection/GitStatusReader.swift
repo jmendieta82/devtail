@@ -35,7 +35,16 @@ struct GitStatus: Equatable, Sendable {
     let behind: Int?
 }
 
-struct GitStatusReader: Sendable {
+/// Injection seam for `WorkspaceSession.refreshGitStatus()`: the real
+/// implementation shells out to `git` (not headless-testable), so tests
+/// substitute a fake conforming to this protocol to verify the
+/// assign-on-success / no-assign-when-cancelled wiring without a real
+/// process.
+protocol GitStatusReading: Sendable {
+    func status(in root: URL) async -> GitStatus?
+}
+
+struct GitStatusReader: GitStatusReading, Sendable {
 
     /// Path to the git binary. Fixed to the Xcode Command Line Tools /
     /// system location rather than resolved via `env` — avoids depending on
@@ -116,8 +125,21 @@ struct GitStatusReader: Sendable {
                 }
                 DispatchQueue.global().asyncAfter(deadline: .now() + 3, execute: timeoutWorkItem)
 
+                // stderr is drained concurrently on its own queue and
+                // discarded (unused by any caller). If it were read after
+                // stdout instead, a git invocation that writes enough to
+                // stderr to fill its pipe buffer (~64KB) would block on the
+                // write forever — neither pipe reader may wait on the other,
+                // both must run before `waitUntilExit()`.
+                let stderrDrained = DispatchSemaphore(value: 0)
+                DispatchQueue.global(qos: .userInitiated).async {
+                    _ = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    stderrDrained.signal()
+                }
+
                 let outputData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
+                stderrDrained.wait()
                 timeoutWorkItem.cancel()
 
                 guard process.terminationStatus == 0 else {
