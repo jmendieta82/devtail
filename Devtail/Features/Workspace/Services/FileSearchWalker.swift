@@ -50,7 +50,10 @@ nonisolated struct FileSearchWalker: FileSearching {
     /// `@concurrent`: the recursive walk is blocking disk I/O, so it must
     /// run on the concurrent executor — never on the caller's actor. The
     /// results array stays local to the walk and crosses back to the
-    /// awaiting store only as the returned value.
+    /// awaiting store only as the returned value. Deliberately NOT
+    /// GitStatusReader's DispatchQueue.global + continuation pattern: that
+    /// would sever the structured task context, so `Task.isCancelled` in
+    /// `walk` would never observe the store's cooperative cancel.
     @concurrent func search(root: URL, query: String) async -> [FileSearchResult] {
         guard let needle = matcher.normalizedQuery(from: query) else { return [] }
         var results: [FileSearchResult] = []

@@ -452,6 +452,7 @@ final class WorkspaceSessionsHolder {
         session.agent.terminate()
         session.cancelGitStatusRefresh()
         session.cancelClaudeInfoRefresh()
+        session.fileSearch.cancelSearch()
     }
 
     /// App-quit teardown: no orphans holding ports.

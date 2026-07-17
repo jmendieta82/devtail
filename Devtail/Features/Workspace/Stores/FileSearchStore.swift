@@ -62,6 +62,16 @@ final class FileSearchStore {
         searchFocusRequest = 0
     }
 
+    /// Cancels the in-flight debounce+walk, if any. Called from
+    /// `WorkspaceSessionsHolder.close(projectId:)` alongside the other
+    /// teardown steps — mirrors `cancelGitStatusRefresh` /
+    /// `cancelClaudeInfoRefresh` so a torn-down session's walk stops
+    /// burning disk I/O.
+    func cancelSearch() {
+        searchTask?.cancel()
+        searchTask = nil
+    }
+
     /// The task captures the query it was started for — a stale walk must
     /// never publish under a newer query. It checks cancellation after the
     /// sleep (superseded during debounce) and after the walk (superseded

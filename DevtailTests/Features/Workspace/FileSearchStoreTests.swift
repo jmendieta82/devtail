@@ -92,6 +92,24 @@ struct FileSearchStoreTests {
         #expect(spy.searchedQueries == ["main"])
     }
 
+    /// Mirrors cancelGitStatusRefreshPreventsStaleAssignment: `close(projectId:)`
+    /// calls `cancelSearch()`, so an in-flight debounce+walk must stop instead
+    /// of running (and publishing) after teardown.
+    @Test func cancelSearchStopsInFlightWalk() async {
+        let spy = SpyFileSearcher()
+        spy.resultsByQuery["main"] = [result("/root/main.swift")]
+        let store = makeStore(spy: spy)
+
+        store.query = "main"
+        let inFlight = store.searchTask
+        store.cancelSearch()
+        await inFlight?.value
+
+        #expect(store.searchTask == nil)
+        #expect(spy.searchedQueries.isEmpty)
+        #expect(store.results.isEmpty)
+    }
+
     @Test func focusRequestCounterIncrementsAndClears() {
         let store = makeStore(spy: SpyFileSearcher())
         #expect(store.searchFocusRequest == 0)
