@@ -74,6 +74,13 @@ final class WorkspaceSession: Identifiable {
     /// Current git branch of the project root, detected once at session
     /// open. Nil when the root isn't a git repo (or metadata is unreadable).
     let currentBranch: String?
+    /// Enriched git status (branch count, dirty state, ahead/behind),
+    /// loaded asynchronously after the session is created — shelling out to
+    /// `git` is I/O and must not block session creation. Nil until the
+    /// first load completes (or if it fails / the root isn't a git repo).
+    /// `var` and observable so the branch card updates when it arrives, and
+    /// so a manual refresh can replace it in place.
+    var gitStatus: GitStatus?
     /// Timestamp the workspace was opened — feeds the elapsed-time card via
     /// `WorkspaceSessionClock`. `Date()` is nonisolated, so it's safe as a
     /// default even though this class is `@MainActor` by default isolation.
@@ -205,6 +212,19 @@ final class WorkspaceSession: Identifiable {
             selectedTab = .file(path)
         }
     }
+
+    /// Loads (or reloads) the enriched git status for this session's root
+    /// and assigns it on the main actor. Fire-and-forget by design — called
+    /// once at session open and again on user-initiated refresh
+    /// (`branchSection`'s refresh button). `GitStatusReader` runs off the
+    /// main actor internally, so this hop is the only main-actor work here.
+    func refreshGitStatus() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let status = await GitStatusReader().status(in: self.root)
+            self.gitStatus = status
+        }
+    }
 }
 
 @Observable
@@ -251,6 +271,7 @@ final class WorkspaceSessionsHolder {
         )
         wireAgentExit(agent, on: session)
         sessions[project.id] = session
+        session.refreshGitStatus()
         return session
     }
 

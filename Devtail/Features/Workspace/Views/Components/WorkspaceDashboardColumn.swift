@@ -73,10 +73,48 @@ struct WorkspaceDashboardColumn: View {
         Group {
             if let branch = session.currentBranch {
                 card(title: "Branch") {
-                    Label(branch, systemImage: "arrow.triangle.branch")
-                        .font(DevtailTokens.Typography.caption)
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
+                            Label(branch, systemImage: "arrow.triangle.branch")
+                                .font(DevtailTokens.Typography.caption)
+                                .foregroundStyle(.secondary)
+                            if let status = session.gitStatus {
+                                gitStatusDetails(status)
+                            }
+                        }
+                        Spacer()
+                        Button {
+                            session.refreshGitStatus()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10))
+                        }
+                        .buttonStyle(.icon)
                         .foregroundStyle(.secondary)
+                        .help("Refresh git status")
+                    }
                 }
+            }
+        }
+    }
+
+    /// Enriched git details shown once `gitStatus` has loaded: local branch
+    /// count, dirty/clean state, and ahead/behind vs. upstream (hidden when
+    /// there is no upstream configured).
+    private func gitStatusDetails(_ status: GitStatus) -> some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+            Text("\(status.localBranchCount) branches")
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+
+            Text(status.isDirty ? "\(status.changedFileCount) uncommitted" : "Clean")
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(status.isDirty ? DevtailTokens.Colors.trafficYellow : DevtailTokens.Colors.trafficGreen)
+
+            if let ahead = status.ahead, let behind = status.behind {
+                Text("\u{2191}\(ahead) \u{2193}\(behind)")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
             }
         }
     }
