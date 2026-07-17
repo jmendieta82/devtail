@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Single project row in the popover accordion.
 /// Collapsed: color dot + name + pane count + chevron
-/// Expanded: + pane chips + Launch button + Configure link
+/// Expanded: + pane chips + Resume (conditional) + Launch button + Configure link
+/// Context menu (right-click on the header): Open in VSCode / Delete project…
 struct PopoverAccordionItem: View {
     let project: Project
     let isExpanded: Bool
@@ -10,7 +11,12 @@ struct PopoverAccordionItem: View {
     let branches: [UUID: String]
     let onToggle: () -> Void
     let onLaunch: () -> Void
+    let onResume: () -> Void
+    let onOpenInVSCode: () -> Void
+    let onDeleteProject: () -> Void
     let onOpenDashboard: () -> Void
+
+    @State private var showDeleteConfirmation: Bool = false
 
     private var sortedPanes: [WorkspacePane] {
         project.workspacePanes.sorted { $0.order < $1.order }
@@ -25,6 +31,18 @@ struct PopoverAccordionItem: View {
         }
         .glassEffect(in: RoundedRectangle(cornerRadius: DevtailTokens.Radius.card))
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
+        .confirmationDialog(
+            "Delete \(project.name)?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete project", role: .destructive) {
+                onDeleteProject()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete the project and all its workspace panes and quick links. This cannot be undone.")
+        }
     }
 
     // MARK: - Header
@@ -54,6 +72,22 @@ struct PopoverAccordionItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                onOpenInVSCode()
+            } label: {
+                Label("Open in VSCode", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+            .disabled(project.directoryPath.isEmpty)
+
+            Divider()
+
+            Button(role: .destructive) {
+                showDeleteConfirmation = true
+            } label: {
+                Label("Delete project…", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: - Expanded
@@ -70,6 +104,32 @@ struct PopoverAccordionItem: View {
                         )
                     }
                 }
+            }
+
+            if project.lastLaunchedAt != nil {
+                Button(action: onResume) {
+                    HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                        Image(systemName: "arrow.uturn.forward")
+                        Text("Resume")
+                    }
+                    .font(DevtailTokens.Typography.bodySmall)
+                    .foregroundStyle(DevtailTokens.Colors.accentPrimary.opacity(0.85))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: DevtailTokens.Sizes.launchButtonHeight)
+                    .contentShape(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                            .stroke(
+                                DevtailTokens.Colors.accentPrimary.opacity(0.35),
+                                lineWidth: DevtailTokens.BorderWidth.default
+                            )
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(sortedPanes.isEmpty || project.directoryPath.isEmpty)
+                .help("Resume last session")
             }
 
             Button(action: onLaunch) {

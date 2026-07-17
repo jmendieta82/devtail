@@ -18,17 +18,27 @@ struct MenuBarRootView: View {
     @State private var searchQuery: String = ""
     @State private var expandedProjectID: UUID? = nil
     @State private var keyboardSelectedIndex: Int? = nil
+    @State private var sortMode: SidebarSortMode = SidebarSortMode.load()
+    /// Branch changes detected when the user taps Resume on `pendingResumeProject`.
+    /// Non-empty triggers the confirmation alert before proceeding.
+    @State private var pendingResumeProject: Project?
+    @State private var pendingBranchChanges: [BranchChange] = []
+    @State private var showResumeAlert: Bool = false
 
     private let filterEngine = ProjectFilterEngine()
+    private let sorter = ProjectSorter()
     private let branchDetector = GitBranchDetector()
 
     var body: some View {
         VStack(spacing: 0) {
-            // ─── Search ───
+            // ─── Search + sort ───
             if !store.projects.isEmpty {
-                SearchField(text: $searchQuery)
-                    .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
-                    .padding(.top, DevtailTokens.Spacing.popoverPadding)
+                HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                    SearchField(text: $searchQuery)
+                    sortMenuButton
+                }
+                .padding(.horizontal, DevtailTokens.Spacing.popoverPadding)
+                .padding(.top, DevtailTokens.Spacing.popoverPadding)
             }
 
             // ─── Content ───
@@ -48,6 +58,9 @@ struct MenuBarRootView: View {
                                 branches: resolveBranches(for: project),
                                 onToggle: { toggleExpand(project.id) },
                                 onLaunch: { launchWorkspace(for: project) },
+                                onResume: { handleResumeTap(for: project) },
+                                onOpenInVSCode: { store.openInVSCode(project: project) },
+                                onDeleteProject: { store.deleteProject(project) },
                                 onOpenDashboard: { openDashboardForProject(project.id) }
                             )
                         }
@@ -107,6 +120,61 @@ struct MenuBarRootView: View {
         .onKeyPress(.escape) {
             handleEscape()
         }
+        .alert(
+            "Continue where you left off?",
+            isPresented: $showResumeAlert
+        ) {
+            Button("Resume") {
+                if let project = pendingResumeProject {
+                    launchWorkspace(for: project)
+                }
+                pendingResumeProject = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingResumeProject = nil
+                pendingBranchChanges = []
+            }
+        } message: {
+            Text(resumeAlertMessage)
+        }
+    }
+
+    // MARK: - Sort
+
+    private var sortMenuButton: some View {
+        Menu {
+            Button {
+                applySortMode(.recency)
+            } label: {
+                Label(
+                    "By recency",
+                    systemImage: sortMode == .recency ? "checkmark" : ""
+                )
+            }
+            Button {
+                applySortMode(.alphabetical)
+            } label: {
+                Label(
+                    "By name",
+                    systemImage: sortMode == .alphabetical ? "checkmark" : ""
+                )
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(DevtailTokens.Colors.textMuted)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Sort projects")
+    }
+
+    private func applySortMode(_ newSort: SidebarSortMode) {
+        sortMode = newSort
+        newSort.save()
     }
 
     // MARK: - Accordion
@@ -126,6 +194,25 @@ struct MenuBarRootView: View {
     private func launchWorkspace(for project: Project) {
         store.prepareLaunch(for: project)
         openWindow(id: WindowID.workspace, value: project.id)
+    }
+
+    // MARK: - Resume
+
+    private func handleResumeTap(for project: Project) {
+        let changes = store.detectBranchChanges(for: project)
+        if changes.isEmpty {
+            launchWorkspace(for: project)
+        } else {
+            pendingResumeProject = project
+            pendingBranchChanges = changes
+            showResumeAlert = true
+        }
+    }
+
+    private var resumeAlertMessage: String {
+        guard !pendingBranchChanges.isEmpty else { return "" }
+        let lines = pendingBranchChanges.map { "• \($0.paneLabel): \($0.from) → \($0.to)" }
+        return "Branches changed since your last session:\n" + lines.joined(separator: "\n")
     }
 
     // MARK: - Branch detection
@@ -185,7 +272,8 @@ struct MenuBarRootView: View {
     // MARK: - Helpers
 
     private var filteredProjects: [Project] {
-        filterEngine.filter(projects: store.projects, query: searchQuery)
+        let filtered = filterEngine.filter(projects: store.projects, query: searchQuery)
+        return sorter.sort(filtered, mode: sortMode)
     }
 
     @ViewBuilder
