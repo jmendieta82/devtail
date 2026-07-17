@@ -7,18 +7,15 @@ struct FileTreeColumn: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                HStack {
+                HStack(spacing: DevtailTokens.Spacing.gapMedium) {
                     SectionHeader(title: "Files")
                     Spacer()
-                    Button {
-                        NSWorkspace.shared.activateFileViewerSelecting([session.root])
-                    } label: {
-                        Label("Open in Finder", systemImage: "arrow.up.forward.square")
-                            .font(DevtailTokens.Typography.captionSmall)
+                    iconButton("arrow.clockwise", help: "Sync the file tree") {
+                        session.fileTree.reloadRoot()
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(DevtailTokens.Colors.accentPrimary)
-                    .help("Reveal the project folder in Finder")
+                    iconButton("arrow.up.forward.square", help: "Reveal the project folder in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([session.root])
+                    }
                 }
                 if let error = session.fileTree.rootError {
                     Text(error)
@@ -33,6 +30,18 @@ struct FileTreeColumn: View {
             .padding(DevtailTokens.Spacing.cardPadding)
         }
         .onAppear { session.fileTree.loadRootIfNeeded() }
+    }
+
+    private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(DevtailTokens.Typography.captionSmall)
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(DevtailTokens.Colors.accentPrimary)
+        .help(help)
     }
 }
 

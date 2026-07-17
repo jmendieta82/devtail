@@ -34,6 +34,19 @@ final class FileTreeStore {
 
     func loadRootIfNeeded() {
         guard rootNodes == nil, rootError == nil else { return }
+        loadRoot()
+    }
+
+    /// Re-lists the root from disk, discarding the current tree (and any
+    /// expanded-folder state) — the Sync button's action so on-disk changes
+    /// show up without reopening the workspace.
+    func reloadRoot() {
+        rootNodes = nil
+        rootError = nil
+        loadRoot()
+    }
+
+    private func loadRoot() {
         // Relative URLs never converge when walked (see GitBranchDetector incident).
         guard root.path.hasPrefix("/") else {
             rootError = "Invalid project root"

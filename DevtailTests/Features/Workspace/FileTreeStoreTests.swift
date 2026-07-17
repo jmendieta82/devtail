@@ -36,6 +36,36 @@ struct FileTreeStoreTests {
         #expect(store.rootNodes?.count == 1)
     }
 
+    @Test func reloadRootRelistsAndReflectsNewEntries() {
+        let mock = MockDirectoryLister()
+        mock.entriesByPath["/root"] = [file("/root/a.txt")]
+        let store = FileTreeStore(root: URL(fileURLWithPath: "/root"), lister: mock)
+        store.loadRootIfNeeded()
+        #expect(store.rootNodes?.count == 1)
+
+        // A file appears on disk; reload must pick it up (loadRootIfNeeded would not).
+        mock.entriesByPath["/root"] = [file("/root/a.txt"), file("/root/b.txt")]
+        store.reloadRoot()
+
+        #expect(mock.listedPaths == ["/root", "/root"])
+        #expect(store.rootNodes?.count == 2)
+    }
+
+    @Test func reloadRootClearsPriorError() {
+        let mock = MockDirectoryLister()
+        mock.errorPaths = ["/root"]
+        let store = FileTreeStore(root: URL(fileURLWithPath: "/root"), lister: mock)
+        store.loadRootIfNeeded()
+        #expect(store.rootError != nil)
+
+        mock.errorPaths = []
+        mock.entriesByPath["/root"] = [file("/root/a.txt")]
+        store.reloadRoot()
+
+        #expect(store.rootError == nil)
+        #expect(store.rootNodes?.count == 1)
+    }
+
     @Test func relativeRootFailsClosed() {
         // Mirrors GitBranchDetectorTests.relativeURLReturnsNil: URL(string: "file:...")
         // yields a genuinely relative path, unlike URL(fileURLWithPath: "") which
