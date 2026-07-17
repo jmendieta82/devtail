@@ -17,14 +17,22 @@ struct WorkspaceSessionsHolderTests {
     /// `agentCommand`, when non-nil, is pre-seeded into a fresh, uniquely
     /// named `UserDefaults` suite BEFORE `AppSettings` reads it — mirrors
     /// how a user-configured command would already be persisted at launch.
-    private func makeSUT(agentCommand: String? = nil) -> (WorkspaceSessionsHolder, MockTerminalEngine) {
+    /// `schedule` replaces the holder's quit-deadline scheduler (default: a
+    /// no-op — nothing fires unless the test captures and fires it).
+    private func makeSUT(
+        agentCommand: String? = nil,
+        schedule: @escaping (TimeInterval, @escaping @MainActor () -> Void) -> Void = { _, _ in }
+    ) -> (WorkspaceSessionsHolder, MockTerminalEngine) {
         let defaults = UserDefaults(suiteName: "WorkspaceSessionsHolderTests-\(UUID().uuidString)")!
         if let agentCommand {
             defaults.set(agentCommand, forKey: "agentCommand")
         }
         let settings = AppSettings(defaults: defaults)
         let engine = MockTerminalEngine()
-        let holder = WorkspaceSessionsHolder(engine: engine, browserLauncher: MockBrowserLauncher(), settings: settings)
+        let holder = WorkspaceSessionsHolder(
+            engine: engine, browserLauncher: MockBrowserLauncher(), settings: settings,
+            schedule: schedule
+        )
         return (holder, engine)
     }
 
@@ -402,5 +410,131 @@ struct WorkspaceSessionsHolderTests {
 
         session.selectedTab = .agent
         #expect(session.selectedTab == .agent)
+    }
+
+    // MARK: - Quit path: hasLiveSessions + shutdownAll(deadline:completion:)
+
+    @Test func hasLiveSessionsReflectsAgentLifecycle() {
+        let (holder, _) = makeSUT()
+        #expect(!holder.hasLiveSessions)
+
+        let session = holder.openSession(for: project("alpha"))
+        #expect(holder.hasLiveSessions)
+
+        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
+        #expect(!holder.hasLiveSessions)
+    }
+
+    @Test func shutdownAllWithDeadlineCompletesImmediatelyWhenNothingLive() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+
+        #expect(completions == 1)
+        #expect(!holder.isOpen(session.projectId))
+    }
+
+    @Test func shutdownAllWithDeadlineCompletesEarlyWhenAllSessionsExit() throws {
+        var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
+        let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
+        let session = holder.openSession(for: project("alpha"))
+        holder.openInteractive(projectId: session.projectId)
+        let agent = try #require(session.agent as? MockTerminalSession)
+        let interactive = try #require(session.interactive as? MockTerminalSession)
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+
+        // SIGTERM wave went out; completion waits for the exits.
+        #expect(agent.terminateCount == 1)
+        #expect(interactive.terminateCount == 1)
+        #expect(completions == 0)
+
+        agent.simulateExit(code: 0)
+        #expect(completions == 0)
+        interactive.simulateExit(code: 0)
+        #expect(completions == 1)
+
+        // A deadline firing after early completion must neither force-kill
+        // nor double-complete.
+        for entry in scheduled { entry.block() }
+        #expect(completions == 1)
+        #expect(agent.forceKillCount == 0)
+        #expect(interactive.forceKillCount == 0)
+    }
+
+    @Test func shutdownAllWithDeadlineForceKillsStragglersAtDeadline() throws {
+        var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
+        let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
+        let session = holder.openSession(for: project("alpha"))
+        let agent = try #require(session.agent as? MockTerminalSession)
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+
+        #expect(scheduled.count == 1)
+        #expect(scheduled[0].delay == 2.0)
+        #expect(completions == 0)
+
+        scheduled[0].block()
+
+        #expect(agent.forceKillCount == 1)
+        #expect(completions == 1)
+    }
+
+    /// One session exits before the deadline, one never does: the deadline
+    /// force-kills only the straggler and completes; the straggler's late
+    /// exit must not re-complete.
+    @Test func shutdownAllWithDeadlineCompletesExactlyOnce() throws {
+        var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
+        let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
+        let session = holder.openSession(for: project("alpha"))
+        holder.openInteractive(projectId: session.projectId)
+        let agent = try #require(session.agent as? MockTerminalSession)
+        let interactive = try #require(session.interactive as? MockTerminalSession)
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+        interactive.simulateExit(code: 0)
+        #expect(completions == 0)
+
+        scheduled[0].block()
+        #expect(agent.forceKillCount == 1)
+        #expect(interactive.forceKillCount == 0)
+        #expect(completions == 1)
+
+        agent.simulateExit(code: nil)
+        #expect(completions == 1)
+    }
+
+    @Test func runningManagedProcessCountsAsLiveAndIsForceKilledAtDeadline() throws {
+        var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
+        let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
+        let context = try makeContext()
+        let p = project("alpha")
+        context.insert(p)
+        let pane = WorkspacePane(label: "back", relativeCwd: "api", command: "npm run dev",
+                                  order: 0, layoutSlot: 0, project: p)
+        context.insert(pane)
+        p.workspacePanes.append(pane)
+
+        let session = holder.openSession(for: p)
+        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
+        #expect(!holder.hasLiveSessions)
+
+        session.supervisor.startAll()
+        #expect(holder.hasLiveSessions)
+        let processMock = try #require(session.supervisor.processes[0].session as? MockTerminalSession)
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+        #expect(completions == 0)
+
+        scheduled[0].block()
+        #expect(processMock.forceKillCount == 1)
+        #expect(completions == 1)
     }
 }

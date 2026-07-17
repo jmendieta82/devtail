@@ -38,6 +38,9 @@ protocol TerminalSession: AnyObject {
     func start()
     /// killpg(SIGTERM) → grace → killpg(SIGKILL). Idempotent.
     func terminate()
+    /// Immediate killpg(SIGKILL), no grace — the app-quit deadline escalation
+    /// for sessions that ignored `terminate()`'s SIGTERM. Idempotent.
+    func forceKill()
     /// Forward text to the session's stdin. Interactive sessions only:
     /// on read-only sessions this is a documented no-op (the read-only
     /// swallow intercepts the same delegate funnel keyboard input uses).

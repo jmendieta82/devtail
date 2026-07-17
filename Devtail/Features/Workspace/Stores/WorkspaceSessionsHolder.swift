@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import os.log
 
 /// In-flight edit state for one open env file, keyed by path in
 /// `WorkspaceSession.envDrafts`. Survives `EnvFileEditorView` unmount/remount
@@ -306,12 +307,21 @@ final class WorkspaceSessionsHolder {
     private let engine: TerminalEngine
     private let browserLauncher: BrowserLauncherProtocol
     private let settings: AppSettings
+    /// Deferred main-actor execution for the quit deadline — same injection
+    /// shape as `ProcessTeardown.schedule`, so tests control time.
+    private let schedule: (TimeInterval, @escaping @MainActor () -> Void) -> Void
     private(set) var sessions: [UUID: WorkspaceSession] = [:]
 
-    init(engine: TerminalEngine, browserLauncher: BrowserLauncherProtocol, settings: AppSettings) {
+    init(engine: TerminalEngine, browserLauncher: BrowserLauncherProtocol, settings: AppSettings,
+         schedule: @escaping (TimeInterval, @escaping @MainActor () -> Void) -> Void = { delay, block in
+             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                 MainActor.assumeIsolated(block)
+             }
+         }) {
         self.engine = engine
         self.browserLauncher = browserLauncher
         self.settings = settings
+        self.schedule = schedule
     }
 
     /// Create (or return the existing) live session for a project: only the
@@ -458,5 +468,85 @@ final class WorkspaceSessionsHolder {
     /// App-quit teardown: no orphans holding ports.
     func shutdownAll() {
         for id in Array(sessions.keys) { close(projectId: id) }
+    }
+
+    /// True while any workspace still has a terminal child presumed running:
+    /// a non-exited agent, a live interactive shell, or a managed process in
+    /// `.running`/`.starting`. Drives the quit decision — nothing live means
+    /// the app may terminate immediately.
+    var hasLiveSessions: Bool {
+        !liveTerminalSessions().isEmpty
+    }
+
+    private func liveTerminalSessions() -> [TerminalSession] {
+        var live: [TerminalSession] = []
+        for session in sessions.values {
+            if !session.agentExited {
+                live.append(session.agent)
+            }
+            if let interactive = session.interactive, !session.interactiveExited {
+                live.append(interactive)
+            }
+            for process in session.supervisor.processes
+            where process.state == .running || process.state == .starting {
+                if let processSession = process.session {
+                    live.append(processSession)
+                }
+            }
+        }
+        return live
+    }
+
+    /// Quit-path teardown: the SIGTERM wave is exactly the parameterless
+    /// `shutdownAll()`; completion fires early when every live session's
+    /// child exits, or at `deadline` after force-SIGKILLing stragglers.
+    /// SIGKILL cannot be ignored, so completing right after delivery is safe
+    /// — the kernel reparents and reaps, no wait needed. `completion` runs
+    /// exactly once, on the main actor.
+    func shutdownAll(deadline: TimeInterval, completion: @escaping @MainActor () -> Void) {
+        let live = liveTerminalSessions()
+        guard !live.isEmpty else {
+            shutdownAll()
+            completion()
+            return
+        }
+        Log.lifecycle.info("Deferred quit started: \(live.count, privacy: .public) live session(s), deadline \(deadline, privacy: .public)s")
+
+        var outstanding = Set(live.map { ObjectIdentifier($0) })
+        var completed = false
+        let finish: @MainActor () -> Void = {
+            guard !completed else { return }
+            completed = true
+            completion()
+        }
+
+        // Chain — don't replace — each session's onExit: the existing handler
+        // (supervisor state guard, dead-agent flags) still runs first, then
+        // the quit tracker counts down.
+        for terminal in live {
+            let id = ObjectIdentifier(terminal)
+            let previous = terminal.onExit
+            terminal.onExit = { code in
+                previous?(code)
+                outstanding.remove(id)
+                if outstanding.isEmpty {
+                    Log.lifecycle.info("Deferred quit: all sessions exited before the deadline")
+                    finish()
+                }
+            }
+        }
+
+        shutdownAll()
+
+        // `live` is captured strongly on purpose: `shutdownAll()` above drops
+        // the holder's references, and a straggler must still be reachable
+        // for the force-kill at the deadline.
+        schedule(deadline) {
+            guard !completed else { return }
+            let stragglers = live.filter { outstanding.contains(ObjectIdentifier($0)) }
+            Log.lifecycle.info("Deferred quit: deadline reached, force-killing \(stragglers.count, privacy: .public) straggler(s)")
+            for terminal in stragglers { terminal.forceKill() }
+            finish()
+        }
     }
 }

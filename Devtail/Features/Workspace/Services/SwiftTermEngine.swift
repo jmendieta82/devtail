@@ -8,7 +8,8 @@
 //
 //  Kill semantics: forkpty's child calls setsid, so the shell is a
 //  process-group leader and killpg(shellPid, …) reaches the whole tree —
-//  `nest --watch` children included. SIGTERM first, SIGKILL after a 3s grace.
+//  `nest --watch` children included. SIGTERM first, SIGKILL after a 3s grace
+//  (the staged policy itself lives in ProcessTeardown).
 //
 
 import AppKit
@@ -32,13 +33,16 @@ final class SwiftTermEngine: TerminalEngine {
 final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalViewDelegate {
     private let config: TerminalSessionConfig
     private let terminalView: LocalProcessTerminalView
+    private let teardown: ProcessTeardown
     private var exited = false
 
     var onExit: ((Int32?) -> Void)?
     var view: NSView { terminalView }
 
-    init(config: TerminalSessionConfig, appearance: TerminalAppearance) {
+    init(config: TerminalSessionConfig, appearance: TerminalAppearance,
+         teardown: ProcessTeardown = .production) {
         self.config = config
+        self.teardown = teardown
         if config.readOnly {
             self.terminalView = ReadOnlyLocalProcessTerminalView(frame: .zero)
         } else if config.imagePaste {
@@ -68,11 +72,17 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
         guard !exited else { return }
         let pid = terminalView.process.shellPid
         guard pid > 0 else { return }
-        killpg(pid, SIGTERM)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            guard let self, !self.exited else { return }
-            killpg(pid, SIGKILL)
-        }
+        // `self?.exited ?? true`: a deallocated session can't confirm the
+        // child is alive, so the escalation is skipped — same behavior as
+        // the old inline `[weak self]` block.
+        teardown.terminate(group: pid) { [weak self] in self?.exited ?? true }
+    }
+
+    func forceKill() {
+        guard !exited else { return }
+        let pid = terminalView.process.shellPid
+        guard pid > 0 else { return }
+        teardown.kill(group: pid)
     }
 
     func writeToStdin(_ text: String) {

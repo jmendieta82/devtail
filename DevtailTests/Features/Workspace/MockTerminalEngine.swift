@@ -15,10 +15,12 @@ final class MockTerminalSession: TerminalSession {
     var onExit: ((Int32?) -> Void)?
     private(set) var startCount = 0
     private(set) var terminateCount = 0
+    private(set) var forceKillCount = 0
     private(set) var written: [String] = []
 
     func start() { startCount += 1 }
     func terminate() { terminateCount += 1 }
+    func forceKill() { forceKillCount += 1 }
     func writeToStdin(_ text: String) { written.append(text) }
     /// Test hook: simulate the PTY child dying.
     func simulateExit(code: Int32?) { onExit?(code) }

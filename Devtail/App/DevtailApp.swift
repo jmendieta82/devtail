@@ -118,7 +118,29 @@ enum WindowID {
 /// scene-owned state, so the holder is bridged through a static.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static var workspaceHolder: WorkspaceSessionsHolder?
+    /// Quit deadline — deliberately shorter than `ProcessTeardown.grace`:
+    /// at quit the user is waiting, so stragglers are SIGKILLed at 2s
+    /// instead of getting the runtime 3s courtesy.
+    static let quitGrace: TimeInterval = 2.0
 
+    /// Deferred quit. `.terminateLater` (not a synchronous bounded wait)
+    /// because SwiftTerm delivers `processTerminated` on the main run loop —
+    /// blocking it would freeze the very callbacks that report exits and turn
+    /// every quit into a full-grace stall. With the run loop alive, a
+    /// SIGTERM-compliant teardown finishes the quit in milliseconds.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let holder = AppDelegate.workspaceHolder, holder.hasLiveSessions else {
+            return .terminateNow
+        }
+        holder.shutdownAll(deadline: Self.quitGrace) {
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
+    /// Last resort only: the deferred path above already tore everything
+    /// down, so this is a no-op on the normal quit — it is no longer the
+    /// teardown owner.
     func applicationWillTerminate(_ notification: Notification) {
         AppDelegate.workspaceHolder?.shutdownAll()
     }
