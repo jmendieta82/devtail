@@ -14,14 +14,14 @@ Full product spec lives in Notion: page id `33b51204-0274-810d-a954-cd13a46e23c5
 
 ## Stack
 
-- **Language:** Swift 5+ (Xcode 26.4 toolchain, Swift 6 concurrency model active via `SWIFT_APPROACHABLE_CONCURRENCY = YES` and `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`)
+- **Language:** Swift 5 language mode (`SWIFT_VERSION = 5.0`, Xcode 26.4 toolchain) with approachable concurrency (`SWIFT_APPROACHABLE_CONCURRENCY = YES`) and MainActor default isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`) — NOT the Swift 6 language mode
 - **UI:** SwiftUI declarative
-- **App shell:** `MenuBarExtra` (primary) + `Window` for full dashboard
+- **App shell:** `MenuBarExtra` (primary; the menu bar popover absorbed the old dashboard window) + per-project workspace `WindowGroup` + a small "New Project" `Window`
 - **Persistence:** SwiftData (local SQLite via Apple ORM)
 - **Secrets:** macOS Keychain Services (Secure Enclave-backed)
 - **Subscriptions:** StoreKit 2
 - **Cloud SDKs:** `aws-sdk-swift` (Phase 3), `gcp` and `azure` later
-- **Min macOS:** 15.0 Sequoia
+- **Min macOS:** 26.0 Tahoe (`MACOSX_DEPLOYMENT_TARGET = 26.0`)
 - **Bundle ID:** `com.jamodev.Devtail`
 - **Development Team:** UCSM3T74LQ
 
@@ -32,7 +32,7 @@ Full product spec lives in Notion: page id `33b51204-0274-810d-a954-cd13a46e23c5
    - `ENABLE_APP_SANDBOX = NO` in the pbxproj — the build setting injects the entitlement at signing regardless of the entitlements file; never set it back to YES (incident 2026-07-15: it silently re-sandboxed every build)
    - Security-scoped bookmarks are legacy (kept dormant, cleanup deferred)
    - macOS TCC still applies (external volumes, Documents, etc.) — expect one-time permission prompts
-2. **macOS 15 Sequoia minimum.** Do not use APIs newer than Sequoia without confirming.
+2. **macOS 26.0 Tahoe minimum** (`MACOSX_DEPLOYMENT_TARGET = 26.0`). Do not use APIs newer than Tahoe without confirming.
 3. **No backend.** Everything is local. SwiftData + Keychain. Cloud calls go directly client → provider API.
 4. **Zero telemetry.** No analytics SDKs, no logging to remote servers.
 5. **MenuBarExtra over NSStatusItem.** Use the SwiftUI native API. Drop to AppKit only if absolutely necessary.
@@ -49,15 +49,19 @@ Devtail/
 │   │   ├── Models/
 │   │   ├── Views/
 │   │   └── Stores/       # @Observable state holders
+│   ├── Workspace/        # per-project workspace windows (adds Services/)
 │   ├── CredentialVault/
 │   └── CloudCosts/
 ├── Core/
 │   ├── Persistence/      # SwiftData ModelContainer setup
 │   ├── Keychain/         # Keychain wrapper
 │   ├── Shell/            # NSWorkspace + security-scoped bookmarks
-│   └── Extensions/
+│   ├── Claude/           # Claude Code project introspection
+│   ├── GitDetection/     # git status reader
+│   ├── StackDetection/   # project stack detectors
+│   └── Settings/         # AppSettings
 ├── DesignSystem/         # Colors, typography, reusable components
-└── Resources/            # Assets.xcassets
+└── Resources/            # Fonts (Assets.xcassets lives at Devtail/ root)
 ```
 
 State management: prefer `@Observable` macro (Swift 5.9+ / iOS 17+ / macOS 14+) over `ObservableObject`/`@Published`. The new approach is the canonical one — do not use the old pattern.
@@ -108,7 +112,7 @@ When explaining Swift/Apple-specific concepts:
 
 - Add SPM dependencies before they are needed (Sparkle, KeychainAccess, aws-sdk-swift come when their feature is being implemented, not before).
 - Build the project without explicit user request.
-- Disable App Sandbox or Hardened Runtime.
+- Disable Hardened Runtime, or re-enable App Sandbox (it is deliberately OFF — see critical decision 1).
 - Add telemetry, analytics, or any kind of phone-home code.
 - Use `Process` for shell commands when sandboxed alternatives exist.
 - Generate "improvements" or refactors not requested by the user.
