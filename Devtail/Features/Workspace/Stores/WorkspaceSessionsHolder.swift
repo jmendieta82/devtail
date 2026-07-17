@@ -312,6 +312,10 @@ final class WorkspaceSessionsHolder {
     /// shape as `ProcessTeardown.schedule`, so tests control time.
     private let schedule: (TimeInterval, @escaping @MainActor () -> Void) -> Void
     private(set) var sessions: [UUID: WorkspaceSession] = [:]
+    /// Latched by the quit-path teardown: with `.terminateLater` the menu bar
+    /// UI stays interactive until the deadline, so `openSession` must not
+    /// spawn a child the already-sent SIGTERM wave can no longer see.
+    private var isShuttingDown = false
 
     init(engine: TerminalEngine, browserLauncher: BrowserLauncherProtocol, settings: AppSettings,
          schedule: @escaping (TimeInterval, @escaping @MainActor () -> Void) -> Void = { delay, block in
@@ -342,7 +346,7 @@ final class WorkspaceSessionsHolder {
         let agent = engine.makeSession(
             TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: root, readOnly: false, imagePaste: true)
         )
-        agent.start()
+        if !isShuttingDown { agent.start() }
 
         // Managed processes are configured (cards visible, stopped) but do
         // NOT auto-start — the user starts each one manually via its
@@ -356,6 +360,8 @@ final class WorkspaceSessionsHolder {
         )
         wireAgentExit(agent, on: session)
         sessions[project.id] = session
+        // Inert during shutdown: the refreshes spawn work that outlives quit.
+        guard !isShuttingDown else { return session }
         session.refreshGitStatus()
         session.refreshClaudeInfo()
         return session
@@ -505,6 +511,7 @@ final class WorkspaceSessionsHolder {
     /// — the kernel reparents and reaps, no wait needed. `completion` runs
     /// exactly once, on the main actor.
     func shutdownAll(deadline: TimeInterval, completion: @escaping @MainActor () -> Void) {
+        isShuttingDown = true
         let live = liveTerminalSessions()
         guard !live.isEmpty else {
             shutdownAll()
@@ -542,11 +549,15 @@ final class WorkspaceSessionsHolder {
         // `live` is captured strongly on purpose: `shutdownAll()` above drops
         // the holder's references, and a straggler must still be reachable
         // for the force-kill at the deadline.
-        schedule(deadline) {
+        schedule(deadline) { [weak self] in
             guard !completed else { return }
             let stragglers = live.filter { outstanding.contains(ObjectIdentifier($0)) }
-            Log.lifecycle.info("Deferred quit: deadline reached, force-killing \(stragglers.count, privacy: .public) straggler(s)")
-            for terminal in stragglers { terminal.forceKill() }
+            // Fresh re-read: a session that raced in during the terminateLater
+            // window is not in the entry snapshot but must not survive quit.
+            let entryIds = Set(live.map { ObjectIdentifier($0) })
+            let raced = (self?.liveTerminalSessions() ?? []).filter { !entryIds.contains(ObjectIdentifier($0)) }
+            Log.lifecycle.info("Deferred quit: deadline reached, force-killing \(stragglers.count + raced.count, privacy: .public) straggler(s)")
+            for terminal in stragglers + raced { terminal.forceKill() }
             finish()
         }
     }

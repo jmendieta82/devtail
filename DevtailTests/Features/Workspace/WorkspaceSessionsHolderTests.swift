@@ -537,4 +537,24 @@ struct WorkspaceSessionsHolderTests {
         #expect(processMock.forceKillCount == 1)
         #expect(completions == 1)
     }
+
+    /// terminateLater keeps the menu bar UI alive during the quit window: a
+    /// Launch click after `shutdownAll(deadline:)` must not start a child
+    /// process, and the inert session is still swept at the deadline.
+    @Test func openSessionDuringShutdownIsInertAndSweptAtDeadline() throws {
+        var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
+        let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
+        _ = holder.openSession(for: project("alpha"))
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+
+        let late = holder.openSession(for: project("beta"))
+        let lateAgent = try #require(late.agent as? MockTerminalSession)
+        #expect(lateAgent.startCount == 0)
+
+        scheduled[0].block()
+        #expect(lateAgent.forceKillCount == 1)
+        #expect(completions == 1)
+    }
 }
