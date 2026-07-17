@@ -13,9 +13,15 @@ struct FileTreeColumn: View {
                     iconButton("arrow.clockwise", help: "Sync the file tree") {
                         session.fileTree.reloadRoot()
                     }
-                    iconButton("arrow.up.forward.square", help: "Reveal the project folder in Finder") {
+                    Button {
                         NSWorkspace.shared.activateFileViewerSelecting([session.root])
+                    } label: {
+                        finderIcon
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.icon)
+                    .help("Reveal the project folder in Finder")
                 }
                 if let error = session.fileTree.rootError {
                     Text(error)
@@ -30,6 +36,20 @@ struct FileTreeColumn: View {
             .padding(DevtailTokens.Spacing.cardPadding)
         }
         .onAppear { session.fileTree.loadRootIfNeeded() }
+    }
+
+    /// The real Finder app icon (LaunchServices), falling back to an SF Symbol
+    /// if Finder can't be resolved — same approach as the retired VSCode button.
+    @ViewBuilder private var finderIcon: some View {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.finder") {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                .resizable()
+                .frame(width: 18, height: 18)
+        } else {
+            Image(systemName: "arrow.up.forward.square")
+                .font(.system(size: 15))
+                .foregroundStyle(DevtailTokens.Colors.accentPrimary)
+        }
     }
 
     private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
