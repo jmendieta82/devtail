@@ -71,8 +71,11 @@ struct DevtailApp: App {
         }
 
         Window("New Project", id: WindowID.newProject) {
+            // Deliberately NOT re-identified on uiFontSize: an .id() rebuild
+            // would wipe the create form's local state if the user nudged the
+            // text-size stepper from another window mid-fill. The window is
+            // short-lived — the new size applies next time it opens.
             NewProjectWindowView()
-                .id(appSettings.uiFontSize)
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
