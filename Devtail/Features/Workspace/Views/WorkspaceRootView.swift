@@ -23,8 +23,12 @@ struct WorkspaceRootView: View {
         HSplitView {
             HStack(spacing: 0) {
                 ActivityBar(session: session)
+                    .background(DevtailTokens.Colors.titleBar)
+                // separatorColor is a hairline that vanishes between two
+                // identical dark fills — use an explicit primary tint so the
+                // rail/panel boundary stays visible in both appearances.
                 Rectangle()
-                    .fill(DevtailTokens.Colors.borderSubtle)
+                    .fill(Color.primary.opacity(0.12))
                     .frame(width: DevtailTokens.BorderWidth.default)
                 WorkspaceSidePanel(session: session)
             }

@@ -7,7 +7,19 @@ struct FileTreeColumn: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                SectionHeader(title: "Files")
+                HStack {
+                    SectionHeader(title: "Files")
+                    Spacer()
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([session.root])
+                    } label: {
+                        Label("Open in Finder", systemImage: "arrow.up.forward.square")
+                            .font(DevtailTokens.Typography.captionSmall)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(DevtailTokens.Colors.accentPrimary)
+                    .help("Reveal the project folder in Finder")
+                }
                 if let error = session.fileTree.rootError {
                     Text(error)
                         .font(.caption)
