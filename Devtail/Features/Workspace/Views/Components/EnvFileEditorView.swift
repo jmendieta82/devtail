@@ -16,6 +16,7 @@
 //
 
 import SwiftUI
+import os.log
 
 struct EnvFileEditorView: View {
     let path: String
@@ -110,6 +111,7 @@ struct EnvFileEditorView: View {
                 for: path
             )
         } catch {
+            Log.files.error("Env save failed at \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             saveError = error.localizedDescription
         }
     }

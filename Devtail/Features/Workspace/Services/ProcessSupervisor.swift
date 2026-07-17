@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import os.log
 
 @Observable
 final class ProcessSupervisor {
@@ -69,6 +70,7 @@ final class ProcessSupervisor {
 
     func start(_ process: ManagedProcess) {
         guard process.state != .running, process.state != .starting else { return }
+        Log.lifecycle.debug("Process start: \(process.name, privacy: .public) (\(process.id.uuidString, privacy: .public))")
         process.state = .starting
         let session = engine.makeSession(
             TerminalSessionConfig(command: process.command, cwd: process.cwd, readOnly: true)
@@ -97,6 +99,7 @@ final class ProcessSupervisor {
     }
 
     func stop(_ process: ManagedProcess) {
+        Log.lifecycle.debug("Process stop: \(process.name, privacy: .public) (\(process.id.uuidString, privacy: .public))")
         // Mark stopped FIRST so the PTY's late exit callback can't overwrite
         // an intentional stop with .exited.
         process.state = .stopped
@@ -105,6 +108,7 @@ final class ProcessSupervisor {
 
     /// Stop + spawn a FRESH session: new PTY, new view, clean scrollback.
     func restart(_ process: ManagedProcess) {
+        Log.lifecycle.debug("Process restart: \(process.name, privacy: .public) (\(process.id.uuidString, privacy: .public))")
         stop(process)
         process.session = nil
         start(process)
@@ -117,6 +121,7 @@ final class ProcessSupervisor {
     /// discipline as `stop`, so a late/async PTY exit callback can't overwrite
     /// this intentional close with `.exited`.
     func close(_ process: ManagedProcess) {
+        Log.lifecycle.debug("Process close: \(process.name, privacy: .public) (\(process.id.uuidString, privacy: .public))")
         process.state = .stopped
         process.session?.terminate()
         process.session = nil

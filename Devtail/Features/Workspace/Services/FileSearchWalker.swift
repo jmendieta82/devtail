@@ -14,6 +14,7 @@
 //
 
 import Foundation
+import os.log
 
 nonisolated struct FileSearchResult: Identifiable, Hashable, Sendable {
     let name: String
@@ -69,7 +70,14 @@ nonisolated struct FileSearchWalker: FileSearching {
     /// concurrent executor inside the same task.
     private func walk(directory: URL, relativeDirectory: String, depth: Int,
                       needle: String, into results: inout [FileSearchResult]) {
-        guard let entries = try? lister.list(directory) else { return }
+        let entries: [DirectoryEntry]
+        do {
+            entries = try lister.list(directory)
+        } catch {
+            // One line per skipped directory — never per file (hot loop).
+            Log.search.debug("Search skipped unreadable directory \(directory.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
+        }
         for entry in entries {
             guard results.count < Self.maxResults, !Task.isCancelled else { return }
             if entry.isDirectory {

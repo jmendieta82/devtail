@@ -240,6 +240,7 @@ final class WorkspaceSession: Identifiable {
             try EnvFileSaver.save(text: draft.text, to: path)
             closeFile(at: path)
         } catch {
+            Log.files.error("Env save failed at \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             selectedTab = .file(path)
         }
     }

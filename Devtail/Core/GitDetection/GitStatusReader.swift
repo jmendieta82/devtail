@@ -22,6 +22,7 @@
 //
 
 import Foundation
+import os.log
 
 /// Snapshot of a git repository's status, as read by `GitStatusReader`.
 /// Optional fields (`ahead`/`behind`) are nil when there is no upstream
@@ -111,6 +112,7 @@ struct GitStatusReader: GitStatusReading, Sendable {
                 do {
                     try process.run()
                 } catch {
+                    Log.git.error("git \(arguments.joined(separator: " "), privacy: .public) launch failed in \(root.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     continuation.resume(returning: nil)
                     return
                 }
@@ -120,6 +122,7 @@ struct GitStatusReader: GitStatusReading, Sendable {
                 // caller forever.
                 let timeoutWorkItem = DispatchWorkItem {
                     if process.isRunning {
+                        Log.git.error("git \(arguments.joined(separator: " "), privacy: .public) timed out in \(root.path, privacy: .public); terminating")
                         process.terminate()
                     }
                 }
@@ -143,6 +146,7 @@ struct GitStatusReader: GitStatusReading, Sendable {
                 timeoutWorkItem.cancel()
 
                 guard process.terminationStatus == 0 else {
+                    Log.git.error("git \(arguments.joined(separator: " "), privacy: .public) exited \(process.terminationStatus, privacy: .public) in \(root.path, privacy: .public)")
                     continuation.resume(returning: nil)
                     return
                 }

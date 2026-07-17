@@ -15,6 +15,7 @@
 //
 
 import Foundation
+import os.log
 
 /// Where a discovered item (skill/agent/command) or MCP server came from:
 /// the project's own `.claude/` directory, or the user's global `~/.claude/`.
@@ -127,7 +128,15 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
 
     private func discoverItems(in directory: URL, scope: ClaudeScope, fileName: String?) -> [ClaudeItem] {
         let fm = FileManager.default
-        guard let entries = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey]) else {
+        let entries: [URL]
+        do {
+            entries = try fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey])
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            // Missing directory is the normal "no items" case — only an
+            // existing-but-unreadable one is worth a log line.
+            return []
+        } catch {
+            Log.claude.error("Claude introspection listing failed at \(directory.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return []
         }
 
@@ -167,8 +176,16 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
     /// first, then per-project).
     private func readGlobalMCPServerNames(projectRoot: URL, home: URL) -> [String] {
         let configURL = home.appendingPathComponent(".claude.json")
-        guard let data = try? Data(contentsOf: configURL),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data: Data
+        do {
+            data = try Data(contentsOf: configURL)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return []
+        } catch {
+            Log.claude.error("Claude introspection read failed at \(configURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return []
         }
 
@@ -189,8 +206,16 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
     /// Reads `<projectRoot>/.mcp.json`'s `mcpServers`.
     private func readProjectMCPServerNames(projectRoot: URL) -> [String] {
         let configURL = projectRoot.appendingPathComponent(".mcp.json")
-        guard let data = try? Data(contentsOf: configURL),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let data: Data
+        do {
+            data = try Data(contentsOf: configURL)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return []
+        } catch {
+            Log.claude.error("Claude introspection read failed at \(configURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let servers = json["mcpServers"] as? [String: Any] else {
             return []
         }
@@ -221,7 +246,13 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
         let transcriptsDir = home.appendingPathComponent(".claude/projects/\(encoded)", isDirectory: true)
 
         let fm = FileManager.default
-        guard let entries = try? fm.contentsOfDirectory(at: transcriptsDir, includingPropertiesForKeys: nil) else {
+        let entries: [URL]
+        do {
+            entries = try fm.contentsOfDirectory(at: transcriptsDir, includingPropertiesForKeys: nil)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        } catch {
+            Log.claude.error("Claude introspection listing failed at \(transcriptsDir.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return nil
         }
         let jsonlFiles = entries.filter { $0.pathExtension == "jsonl" }

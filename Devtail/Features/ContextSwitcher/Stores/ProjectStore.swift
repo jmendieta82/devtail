@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import os.log
 
 // MARK: - BranchChange
 
@@ -76,6 +77,7 @@ final class ProjectStore {
             projects = try repository.findAll()
             lastError = nil
         } catch {
+            Log.store.error("loadProjects failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -132,6 +134,7 @@ final class ProjectStore {
             projects.append(project)
             lastError = nil
         } catch {
+            Log.store.error("createProject failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -167,6 +170,7 @@ final class ProjectStore {
 
             lastError = nil
         } catch {
+            Log.store.error("updateProject failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -177,6 +181,7 @@ final class ProjectStore {
             projects.removeAll { $0.id == project.id }
             lastError = nil
         } catch {
+            Log.store.error("deleteProject failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -222,6 +227,7 @@ final class ProjectStore {
             }
             lastError = nil
         } catch {
+            Log.store.error("addQuickLink failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -237,6 +243,7 @@ final class ProjectStore {
             }
             lastError = nil
         } catch {
+            Log.store.error("updateQuickLink failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -251,6 +258,7 @@ final class ProjectStore {
             }
             lastError = nil
         } catch {
+            Log.store.error("deleteQuickLink failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -296,6 +304,7 @@ final class ProjectStore {
             }
             lastError = nil
         } catch {
+            Log.store.error("addWorkspacePane failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -361,6 +370,7 @@ final class ProjectStore {
             }
             lastError = nil
         } catch {
+            Log.store.error("updateWorkspacePane failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -375,6 +385,7 @@ final class ProjectStore {
             }
             lastError = nil
         } catch {
+            Log.store.error("deleteWorkspacePane failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -406,6 +417,7 @@ final class ProjectStore {
             }
             lastError = nil
         } catch {
+            Log.store.error("assignPaneToSlot failed: \(error.localizedDescription, privacy: .public)")
             lastError = error
         }
     }
@@ -435,6 +447,7 @@ final class ProjectStore {
                 )
                 lastError = nil
             } catch {
+                Log.store.error("openInVSCode failed: \(error.localizedDescription, privacy: .public)")
                 lastError = error
             }
         }

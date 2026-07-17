@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import os.log
 
 @main
 struct DevtailApp: App {
@@ -24,7 +25,11 @@ struct DevtailApp: App {
         let workspacePaneRepository = WorkspacePaneRepository(context: container.mainContext)
         // One-shot: retire legacy "claude" seed panes (see LegacyClaudePaneMigration).
         // Best-effort — a failure here must never block app launch.
-        try? LegacyClaudePaneMigration.run(context: container.mainContext)
+        do {
+            try LegacyClaudePaneMigration.run(context: container.mainContext)
+        } catch {
+            Log.migration.error("LegacyClaudePaneMigration failed: \(error.localizedDescription, privacy: .public)")
+        }
         let vscodeLauncher = VSCodeLauncher()
         let browserLauncher = BrowserLauncher()
         let store = ProjectStore(

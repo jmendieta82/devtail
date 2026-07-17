@@ -17,6 +17,7 @@
 //
 
 import Foundation
+import os.log
 
 struct StackDetectorRegistry: Sendable {
     let detectors: [any StackDetector]
@@ -61,6 +62,7 @@ struct StackDetectorRegistry: Sendable {
             } catch {
                 // Swallow errors — a broken detector shouldn't break
                 // the whole detection flow. It just means "no match".
+                Log.store.debug("Stack detector \(String(describing: type(of: detector)), privacy: .public) skipped for \(folder.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 result = nil
             }
 

@@ -1,4 +1,5 @@
 import Foundation
+import os.log
 
 @Observable
 final class FileTreeNode: Identifiable {
@@ -56,6 +57,7 @@ final class FileTreeStore {
         do {
             rootNodes = try lister.list(root).map { FileTreeNode(entry: $0, depth: 0) }
         } catch {
+            Log.files.error("File tree listing failed at \(self.root.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             rootError = error.localizedDescription
         }
     }
@@ -74,6 +76,7 @@ final class FileTreeStore {
             }
             node.loadError = nil
         } catch {
+            Log.files.error("File tree listing failed at \(node.entry.url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             node.loadError = error.localizedDescription
         }
     }
