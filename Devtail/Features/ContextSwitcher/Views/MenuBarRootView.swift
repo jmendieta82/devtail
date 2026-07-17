@@ -76,6 +76,10 @@ struct MenuBarRootView: View {
 
             // ─── Footer ───
             HStack(spacing: DevtailTokens.Spacing.gapLarge) {
+                Button("New project", action: openNewProjectWindow)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(DevtailTokens.Colors.accentPrimary)
+
                 Spacer()
 
                 Button("Quit") { NSApplication.shared.terminate(nil) }
@@ -166,6 +170,7 @@ struct MenuBarRootView: View {
     private func applySortMode(_ newSort: SidebarSortMode) {
         sortMode = newSort
         newSort.save()
+        keyboardSelectedIndex = nil
     }
 
     // MARK: - Accordion

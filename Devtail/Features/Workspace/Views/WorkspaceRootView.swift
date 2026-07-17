@@ -28,7 +28,7 @@ struct WorkspaceRootView: View {
                     .frame(width: DevtailTokens.BorderWidth.default)
                 WorkspaceSidePanel(session: session)
             }
-            .frame(minWidth: 48 + 220, maxWidth: 48 + 300)
+            .frame(minWidth: 48 + 1 + 220, maxWidth: 48 + 1 + 300)
 
             VStack(spacing: 0) {
                 tabRow
