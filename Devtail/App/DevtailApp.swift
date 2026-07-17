@@ -12,7 +12,6 @@ import SwiftData
 struct DevtailApp: App {
     @State private var modelContainer: ModelContainer
     @State private var projectStore: ProjectStore
-    @State private var dashboardIntent = DashboardIntentHolder()
     @State private var workspaceHolder: WorkspaceSessionsHolder
     @State private var appSettings: AppSettings
     @Environment(\.openWindow) private var openWindow
@@ -59,14 +58,12 @@ struct DevtailApp: App {
         .menuBarExtraStyle(.window)
         .modelContainer(modelContainer)
         .environment(projectStore)
-        .environment(dashboardIntent)
         .environment(workspaceHolder)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Project") {
                     NSApp.activate(ignoringOtherApps: true)
-                    dashboardIntent.pending = .createProject
-                    openWindow(id: WindowID.dashboard)
+                    openWindow(id: WindowID.newProject)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
@@ -77,10 +74,19 @@ struct DevtailApp: App {
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
-        .environment(dashboardIntent)
         .environment(workspaceHolder)
         .environment(appSettings)
         .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultLaunchBehavior(.suppressed)
+
+        Window("New Project", id: WindowID.newProject) {
+            NewProjectWindowView()
+        }
+        .modelContainer(modelContainer)
+        .environment(projectStore)
+        .environment(appSettings)
+        .defaultSize(width: 680, height: 620)
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
 
@@ -107,6 +113,7 @@ struct DevtailApp: App {
 enum WindowID {
     static let dashboard = "devtail.dashboard"
     static let workspace = "devtail.workspace"
+    static let newProject = "devtail.newProject"
 }
 
 /// Quit-time teardown. SwiftUI has no reliable "app will quit" hook for
@@ -117,18 +124,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         AppDelegate.workspaceHolder?.shutdownAll()
     }
-}
-
-/// Intent the dashboard window should apply the next time it appears
-/// or receives a new focus. Callers set `pending` before calling
-/// `openWindow(id:)`; the dashboard reads it in `.task` and clears it.
-@MainActor @Observable
-final class DashboardIntentHolder {
-    var pending: DashboardIntent = .none
-}
-
-enum DashboardIntent: Equatable {
-    case none
-    case createProject
-    case showProject(UUID)
 }

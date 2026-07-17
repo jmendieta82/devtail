@@ -16,7 +16,6 @@ import SwiftData
 struct DashboardRootView: View {
     @Environment(ProjectStore.self) private var store
     @Environment(WorkspaceSessionsHolder.self) private var workspaceHolder
-    @Environment(DashboardIntentHolder.self) private var intentHolder
 
     @State private var selectedProjectID: UUID?
     @State private var mode: DashboardMode = .browsing
@@ -51,10 +50,6 @@ struct DashboardRootView: View {
         .toolbar(removing: .title)
         .task {
             store.loadProjects()
-            consumePendingIntent()
-        }
-        .onChange(of: intentHolder.pending) { _, _ in
-            consumePendingIntent()
         }
         .onChange(of: store.projects) { _, newProjects in
             clearSelectionIfStale(newProjects)
@@ -416,22 +411,6 @@ struct DashboardRootView: View {
         }
     }
 
-    /// Consumes a pending intent stored in the shared DashboardIntentHolder.
-    /// Triggered on `.task` (first appearance) and on `onChange` of the holder.
-    private func consumePendingIntent() {
-        let intent = intentHolder.pending
-        guard intent != .none else { return }
-        intentHolder.pending = .none
-        switch intent {
-        case .none:
-            break
-        case .createProject:
-            startCreating()
-        case .showProject(let id):
-            selectedProjectID = id
-            mode = .browsing
-        }
-    }
 }
 
 /// The two modes the dashboard's right pane can be in.
