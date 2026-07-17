@@ -71,7 +71,7 @@ enum DevtailTokens {
         static let badgeSSH             = Color("ProjectPurple")
         static let badgeURL             = Color("ProjectOrange")
 
-        // === Traffic Light (unused until Dashboard change) ===
+        // === Traffic Light (currently unused) ===
         static let trafficRed           = Color(red: 1.000, green: 0.373, blue: 0.341) // #ff5f57
         static let trafficYellow        = Color(red: 0.996, green: 0.737, blue: 0.180) // #febc2e
         static let trafficGreen         = Color(red: 0.157, green: 0.784, blue: 0.251) // #28c840
@@ -153,10 +153,6 @@ enum DevtailTokens {
         static let popoverMaxHeight: CGFloat     = 480
         static let popoverHeight: CGFloat        = 480  // alias for popoverMaxHeight
 
-        // === Dashboard ===
-        static let dashboardWidth: CGFloat       = 1100
-        static let dashboardHeight: CGFloat      = 700
-        static let sidebarWidth: CGFloat         = 260
         static let titleBarHeight: CGFloat       = 38
 
         // === Layout ===

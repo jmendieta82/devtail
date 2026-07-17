@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Spacious pane card for the dashboard.
-/// Shows label, badges, directory, command, and always-visible action buttons.
+/// Spacious pane card showing label, badges, directory, command, and
+/// always-visible action buttons.
 struct PaneCard: View {
     let pane: WorkspacePane
     var branch: String? = nil

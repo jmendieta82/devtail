@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Single project row in the popover accordion.
 /// Collapsed: color dot + name + pane count + chevron
-/// Expanded: + pane chips + Resume (conditional) + Launch button + Configure link
+/// Expanded: + pane chips + Resume (conditional) + Launch button
 /// Context menu (right-click on the header): Open in VSCode / Delete project…
 struct PopoverAccordionItem: View {
     let project: Project
@@ -14,7 +14,6 @@ struct PopoverAccordionItem: View {
     let onResume: () -> Void
     let onOpenInVSCode: () -> Void
     let onDeleteProject: () -> Void
-    let onOpenDashboard: () -> Void
 
     @State private var showDeleteConfirmation: Bool = false
 
@@ -153,14 +152,6 @@ struct PopoverAccordionItem: View {
             .buttonStyle(.plain)
             .disabled(sortedPanes.isEmpty || project.directoryPath.isEmpty)
             .help("Launch workspace")
-
-            Button(action: onOpenDashboard) {
-                Text("View in Dashboard...")
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-            }
-            .buttonStyle(.plain)
-            .help("Open the dashboard with this project selected")
         }
         .padding(.horizontal, DevtailTokens.Spacing.cardPadding)
         .padding(.bottom, DevtailTokens.Spacing.cardPadding)

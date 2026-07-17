@@ -3,8 +3,7 @@
 //  DevtailTests
 //
 //  Tests the pure sort function that powers the popover header's sort
-//  menu. Ported from the retired dashboard's inline sort — same rules,
-//  now locked here.
+//  menu.
 //
 
 import Testing

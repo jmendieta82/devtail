@@ -2,10 +2,10 @@
 //  ProjectFormView.swift
 //  Devtail
 //
-//  Dual-mode (create + edit) form for a Project. Lives inline inside
-//  DashboardRootView's detail pane.
+//  Dual-mode (create + edit) form for a Project. Hosted by
+//  NewProjectWindowView (create) and WorkspaceSettingsTabView (edit).
 //
-//  Public API (do not change without updating DashboardRootView):
+//  Public API (do not change without updating those callers):
 //    - projectID: nil for create, UUID for edit
 //    - onDismiss: callback invoked on save or cancel
 //    - isDirty:   binding the form updates whenever fields differ from

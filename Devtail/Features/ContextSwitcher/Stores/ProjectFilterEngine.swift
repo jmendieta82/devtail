@@ -3,9 +3,8 @@
 //  Devtail
 //
 //  Pure substring filter for the project list. Lives outside the views
-//  so the menubar and the dashboard can share the exact same matching
-//  rules — having the logic in a single place means search behavior
-//  cannot drift between the two surfaces.
+//  so the search rules can be tested in isolation and reused wherever
+//  project filtering is needed.
 //
 //  Match rules (locked in tests, do not change without updating them):
 //    - Empty / whitespace-only query → returns the input unchanged.

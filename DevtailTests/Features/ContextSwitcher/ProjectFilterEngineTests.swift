@@ -2,8 +2,8 @@
 //  ProjectFilterEngineTests.swift
 //  DevtailTests
 //
-//  Tests the pure filter engine that powers project search across the
-//  menubar and (later) the dashboard. The engine is intentionally
+//  Tests the pure filter engine that powers project search in the
+//  menubar popover. The engine is intentionally
 //  state-free, so every test just builds an input array, calls
 //  `filter(projects:query:)`, and asserts on the output.
 //

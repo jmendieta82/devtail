@@ -13,14 +13,15 @@ import SwiftData
 struct QuickLinksPanel: View {
     let projectID: UUID?
     /// When true, the Edit/Done toggle is hidden and links are
-    /// pure-tap-to-open. The popover uses this to keep the surface
-    /// strictly consult-and-launch — actual link management lives in
-    /// the dashboard.
+    /// pure-tap-to-open. WorkspaceDashboardColumn uses this to keep the
+    /// surface strictly consult-and-launch — actual link management
+    /// lives in ProjectFormView.
     var isReadOnly: Bool = false
     /// When true, hides the redundant "QUICK LINKS" title inside the
     /// panel header. The Edit/Done button stays visible so link
     /// management still works. Used when the panel lives inside a
-    /// parent that already labels it (e.g. the dashboard's tab bar).
+    /// parent that already labels it (e.g. WorkspaceSettingsTabView's
+    /// tab bar).
     var hideTitle: Bool = false
 
     @Environment(ProjectStore.self) private var store

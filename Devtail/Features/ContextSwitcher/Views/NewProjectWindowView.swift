@@ -2,9 +2,8 @@
 //  NewProjectWindowView.swift
 //  Devtail
 //
-//  Minimal window hosting the project creation form. Replaces the
-//  dashboard's create flow — opened via Cmd+N or the popover's
-//  "New project" actions.
+//  Minimal window hosting the project creation form. Opened via Cmd+N
+//  or the popover's "New project" actions.
 //
 
 import SwiftUI

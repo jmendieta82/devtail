@@ -52,7 +52,7 @@ struct WorkspaceSettingsTabView: View {
                     case .project:
                         // ProjectFormView already wraps its content in its own
                         // ScrollView, so it's mounted directly here (no extra
-                        // ScrollView), mirroring how DashboardRootView presents it.
+                        // ScrollView needed).
                         ProjectFormView(
                             projectID: project.id,
                             onDismiss: { session.selectedTab = .agent },

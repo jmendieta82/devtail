@@ -69,17 +69,6 @@ struct DevtailApp: App {
             }
         }
 
-        Window("Devtail", id: WindowID.dashboard) {
-            DashboardRootView()
-        }
-        .modelContainer(modelContainer)
-        .environment(projectStore)
-        .environment(workspaceHolder)
-        .environment(appSettings)
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
-        .defaultLaunchBehavior(.suppressed)
-
         Window("New Project", id: WindowID.newProject) {
             NewProjectWindowView()
         }
@@ -111,7 +100,6 @@ struct DevtailApp: App {
 }
 
 enum WindowID {
-    static let dashboard = "devtail.dashboard"
     static let workspace = "devtail.workspace"
     static let newProject = "devtail.newProject"
 }

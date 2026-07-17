@@ -4,7 +4,7 @@
 //
 //  Root view rendered inside the MenuBarExtra popover.
 //  Single-column accordion layout — expand a project to see its panes
-//  and launch. Zero configuration; all editing lives in the Dashboard.
+//  and launch. Create, delete, and settings live in their own windows.
 //
 
 import SwiftUI
@@ -60,8 +60,7 @@ struct MenuBarRootView: View {
                                 onLaunch: { launchWorkspace(for: project) },
                                 onResume: { handleResumeTap(for: project) },
                                 onOpenInVSCode: { store.openInVSCode(project: project) },
-                                onDeleteProject: { store.deleteProject(project) },
-                                onOpenDashboard: { openDashboardForProject(project.id) }
+                                onDeleteProject: { store.deleteProject(project) }
                             )
                         }
                     }
@@ -77,14 +76,6 @@ struct MenuBarRootView: View {
 
             // ─── Footer ───
             HStack(spacing: DevtailTokens.Spacing.gapLarge) {
-                Button { openDashboard() } label: {
-                    Label("Manage…", systemImage: "square.grid.2x2")
-                        .font(DevtailTokens.Typography.bodySmall)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(DevtailTokens.Colors.textSecondary)
-                .help("Open the Devtail dashboard")
-
                 Spacer()
 
                 Button("Quit") { NSApplication.shared.terminate(nil) }
@@ -306,18 +297,8 @@ struct MenuBarRootView: View {
 
     // MARK: - Navigation
 
-    private func openDashboard() {
-        NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: WindowID.dashboard)
-    }
-
     private func openNewProjectWindow() {
         NSApp.activate(ignoringOtherApps: true)
         openWindow(id: WindowID.newProject)
-    }
-
-    private func openDashboardForProject(_ projectID: UUID) {
-        NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: WindowID.dashboard)
     }
 }

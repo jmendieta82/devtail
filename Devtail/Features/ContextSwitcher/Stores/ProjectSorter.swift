@@ -3,9 +3,7 @@
 //  Devtail
 //
 //  Pure sort function for the project list, shared by the popover header's
-//  sort menu. Ported verbatim from the (retired) dashboard's
-//  DashboardRootView.sorted(_:) so ordering behavior doesn't drift between
-//  surfaces.
+//  sort menu.
 //
 //  Concurrency: marked Sendable. No state, no MainActor-isolated data
 //  touched directly — Project instances flow in from the caller.
