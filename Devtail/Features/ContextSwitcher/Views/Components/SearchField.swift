@@ -13,16 +13,20 @@ import SwiftUI
 struct SearchField: View {
     @Binding var text: String
     var placeholder: String = "Search projects"
+    /// Optional external focus binding — the workspace files panel drives
+    /// focus programmatically (Cmd+P); menu bar usage passes nothing.
+    var focus: FocusState<Bool>.Binding?
 
     var body: some View {
         HStack(spacing: DevtailTokens.Spacing.gapMedium) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: DevtailTokens.Sizes.searchIconSize))
                 .foregroundStyle(DevtailTokens.Colors.textTertiary)
-            TextField(placeholder, text: $text)
-                .textFieldStyle(.plain)
-                .font(DevtailTokens.Typography.bodySmall)
-                .foregroundStyle(DevtailTokens.Colors.textPrimary)
+            if let focus {
+                textField.focused(focus)
+            } else {
+                textField
+            }
         }
         .padding(.horizontal, DevtailTokens.Spacing.gapLarge)
         .padding(.vertical, DevtailTokens.Spacing.searchVertical)
@@ -30,6 +34,13 @@ struct SearchField: View {
             RoundedRectangle(cornerRadius: DevtailTokens.Radius.searchField)
                 .fill(DevtailTokens.Colors.searchField)
         )
+    }
+
+    private var textField: some View {
+        TextField(placeholder, text: $text)
+            .textFieldStyle(.plain)
+            .font(DevtailTokens.Typography.bodySmall)
+            .foregroundStyle(DevtailTokens.Colors.textPrimary)
     }
 }
 

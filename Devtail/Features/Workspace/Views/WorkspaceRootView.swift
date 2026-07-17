@@ -29,6 +29,17 @@ struct WorkspaceRootView: View {
                 .id(settings.uiFontSize)
         }
         .navigationTitle(session.projectName)
+        .background(
+            // Hidden Cmd+P registration: from anywhere in the workspace
+            // window, switch the side panel to Files and focus the file
+            // search field (FileTreeColumn consumes the request).
+            Button("") {
+                session.sidePanel = .files
+                session.fileSearch.requestFocus()
+            }
+            .keyboardShortcut("p", modifiers: .command)
+            .hidden()
+        )
         .onDisappear { holder.close(projectId: session.projectId) }
         .confirmationDialog(
             "Save changes before closing?",
