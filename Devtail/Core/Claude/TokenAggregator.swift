@@ -24,19 +24,33 @@ struct TokenUsage: Equatable, Sendable {
 
 enum TokenAggregator {
     static func sum(jsonlLines: [String]) -> TokenUsage {
-        var input = 0
-        var output = 0
-        var cache = 0
+        var usage = TokenUsage(input: 0, output: 0, cache: 0)
+        accumulate(jsonlLines: jsonlLines, into: &usage)
+        return usage
+    }
+
+    /// Streaming-friendly variant: adds `jsonlLines`' totals into `usage` in
+    /// place, rather than allocating a fresh `TokenUsage`. Lets callers sum
+    /// one file's lines at a time — accumulating only the running int
+    /// totals across files — instead of holding every file's lines in one
+    /// combined `[String]` array before summing (see
+    /// `ClaudeProjectIntrospector.readTokenUsage`, which sums per file and
+    /// adds each file's partial `TokenUsage` into a running total to bound
+    /// peak memory to one file's contents at a time).
+    static func accumulate(jsonlLines: [String], into usage: inout TokenUsage) {
+        var input = usage.input
+        var output = usage.output
+        var cache = usage.cache
 
         for line in jsonlLines {
-            guard let usage = usageObject(fromLine: line) else { continue }
-            input += intValue(usage["input_tokens"])
-            output += intValue(usage["output_tokens"])
-            cache += intValue(usage["cache_creation_input_tokens"])
-            cache += intValue(usage["cache_read_input_tokens"])
+            guard let parsed = usageObject(fromLine: line) else { continue }
+            input += intValue(parsed["input_tokens"])
+            output += intValue(parsed["output_tokens"])
+            cache += intValue(parsed["cache_creation_input_tokens"])
+            cache += intValue(parsed["cache_read_input_tokens"])
         }
 
-        return TokenUsage(input: input, output: output, cache: cache)
+        usage = TokenUsage(input: input, output: output, cache: cache)
     }
 
     private static func usageObject(fromLine line: String) -> [String: Any]? {

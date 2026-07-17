@@ -159,4 +159,55 @@ struct ClaudeProjectIntrospectorTests {
         #expect(result.tokenUsage?.output == 5)
         #expect(result.tokenUsage?.cache == 2)
     }
+
+    /// Token usage is now streamed per file (one file's content in memory
+    /// at a time, only running int totals carried across files — see
+    /// `ClaudeProjectIntrospector.readTokenUsage`). This asserts multiple
+    /// transcript files still sum correctly under that streaming path.
+    /// Peak-memory-per-file is a design property, not something a unit
+    /// test can assert directly.
+    @Test func sumsTokenUsageAcrossMultipleTranscriptFiles() {
+        let root = makeTempDir()
+        let home = makeTempDir()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        let encoded = ClaudePathEncoder.encode(root.path)
+        let line1 = #"{"message":{"usage":{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":1,"cache_read_input_tokens":1}}}"#
+        let line2 = #"{"message":{"usage":{"input_tokens":20,"output_tokens":8,"cache_creation_input_tokens":0,"cache_read_input_tokens":2}}}"#
+        let line3 = #"{"usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}"#
+        write(line1, to: home.appendingPathComponent(".claude/projects/\(encoded)/session1.jsonl"))
+        write(line2 + "\n" + line3, to: home.appendingPathComponent(".claude/projects/\(encoded)/session2.jsonl"))
+
+        let result = ClaudeProjectIntrospector().introspectSync(projectRoot: root, home: home)
+
+        #expect(result.tokenUsage?.input == 130)
+        #expect(result.tokenUsage?.output == 63)
+        #expect(result.tokenUsage?.cache == 4)
+    }
+
+    /// Exercises the actual `async` `introspect(projectRoot:home:)` entry
+    /// point that production (`WorkspaceSession`) calls, not just the
+    /// synchronous `introspectSync` wrapped by every other test here.
+    @Test func asyncIntrospectEntryPointReturnsSameResultAsSync() async {
+        let root = makeTempDir()
+        let home = makeTempDir()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        write(
+            "---\nname: project-skill\ndescription: A project skill\n---\nBody",
+            to: root.appendingPathComponent(".claude/skills/project-skill/SKILL.md")
+        )
+
+        let result = await ClaudeProjectIntrospector().introspect(projectRoot: root, home: home)
+
+        #expect(result.skills.count == 1)
+        #expect(result.skills[0].name == "project-skill")
+        #expect(result.skills[0].detail == "A project skill")
+    }
 }

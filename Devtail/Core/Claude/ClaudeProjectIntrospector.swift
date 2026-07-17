@@ -73,7 +73,7 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
     /// distinctly from the protocol's `introspect(projectRoot:home:)` async
     /// requirement to avoid same-name overload ambiguity at the call site
     /// in the `async` wrapper below.
-    func introspectSync(projectRoot: URL, home: URL) -> ClaudeIntrospection {
+    func introspectSync(projectRoot: URL, home: URL, isCancelled: @Sendable () -> Bool = { false }) -> ClaudeIntrospection {
         let skills = discoverItems(
             projectDir: projectRoot.appendingPathComponent(".claude/skills", isDirectory: true),
             globalDir: home.appendingPathComponent(".claude/skills", isDirectory: true),
@@ -93,7 +93,7 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
             isSkill: false
         )
         let mcpServers = discoverMCPServers(projectRoot: projectRoot, home: home)
-        let tokenUsage = readTokenUsage(projectRoot: projectRoot, home: home)
+        let tokenUsage = readTokenUsage(projectRoot: projectRoot, home: home, isCancelled: isCancelled)
 
         return ClaudeIntrospection(
             skills: skills,
@@ -105,7 +105,7 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
     }
 
     func introspect(projectRoot: URL, home: URL) async -> ClaudeIntrospection {
-        introspectSync(projectRoot: projectRoot, home: home)
+        introspectSync(projectRoot: projectRoot, home: home, isCancelled: { Task.isCancelled })
     }
 
     // MARK: - Skills / Agents / Commands
@@ -204,7 +204,19 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
     /// Returns nil when the directory doesn't exist or has no transcripts —
     /// distinct from a zeroed `TokenUsage`, so the card can hide the row
     /// entirely rather than showing "0 tokens".
-    private func readTokenUsage(projectRoot: URL, home: URL) -> TokenUsage? {
+    ///
+    /// Streams one file at a time: each file's content is read and summed
+    /// individually, and only the running int `TokenUsage` totals are
+    /// carried across files — never a combined `[String]` of every file's
+    /// lines. For a project with hundreds of MB of transcripts, this bounds
+    /// peak transient memory to roughly one file's contents instead of the
+    /// sum of all of them.
+    ///
+    /// `isCancelled` is polled between files (not mid-file) so a cancelled
+    /// refresh on a heavy project can bail before reading further files
+    /// rather than paying the full I/O cost. This is best-effort: a single
+    /// very large file is still read to completion once started.
+    private func readTokenUsage(projectRoot: URL, home: URL, isCancelled: @Sendable () -> Bool = { false }) -> TokenUsage? {
         let encoded = ClaudePathEncoder.encode(projectRoot.path)
         let transcriptsDir = home.appendingPathComponent(".claude/projects/\(encoded)", isDirectory: true)
 
@@ -215,11 +227,13 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
         let jsonlFiles = entries.filter { $0.pathExtension == "jsonl" }
         guard !jsonlFiles.isEmpty else { return nil }
 
-        var allLines: [String] = []
+        var usage = TokenUsage(input: 0, output: 0, cache: 0)
         for file in jsonlFiles {
+            if isCancelled() { break }
             guard let content = try? String(contentsOf: file, encoding: .utf8) else { continue }
-            allLines.append(contentsOf: content.components(separatedBy: "\n"))
+            let lines = content.components(separatedBy: "\n")
+            TokenAggregator.accumulate(jsonlLines: lines, into: &usage)
         }
-        return TokenAggregator.sum(jsonlLines: allLines)
+        return usage
     }
 }

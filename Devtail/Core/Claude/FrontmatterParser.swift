@@ -9,6 +9,13 @@
 //  files use. Multiline values are truncated to their first line (accepted
 //  limit — see the design doc).
 //
+//  Only zero-indentation lines are treated as top-level keys. Real skill
+//  frontmatter (see ~/.claude/skills/*/SKILL.md) commonly has a nested
+//  `metadata:` block indented with `author:`/`version:` etc. underneath —
+//  without an indentation check those nested keys would flatten into the
+//  result and could silently overwrite top-level `name`/`description` if a
+//  nested block happened to reuse those key names.
+//
 
 import Foundation
 
@@ -29,6 +36,9 @@ enum FrontmatterParser {
 
         var result: [String: String] = [:]
         for line in lines[1..<closingIndex] {
+            // Skip indented lines: they belong to a nested block (e.g.
+            // `metadata:\n  author: x`), not a top-level key.
+            guard let firstChar = line.first, !firstChar.isWhitespace else { continue }
             guard let colonIndex = line.firstIndex(of: ":") else { continue }
             let key = line[line.startIndex..<colonIndex].trimmingCharacters(in: .whitespaces)
             var value = line[line.index(after: colonIndex)...].trimmingCharacters(in: .whitespaces)

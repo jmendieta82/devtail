@@ -62,4 +62,41 @@ struct FrontmatterParserTests {
         let result = FrontmatterParser.parse(markdown)
         #expect(result.isEmpty)
     }
+
+    /// Real-shaped frontmatter matching ~/.claude/skills/sdd-spec/SKILL.md:
+    /// a `metadata:` block nested with indented `author`/`version`, plus a
+    /// nested `name:` key that must NOT overwrite the top-level `name`.
+    @Test func nestedMetadataBlockDoesNotLeakOrOverwriteTopLevelKeys() {
+        let markdown = """
+        ---
+        name: sdd-spec
+        description: "Write SDD delta specs with requirements and scenarios."
+        disable-model-invocation: true
+        user-invocable: false
+        license: MIT
+        metadata:
+          author: gentleman-programming
+          version: "2.0"
+          name: nested-should-not-win
+          delegate_only: true
+        ---
+
+        Body text here.
+        """
+        let result = FrontmatterParser.parse(markdown)
+
+        #expect(result["name"] == "sdd-spec")
+        #expect(result["description"] == "Write SDD delta specs with requirements and scenarios.")
+        #expect(result["license"] == "MIT")
+
+        // Nested keys under `metadata:` must not leak into the flat result.
+        #expect(result["author"] == nil)
+        #expect(result["version"] == nil)
+        #expect(result["delegate_only"] == nil)
+
+        // The top-level `metadata:` line itself is zero-indented, so it is
+        // still parsed as a key — just with an empty value, since it only
+        // opens a block rather than carrying one on the same line.
+        #expect(result["metadata"] == "")
+    }
 }
