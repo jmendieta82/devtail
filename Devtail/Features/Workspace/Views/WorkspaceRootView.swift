@@ -20,28 +20,13 @@ struct WorkspaceRootView: View {
     @State private var pendingCloseFilePath: String?
 
     var body: some View {
-        HSplitView {
-            HStack(spacing: 0) {
-                ActivityBar(session: session)
-                    .background(DevtailTokens.Colors.titleBar)
-                // separatorColor is a hairline that vanishes between two
-                // identical dark fills — use an explicit primary tint so the
-                // rail/panel boundary stays visible in both appearances.
-                Rectangle()
-                    .fill(Color.primary.opacity(0.12))
-                    .frame(width: DevtailTokens.BorderWidth.default)
-                WorkspaceSidePanel(session: session)
-            }
-            .frame(minWidth: 48 + 1 + 220, maxWidth: 48 + 1 + 300)
-
-            VStack(spacing: 0) {
-                tabRow
-                terminalArea
-            }
-            .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
-
-            WorkspaceDashboardColumn(session: session)
-                .frame(minWidth: 260, maxWidth: 340)
+        // The font-size re-identification wraps ONLY the split content: the
+        // outer Group keeps a stable identity so the onDisappear teardown
+        // below never fires on a text-size change — session, terminals and
+        // file tree survive the rebuild (their state lives in the session).
+        Group {
+            splitContent
+                .id(settings.uiFontSize)
         }
         .navigationTitle(session.projectName)
         .onDisappear { holder.close(projectId: session.projectId) }
@@ -64,6 +49,32 @@ struct WorkspaceRootView: View {
             Button("Cancel", role: .cancel) {
                 pendingCloseFilePath = nil
             }
+        }
+    }
+
+    private var splitContent: some View {
+        HSplitView {
+            HStack(spacing: 0) {
+                ActivityBar(session: session)
+                    .background(DevtailTokens.Colors.titleBar)
+                // separatorColor is a hairline that vanishes between two
+                // identical dark fills — use an explicit primary tint so the
+                // rail/panel boundary stays visible in both appearances.
+                Rectangle()
+                    .fill(Color.primary.opacity(0.12))
+                    .frame(width: DevtailTokens.BorderWidth.default)
+                WorkspaceSidePanel(session: session)
+            }
+            .frame(minWidth: 48 + 1 + 220, maxWidth: 48 + 1 + 300)
+
+            VStack(spacing: 0) {
+                tabRow
+                terminalArea
+            }
+            .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
+
+            WorkspaceDashboardColumn(session: session)
+                .frame(minWidth: 260, maxWidth: 340)
         }
     }
 

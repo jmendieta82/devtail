@@ -92,9 +92,13 @@ struct DevtailApp: App {
             // — a coincidental but intended teardown trigger.
             if let projectId,
                let project = projectStore.projects.first(where: { $0.id == projectId }) {
+                // NOT re-identified on uiFontSize here: WorkspaceRootView's
+                // own onDisappear tears down the whole session (terminals,
+                // file tree) — an .id() at this level fires it on every
+                // stepper click. The re-identification lives INSIDE
+                // WorkspaceRootView, below that teardown hook.
                 WorkspaceRootView(session: workspaceHolder.openSession(for: project))
                     .environment(workspaceHolder)
-                    .id(appSettings.uiFontSize)
             }
         }
         .modelContainer(modelContainer)
