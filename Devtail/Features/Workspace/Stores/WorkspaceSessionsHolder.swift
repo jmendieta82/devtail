@@ -86,14 +86,10 @@ final class WorkspaceSession: Identifiable {
     /// default even though this class is `@MainActor` by default isolation.
     let openedAt: Date
     /// Lazy file tree for the project root, backing the file-tree column.
-    /// Constructed here (not as a default param) — `FileManagerDirectoryLister()`
-    /// is `@MainActor`-isolated under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
-    /// and cannot be a default parameter value.
     let fileTree: FileTreeStore
     /// File-name search over the project root, backing the search field in
-    /// the files side panel. Constructed here for the same reason as
-    /// `fileTree` above — the lister is `@MainActor`-isolated and cannot be
-    /// a default parameter value.
+    /// the files side panel. The walk itself runs off the main actor — see
+    /// `FileSearchWalker.search`.
     let fileSearch: FileSearchStore
     /// Which side panel view is showing: files or processes.
     var sidePanel: SidePanelView = .files

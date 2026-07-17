@@ -2,8 +2,11 @@ import Foundation
 import Testing
 @testable import Devtail
 
-@MainActor
-final class MockDirectoryLister: DirectoryLister {
+/// Shared with FileSearchWalkerTests, whose walker lists directories off the
+/// main actor — hence nonisolated + `@unchecked Sendable` (same pattern as
+/// MockGitStatusReader). Tests mutate state before a walk and read it after,
+/// never concurrently with one.
+nonisolated final class MockDirectoryLister: DirectoryLister, @unchecked Sendable {
     var entriesByPath: [String: [DirectoryEntry]] = [:]
     var errorPaths: Set<String> = []
     private(set) var listedPaths: [String] = []

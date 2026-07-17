@@ -11,7 +11,7 @@
 
 import Foundation
 
-struct FileNameMatcher {
+nonisolated struct FileNameMatcher {
 
     /// Trimmed, lowercased query ready for `matches(name:normalizedQuery:)`,
     /// or nil when the raw query is empty or whitespace-only (search

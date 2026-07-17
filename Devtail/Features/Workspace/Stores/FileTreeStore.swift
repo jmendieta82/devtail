@@ -20,7 +20,8 @@ final class FileTreeNode: Identifiable {
 @Observable
 final class FileTreeStore {
     /// No real project is deeper than this; bail instead of walking forever.
-    static let maxDepth = 32
+    /// Nonisolated: also read by the off-main-actor file-search walk.
+    nonisolated static let maxDepth = 32
 
     let root: URL
     private let lister: DirectoryLister

@@ -1,16 +1,18 @@
 import Foundation
 
-struct DirectoryEntry: Hashable {
+nonisolated struct DirectoryEntry: Hashable, Sendable {
     let name: String
     let url: URL
     let isDirectory: Bool
 }
 
-protocol DirectoryLister {
+/// Nonisolated so the file-search walk can list directories off the main
+/// actor. FileManager is thread-safe for directory reads.
+nonisolated protocol DirectoryLister: Sendable {
     func list(_ directory: URL) throws -> [DirectoryEntry]
 }
 
-struct FileManagerDirectoryLister: DirectoryLister {
+nonisolated struct FileManagerDirectoryLister: DirectoryLister {
     func list(_ directory: URL) throws -> [DirectoryEntry] {
         try FileManager.default
             .contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [])

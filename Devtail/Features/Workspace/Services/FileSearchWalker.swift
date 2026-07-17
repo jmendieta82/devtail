@@ -15,7 +15,7 @@
 
 import Foundation
 
-struct FileSearchResult: Identifiable, Hashable {
+nonisolated struct FileSearchResult: Identifiable, Hashable, Sendable {
     let name: String
     /// Parent directory relative to the search root; "" for root-level files.
     let relativeDirectory: String
@@ -25,12 +25,14 @@ struct FileSearchResult: Identifiable, Hashable {
     var id: String { path }
 }
 
-/// Seam for FileSearchStore: `FileSearchWalker` in production, a spy in tests.
-protocol FileSearching {
-    func search(root: URL, query: String) -> [FileSearchResult]
+/// Seam for FileSearchStore: `FileSearchWalker` in production, a spy in
+/// tests. Async and Sendable — mirrors `GitStatusReading`/`ClaudeIntrospecting`
+/// so the store can await the walk without blocking the main actor.
+nonisolated protocol FileSearching: Sendable {
+    func search(root: URL, query: String) async -> [FileSearchResult]
 }
 
-struct FileSearchWalker: FileSearching {
+nonisolated struct FileSearchWalker: FileSearching {
     /// Hard cap: the panel shows a "first N" hint and the walk short-circuits.
     static let maxResults = 100
 
@@ -44,7 +46,12 @@ struct FileSearchWalker: FileSearching {
     /// Results keep walk order (the production lister sorts dirs-first, then
     /// case-insensitive name) — no ranking, per design. Empty/whitespace
     /// queries return [] without touching the lister.
-    func search(root: URL, query: String) -> [FileSearchResult] {
+    ///
+    /// `@concurrent`: the recursive walk is blocking disk I/O, so it must
+    /// run on the concurrent executor — never on the caller's actor. The
+    /// results array stays local to the walk and crosses back to the
+    /// awaiting store only as the returned value.
+    @concurrent func search(root: URL, query: String) async -> [FileSearchResult] {
         guard let needle = matcher.normalizedQuery(from: query) else { return [] }
         var results: [FileSearchResult] = []
         walk(directory: root, relativeDirectory: "", depth: 0, needle: needle, into: &results)
@@ -54,7 +61,9 @@ struct FileSearchWalker: FileSearching {
     /// `depth` is the depth of the entries listed here (root entries are 0),
     /// matching `FileTreeNode.depth` so the maxDepth guard bounds search and
     /// tree identically. The `Task.isCancelled` check makes a superseded
-    /// store walk bail mid-recursion instead of finishing a stale query.
+    /// store walk bail mid-recursion instead of finishing a stale query —
+    /// the cancel arrives from the main actor while the walk runs on the
+    /// concurrent executor inside the same task.
     private func walk(directory: URL, relativeDirectory: String, depth: Int,
                       needle: String, into results: inout [FileSearchResult]) {
         guard let entries = try? lister.list(directory) else { return }

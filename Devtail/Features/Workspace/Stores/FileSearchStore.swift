@@ -66,6 +66,9 @@ final class FileSearchStore {
     /// never publish under a newer query. It checks cancellation after the
     /// sleep (superseded during debounce) and after the walk (superseded
     /// while walking; the walker also bails cooperatively mid-recursion).
+    /// The awaited walk runs off the main actor (`FileSearchWalker.search`
+    /// is `@concurrent`); results/isSearching are published back here on
+    /// the main actor after the hop.
     private func queryChanged() {
         searchTask?.cancel()
         searchTask = nil
@@ -80,7 +83,7 @@ final class FileSearchStore {
             guard let self else { return }
             try? await Task.sleep(for: debounce)
             guard !Task.isCancelled else { return }
-            let found = walker.search(root: root, query: query)
+            let found = await walker.search(root: root, query: query)
             guard !Task.isCancelled else { return }
             results = found
             isSearching = false

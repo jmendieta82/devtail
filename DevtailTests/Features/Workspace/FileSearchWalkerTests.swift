@@ -10,17 +10,17 @@ struct FileSearchWalkerTests {
     private func file(_ path: String) -> DirectoryEntry {
         DirectoryEntry(name: (path as NSString).lastPathComponent, url: URL(fileURLWithPath: path), isDirectory: false)
     }
-    private func search(_ mock: MockDirectoryLister, query: String) -> [FileSearchResult] {
-        FileSearchWalker(lister: mock).search(root: URL(fileURLWithPath: "/root"), query: query)
+    private func search(_ mock: MockDirectoryLister, query: String) async -> [FileSearchResult] {
+        await FileSearchWalker(lister: mock).search(root: URL(fileURLWithPath: "/root"), query: query)
     }
 
-    @Test func recursesAndBuildsRelativeDirectories() {
+    @Test func recursesAndBuildsRelativeDirectories() async {
         let mock = MockDirectoryLister()
         mock.entriesByPath["/root"] = [dir("/root/src"), file("/root/app.swift")]
         mock.entriesByPath["/root/src"] = [dir("/root/src/views"), file("/root/src/main.swift")]
         mock.entriesByPath["/root/src/views"] = [file("/root/src/views/tree.swift")]
 
-        let results = search(mock, query: "swift")
+        let results = await search(mock, query: "swift")
 
         #expect(results.map(\.name) == ["tree.swift", "main.swift", "app.swift"])
         #expect(results.map(\.relativeDirectory) == ["src/views", "src", ""])
@@ -29,44 +29,44 @@ struct FileSearchWalkerTests {
         ])
     }
 
-    @Test func queryIsTrimmedAndCaseInsensitive() {
+    @Test func queryIsTrimmedAndCaseInsensitive() async {
         let mock = MockDirectoryLister()
         mock.entriesByPath["/root"] = [file("/root/README.md"), file("/root/notes.txt")]
 
-        let results = search(mock, query: "  readme ")
+        let results = await search(mock, query: "  readme ")
 
         #expect(results.map(\.name) == ["README.md"])
     }
 
-    @Test func emptyQueryReturnsNothingWithoutWalking() {
+    @Test func emptyQueryReturnsNothingWithoutWalking() async {
         let mock = MockDirectoryLister()
         mock.entriesByPath["/root"] = [file("/root/a.txt")]
 
-        #expect(search(mock, query: "").isEmpty)
-        #expect(search(mock, query: "   ").isEmpty)
+        #expect(await search(mock, query: "").isEmpty)
+        #expect(await search(mock, query: "   ").isEmpty)
         #expect(mock.listedPaths.isEmpty)
     }
 
-    @Test func skipsGitDirectoriesEntirely() {
+    @Test func skipsGitDirectoriesEntirely() async {
         let mock = MockDirectoryLister()
         mock.entriesByPath["/root"] = [dir("/root/.git"), file("/root/gitignore-notes.md")]
         mock.entriesByPath["/root/.git"] = [file("/root/.git/config-git.txt")]
 
-        let results = search(mock, query: "git")
+        let results = await search(mock, query: "git")
 
         #expect(results.map(\.name) == ["gitignore-notes.md"])
         #expect(!mock.listedPaths.contains("/root/.git"))
     }
 
-    @Test func directoriesNeverMatchOnlyFilesDo() {
+    @Test func directoriesNeverMatchOnlyFilesDo() async {
         let mock = MockDirectoryLister()
         mock.entriesByPath["/root"] = [dir("/root/matchdir"), file("/root/other.txt")]
         mock.entriesByPath["/root/matchdir"] = []
 
-        #expect(search(mock, query: "match").isEmpty)
+        #expect(await search(mock, query: "match").isEmpty)
     }
 
-    @Test func respectsMaxDepthLikeTheTree() {
+    @Test func respectsMaxDepthLikeTheTree() async {
         let mock = MockDirectoryLister()
         var path = "/root"
         for level in 0..<40 {
@@ -76,7 +76,7 @@ struct FileSearchWalkerTests {
         }
         mock.entriesByPath[path] = [file("\(path)/match.txt")]
 
-        let results = search(mock, query: "match")
+        let results = await search(mock, query: "match")
 
         // Root entries are depth 0 and the tree loads children while
         // depth < maxDepth, so files exist at depths 0...maxDepth.
@@ -84,41 +84,41 @@ struct FileSearchWalkerTests {
         #expect(!mock.listedPaths.contains { $0.hasSuffix("/d32") })
     }
 
-    @Test func capsResultsAtMaxResults() {
+    @Test func capsResultsAtMaxResults() async {
         let mock = MockDirectoryLister()
         mock.entriesByPath["/root"] = (0..<150).map { file("/root/match-\($0).txt") }
 
-        #expect(search(mock, query: "match").count == FileSearchWalker.maxResults)
+        #expect(await search(mock, query: "match").count == FileSearchWalker.maxResults)
     }
 
-    @Test func stopsWalkingOnceCapIsReached() {
+    @Test func stopsWalkingOnceCapIsReached() async {
         let mock = MockDirectoryLister()
         var entries = (0..<FileSearchWalker.maxResults).map { file("/root/match-\($0).txt") }
         entries.append(dir("/root/unvisited"))
         mock.entriesByPath["/root"] = entries
         mock.entriesByPath["/root/unvisited"] = [file("/root/unvisited/match-extra.txt")]
 
-        let results = search(mock, query: "match")
+        let results = await search(mock, query: "match")
 
         #expect(results.count == FileSearchWalker.maxResults)
         #expect(mock.listedPaths == ["/root"])
     }
 
-    @Test func listerErrorOnSubdirectoryIsSkippedAndWalkContinues() {
+    @Test func listerErrorOnSubdirectoryIsSkippedAndWalkContinues() async {
         let mock = MockDirectoryLister()
         mock.entriesByPath["/root"] = [dir("/root/locked"), dir("/root/ok"), file("/root/match.txt")]
         mock.entriesByPath["/root/ok"] = [file("/root/ok/match.swift")]
         mock.errorPaths = ["/root/locked"]
 
-        let results = search(mock, query: "match")
+        let results = await search(mock, query: "match")
 
         #expect(results.map(\.name) == ["match.swift", "match.txt"])
     }
 
-    @Test func rootListErrorReturnsEmpty() {
+    @Test func rootListErrorReturnsEmpty() async {
         let mock = MockDirectoryLister()
         mock.errorPaths = ["/root"]
 
-        #expect(search(mock, query: "anything").isEmpty)
+        #expect(await search(mock, query: "anything").isEmpty)
     }
 }
