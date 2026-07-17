@@ -334,6 +334,8 @@ struct WorkspaceTabChip: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // Full name on hover — the tab label is middle-truncated at 28 chars.
+            .help(title)
 
             if let close {
                 Button(action: close) {
@@ -344,6 +346,7 @@ struct WorkspaceTabChip: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
+                .help("Close")
             }
         }
         .foregroundStyle(isSelected ? DevtailTokens.Colors.textPrimary : DevtailTokens.Colors.textSecondary)
