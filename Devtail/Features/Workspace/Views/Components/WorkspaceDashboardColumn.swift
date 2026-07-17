@@ -127,12 +127,12 @@ struct WorkspaceDashboardColumn: View {
 
     private var sessionSection: some View {
         card(title: "Session") {
-            TimelineView(.periodic(from: session.openedAt, by: 60)) { context in
+            TimelineView(.periodic(from: session.openedAt, by: 1)) { context in
                 Label(
                     WorkspaceSessionClock.elapsedLabel(from: session.openedAt, to: context.date),
                     systemImage: "clock"
                 )
-                .font(.callout)
+                .font(.callout.monospacedDigit())
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
             }
         }
