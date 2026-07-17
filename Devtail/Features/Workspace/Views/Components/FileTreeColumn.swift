@@ -40,6 +40,10 @@ private struct FileTreeNodeRow: View {
     let node: FileTreeNode
     let session: WorkspaceSession
 
+    private var icon: FileIconMap.Icon {
+        node.entry.isDirectory ? FileIconMap.folder : FileIconMap.icon(for: node.entry.name)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Button(action: activate) {
@@ -51,9 +55,10 @@ private struct FileTreeNodeRow: View {
                     } else {
                         Spacer().frame(width: 10)
                     }
-                    Image(systemName: node.entry.isDirectory ? "folder" : "doc.text")
-                        .font(.system(size: 10))
-                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    Image(systemName: icon.symbol)
+                        .font(.system(size: 11))
+                        .foregroundStyle(icon.color)
+                        .frame(width: 14)
                     Text(node.entry.name)
                         .font(DevtailTokens.Typography.caption)
                         .foregroundStyle(DevtailTokens.Colors.textSecondary)
