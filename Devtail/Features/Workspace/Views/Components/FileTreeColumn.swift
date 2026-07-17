@@ -35,8 +35,8 @@ struct FileTreeColumn: View {
     private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(DevtailTokens.Typography.captionSmall)
-                .frame(width: 16, height: 16)
+                .font(.system(size: 15))
+                .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.icon)
