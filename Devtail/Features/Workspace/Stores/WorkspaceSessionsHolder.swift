@@ -101,13 +101,29 @@ final class WorkspaceSession: Identifiable {
     /// otherwise a stale refresh from a closed (or since-reopened) session
     /// could assign `gitStatus` after the session is gone.
     private var gitStatusTask: Task<Void, Never>?
+    /// Claude Code project introspection (skills/agents/commands/MCP
+    /// servers/token usage), loaded asynchronously after the session is
+    /// created — reading `.claude/` config and transcripts is disk I/O and
+    /// must not block session creation. Nil until the first load completes.
+    /// `var` and observable so the Claude card updates when it arrives, and
+    /// so a manual refresh can replace it in place.
+    var claudeInfo: ClaudeIntrospection?
+    /// Injected Claude introspector — real `ClaudeProjectIntrospector()` in
+    /// production, a fake in tests. Lets `refreshClaudeInfo()` be exercised
+    /// without touching the real filesystem.
+    private let claudeIntrospector: ClaudeIntrospecting
+    /// Handle to the in-flight `refreshClaudeInfo()` task, if any. Cancelled
+    /// before starting a new refresh and on `close(projectId:)` teardown —
+    /// same rationale as `gitStatusTask`.
+    private var claudeInfoTask: Task<Void, Never>?
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor,
          agent: TerminalSession,
          currentBranch: String? = nil,
          openedAt: Date = Date(),
-         gitStatusReader: GitStatusReading = GitStatusReader()) {
+         gitStatusReader: GitStatusReading = GitStatusReader(),
+         claudeIntrospector: ClaudeIntrospecting = ClaudeProjectIntrospector()) {
         self.projectId = projectId
         self.projectName = projectName
         self.root = root
@@ -117,6 +133,7 @@ final class WorkspaceSession: Identifiable {
         self.openedAt = openedAt
         self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
         self.gitStatusReader = gitStatusReader
+        self.claudeIntrospector = claudeIntrospector
     }
 
     /// Open a file in the workspace (append to openFiles if not already open,
@@ -253,6 +270,33 @@ final class WorkspaceSession: Identifiable {
         gitStatusTask?.cancel()
         gitStatusTask = nil
     }
+
+    /// Loads (or reloads) the Claude Code project introspection for this
+    /// session's root and assigns it on the main actor. Called once at
+    /// session open and again on user-initiated refresh (the Claude card's
+    /// refresh button). Mirrors `refreshGitStatus()` exactly: the previous
+    /// in-flight refresh (if any) is cancelled before starting a new one,
+    /// the new task's handle is stored so `close(projectId:)` can cancel it
+    /// too, and the task checks `Task.isCancelled` after the `await` before
+    /// assigning.
+    func refreshClaudeInfo() {
+        claudeInfoTask?.cancel()
+        claudeInfoTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            let info = await self.claudeIntrospector.introspect(projectRoot: self.root, home: home)
+            guard !Task.isCancelled else { return }
+            self.claudeInfo = info
+        }
+    }
+
+    /// Cancels the in-flight Claude info refresh, if any. Called from
+    /// `WorkspaceSessionsHolder.close(projectId:)` alongside the other
+    /// teardown steps.
+    func cancelClaudeInfoRefresh() {
+        claudeInfoTask?.cancel()
+        claudeInfoTask = nil
+    }
 }
 
 @Observable
@@ -300,6 +344,7 @@ final class WorkspaceSessionsHolder {
         wireAgentExit(agent, on: session)
         sessions[project.id] = session
         session.refreshGitStatus()
+        session.refreshClaudeInfo()
         return session
     }
 
@@ -404,6 +449,7 @@ final class WorkspaceSessionsHolder {
         session.interactive?.terminate()
         session.agent.terminate()
         session.cancelGitStatusRefresh()
+        session.cancelClaudeInfoRefresh()
     }
 
     /// App-quit teardown: no orphans holding ports.

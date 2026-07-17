@@ -19,6 +19,7 @@ struct WorkspaceDashboardColumn: View {
                 branchSection
                 quickLinksSection
                 sessionSection
+                claudeSection
             }
             .padding(DevtailTokens.Spacing.cardPadding)
         }
@@ -134,6 +135,106 @@ struct WorkspaceDashboardColumn: View {
                 )
                 .font(.callout.monospacedDigit())
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            }
+        }
+    }
+
+    /// Claude Code project introspection: skill/agent/command/MCP server
+    /// counts plus historical token usage, read from the project's and the
+    /// user's `.claude/` configuration. Each category with items is
+    /// expandable to list names. Shown even when the load hasn't completed
+    /// yet or the project has no Claude config at all — "No Claude config"
+    /// signals that clearly rather than hiding the card.
+    private var claudeSection: some View {
+        card {
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
+                HStack {
+                    SectionHeader(title: "Claude")
+                    Spacer()
+                    Button {
+                        session.refreshClaudeInfo()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.icon)
+                    .foregroundStyle(.secondary)
+                    .help("Refresh Claude info")
+                }
+
+                if let info = session.claudeInfo, !info.isEmpty {
+                    claudeCategoryRow(title: "skills", items: info.skills, systemImage: "sparkles")
+                    claudeCategoryRow(title: "agents", items: info.agents, systemImage: "person.crop.circle")
+                    claudeCategoryRow(title: "commands", items: info.commands, systemImage: "slash.circle")
+                    claudeMCPRow(info.mcpServers)
+                    if let usage = info.tokenUsage {
+                        Label("\(TokenCountFormatter.format(usage.total)) tokens", systemImage: "number")
+                            .font(DevtailTokens.Typography.caption)
+                            .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    }
+                } else {
+                    Text("No Claude config")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                }
+            }
+        }
+    }
+
+    /// One expandable row for a skills/agents/commands category. Collapsed
+    /// to just the count when empty (no disclosure — nothing to expand
+    /// into); expandable to the item list otherwise.
+    private func claudeCategoryRow(title: String, items: [ClaudeItem], systemImage: String) -> some View {
+        Group {
+            if items.isEmpty {
+                Label("0 \(title)", systemImage: systemImage)
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            } else {
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                        ForEach(items, id: \.name) { item in
+                            Text(item.scope == .global ? "\(item.name) \u{00B7} global" : item.name)
+                                .font(DevtailTokens.Typography.captionSmall)
+                                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.top, DevtailTokens.Spacing.gapTiny)
+                } label: {
+                    Label("\(items.count) \(title)", systemImage: systemImage)
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                }
+            }
+        }
+    }
+
+    /// MCP servers row: same expandable shape as `claudeCategoryRow`, but
+    /// the source data is `[String]` (server names only, no per-item
+    /// detail/scope) rather than `[ClaudeItem]`.
+    private func claudeMCPRow(_ servers: [String]) -> some View {
+        Group {
+            if servers.isEmpty {
+                Label("0 MCP servers", systemImage: "network")
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            } else {
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                        ForEach(servers, id: \.self) { server in
+                            Text(server)
+                                .font(DevtailTokens.Typography.captionSmall)
+                                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.top, DevtailTokens.Spacing.gapTiny)
+                } label: {
+                    Label("\(servers.count) MCP servers", systemImage: "network")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                }
             }
         }
     }
