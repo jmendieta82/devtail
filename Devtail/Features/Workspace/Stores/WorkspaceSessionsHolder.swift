@@ -90,6 +90,11 @@ final class WorkspaceSession: Identifiable {
     /// is `@MainActor`-isolated under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
     /// and cannot be a default parameter value.
     let fileTree: FileTreeStore
+    /// File-name search over the project root, backing the search field in
+    /// the files side panel. Constructed here for the same reason as
+    /// `fileTree` above — the lister is `@MainActor`-isolated and cannot be
+    /// a default parameter value.
+    let fileSearch: FileSearchStore
     /// Which side panel view is showing: files or processes.
     var sidePanel: SidePanelView = .files
     /// Injected git status reader — real `GitStatusReader()` in production,
@@ -132,6 +137,7 @@ final class WorkspaceSession: Identifiable {
         self.currentBranch = currentBranch
         self.openedAt = openedAt
         self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
+        self.fileSearch = FileSearchStore(root: root, walker: FileSearchWalker(lister: FileManagerDirectoryLister()))
         self.gitStatusReader = gitStatusReader
         self.claudeIntrospector = claudeIntrospector
     }
