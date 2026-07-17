@@ -46,6 +46,18 @@ final class AppSettings {
         didSet { defaults.set(terminalHideMouseWhileTyping, forKey: "terminalHideMouseWhileTyping") }
     }
 
+    // MARK: - Interface text size
+
+    /// Drives `DevtailTokens.Typography.baseSize` so the app's own UI (not
+    /// the terminal, which stays independent via `TerminalAppearance`) can
+    /// scale with a single setting. UI enforces the 11...16 range.
+    var uiFontSize: Double {
+        didSet {
+            defaults.set(uiFontSize, forKey: "uiFontSize")
+            DevtailTokens.Typography.baseSize = CGFloat(uiFontSize)
+        }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let raw = defaults.string(forKey: "defaultLaunchTarget") ?? LaunchTarget.auto.rawValue
@@ -61,5 +73,8 @@ final class AppSettings {
         self.terminalCursorBlinks = (defaults.object(forKey: "terminalCursorBlinks") as? Bool) ?? false
         self.terminalCopyOnSelect = (defaults.object(forKey: "terminalCopyOnSelect") as? Bool) ?? true
         self.terminalHideMouseWhileTyping = (defaults.object(forKey: "terminalHideMouseWhileTyping") as? Bool) ?? true
+
+        self.uiFontSize = (defaults.object(forKey: "uiFontSize") as? Double) ?? 12
+        DevtailTokens.Typography.baseSize = CGFloat(self.uiFontSize)
     }
 }

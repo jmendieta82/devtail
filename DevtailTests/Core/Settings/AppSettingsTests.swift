@@ -137,4 +137,41 @@ struct AppSettingsTests {
         #expect(defaults.bool(forKey: "terminalCopyOnSelect") == false)
         #expect(defaults.bool(forKey: "terminalHideMouseWhileTyping") == false)
     }
+
+    // MARK: - Interface text size
+
+    @Test("uiFontSize defaults to 12 when UserDefaults key is absent")
+    func uiFontSizeDefaultsWhenKeyAbsent() {
+        let settings = AppSettings(defaults: freshDefaults())
+        #expect(settings.uiFontSize == 12)
+    }
+
+    @Test("uiFontSize reads persisted value")
+    func uiFontSizeReadsStoredValue() {
+        let defaults = freshDefaults()
+        defaults.set(15.0, forKey: "uiFontSize")
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.uiFontSize == 15)
+    }
+
+    @Test("uiFontSize persists on change")
+    func uiFontSizePersistsOnChange() {
+        let defaults = freshDefaults()
+        let settings = AppSettings(defaults: defaults)
+        settings.uiFontSize = 16
+        #expect(defaults.double(forKey: "uiFontSize") == 16)
+    }
+
+    @Test("uiFontSize keeps DevtailTokens.Typography.baseSize in sync on init and on change")
+    func uiFontSizeSyncsTypographyBaseSize() {
+        let defaults = freshDefaults()
+        defaults.set(11.0, forKey: "uiFontSize")
+        let settings = AppSettings(defaults: defaults)
+        #expect(DevtailTokens.Typography.baseSize == 11)
+
+        settings.uiFontSize = 16
+        #expect(DevtailTokens.Typography.baseSize == 16)
+
+        DevtailTokens.Typography.baseSize = 12
+    }
 }

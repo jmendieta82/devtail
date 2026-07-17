@@ -52,6 +52,7 @@ struct DevtailApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuBarRootView()
+                .id(appSettings.uiFontSize)
         } label: {
             Image(systemName: "terminal.fill")
         }
@@ -71,6 +72,7 @@ struct DevtailApp: App {
 
         Window("New Project", id: WindowID.newProject) {
             NewProjectWindowView()
+                .id(appSettings.uiFontSize)
         }
         .modelContainer(modelContainer)
         .environment(projectStore)
@@ -89,6 +91,7 @@ struct DevtailApp: App {
                let project = projectStore.projects.first(where: { $0.id == projectId }) {
                 WorkspaceRootView(session: workspaceHolder.openSession(for: project))
                     .environment(workspaceHolder)
+                    .id(appSettings.uiFontSize)
             }
         }
         .modelContainer(modelContainer)

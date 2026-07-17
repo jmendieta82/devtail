@@ -20,6 +20,14 @@ struct AppSettingsPane: View {
     var body: some View {
         @Bindable var settings = settings
         Form {
+            Section("Interface") {
+                Stepper(
+                    "Interface text size: \(Int(settings.uiFontSize))",
+                    value: $settings.uiFontSize,
+                    in: 11...16
+                )
+            }
+
             Section("Agent") {
                 TextField("Agent command", text: $settings.agentCommand)
                     .font(DevtailTokens.Typography.mono)

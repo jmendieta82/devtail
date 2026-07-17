@@ -87,34 +87,76 @@ enum DevtailTokens {
     // MARK: - Typography
 
     enum Typography {
+        /// Single source of truth for the app's UI text scale, kept in sync
+        /// with `AppSettings.uiFontSize` (MainActor-only mutation). Every
+        /// font token below is computed relative to this value, preserving
+        /// its historical delta from the legacy base of 12pt. Terminal
+        /// rendering does NOT use these tokens — see `TerminalAppearance`.
+        static var baseSize: CGFloat = 12
+
+        /// Named font-size roles, used by `pointSize(for:)` so the delta
+        /// math can be pinned by tests without reflecting into `Font`.
+        enum Role {
+            case projectTitle, titleLarge, titleMedium, headline
+            case body, bodySemibold, bodyDefault, bodySmall, caption, captionSmall, micro
+            case mono, monoSmall, monoBold, monoDefault
+            case statValue, statValueSmall, statLabel, statSub
+        }
+
+        /// Point size for a role, relative to `baseSize`, preserving each
+        /// role's original delta from the legacy fixed base of 12.
+        static func pointSize(for role: Role) -> CGFloat {
+            switch role {
+            case .projectTitle:   return baseSize + 6
+            case .titleLarge:     return baseSize + 6
+            case .titleMedium:    return baseSize + 2
+            case .headline:       return baseSize + 1
+            case .body:           return baseSize + 2
+            case .bodySemibold:   return baseSize + 2
+            case .bodyDefault:    return baseSize + 1
+            case .bodySmall:      return baseSize
+            case .caption:        return baseSize
+            case .captionSmall:   return baseSize - 2
+            case .micro:          return baseSize - 3
+            case .mono:           return baseSize + 1
+            case .monoSmall:      return baseSize - 1
+            case .monoBold:       return baseSize + 1
+            case .monoDefault:    return baseSize
+            case .statValue:      return baseSize + 8
+            case .statValueSmall: return baseSize + 2
+            case .statLabel:      return baseSize - 1
+            case .statSub:        return baseSize - 1
+            }
+        }
+
         // === Titles ===
-        static let projectTitle         = Font.system(size: 18, weight: .semibold)
-        static let titleLarge           = Font.system(size: 18, weight: .medium)
-        static let titleMedium          = Font.system(size: 14, weight: .medium)
-        static let headline             = Font.system(size: 13, weight: .medium)
+        static var projectTitle: Font { Font.system(size: pointSize(for: .projectTitle), weight: .semibold) }
+        static var titleLarge: Font   { Font.system(size: pointSize(for: .titleLarge), weight: .medium) }
+        static var titleMedium: Font  { Font.system(size: pointSize(for: .titleMedium), weight: .medium) }
+        static var headline: Font     { Font.system(size: pointSize(for: .headline), weight: .medium) }
 
         // === Body ===
-        static let body                 = Font.system(size: 14)
-        static let bodySemibold         = Font.system(size: 14, weight: .semibold)
-        static let bodyDefault          = Font.system(size: 13)
-        static let bodySmall            = Font.system(size: 12)
-        static let caption              = Font.system(size: 12)
-        static let captionSmall         = Font.system(size: 10)
-        static let micro                = Font.system(size: 9)
+        static var body: Font           { Font.system(size: pointSize(for: .body)) }
+        static var bodySemibold: Font   { Font.system(size: pointSize(for: .bodySemibold), weight: .semibold) }
+        static var bodyDefault: Font    { Font.system(size: pointSize(for: .bodyDefault)) }
+        static var bodySmall: Font      { Font.system(size: pointSize(for: .bodySmall)) }
+        static var caption: Font        { Font.system(size: pointSize(for: .caption)) }
+        static var captionSmall: Font   { Font.system(size: pointSize(for: .captionSmall)) }
+        static var micro: Font          { Font.system(size: pointSize(for: .micro)) }
 
         // === Monospace (Ubuntu Mono — bundled) ===
-        static let mono                 = Font.custom("UbuntuMono-Regular", size: 13)
-        static let monoSmall            = Font.custom("UbuntuMono-Regular", size: 11)
-        static let monoBold             = Font.custom("UbuntuMono-Bold", size: 13)
+        static var mono: Font      { Font.custom("UbuntuMono-Regular", size: pointSize(for: .mono)) }
+        static var monoSmall: Font { Font.custom("UbuntuMono-Regular", size: pointSize(for: .monoSmall)) }
+        static var monoBold: Font  { Font.custom("UbuntuMono-Bold", size: pointSize(for: .monoBold)) }
 
         // Backwards-compatible aliases
-        static let monoDefault          = Font.custom("UbuntuMono-Regular", size: 12)
+        static var monoDefault: Font { Font.custom("UbuntuMono-Regular", size: pointSize(for: .monoDefault)) }
 
         // === Stat Cards (unused until Phase 3) ===
-        static let statValue            = Font.system(size: 20, weight: .medium)
-        static let statValueSmall       = Font.system(size: 14, weight: .medium)
-        static let statLabel            = Font.system(size: 11)
-        static let statSub              = Font.system(size: 11)
+        static var statValue: Font      { Font.system(size: pointSize(for: .statValue), weight: .medium) }
+        static var statValueSmall: Font { Font.system(size: pointSize(for: .statValueSmall), weight: .medium) }
+        static var statLabel: Font      { Font.system(size: pointSize(for: .statLabel)) }
+        static var statSub: Font        { Font.system(size: pointSize(for: .statSub)) }
     }
 
     // MARK: - Spacing (in points)
