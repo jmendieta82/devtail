@@ -58,18 +58,23 @@ struct TaskBoardStoreTests {
         #expect(store.board == nil)
     }
 
+    /// Fixed creation date used wherever a test asserts the exact written
+    /// task line — addTask stamps the date, so file assertions must
+    /// include it ("- [ ] 2026-07-18 title").
+    private static let stampDate = Date(timeIntervalSince1970: 1_784_332_800)
+
     @Test("two rapid mutations both survive (writes are serialized)")
     func rapidMutationsCompose() async {
         let (store, mock) = makeStore(files: [".devtail/tasks.md": TaskBoardParser.render(.empty)])
         store.refresh()
         await store.ioTask?.value
-        store.addTask(title: "first")
-        store.addTask(title: "second")
+        store.addTask(title: "first", createdOn: Self.stampDate)
+        store.addTask(title: "second", createdOn: Self.stampDate)
         await store.ioTask?.value
         #expect(store.board?.tasks(in: .pending).map(\.title) == ["first", "second"])
         let written = mock.files[store.boardURL] ?? ""
-        #expect(written.contains("- [ ] first"))
-        #expect(written.contains("- [ ] second"))
+        #expect(written.contains("- [ ] 2026-07-18 first"))
+        #expect(written.contains("- [ ] 2026-07-18 second"))
     }
 
     @Test("createBoard writes the template and loads it")
@@ -87,10 +92,10 @@ struct TaskBoardStoreTests {
         let (store, mock) = makeStore(files: [".devtail/tasks.md": TaskBoardParser.render(.empty)])
         store.refresh()
         await store.ioTask?.value
-        store.addTask(title: "from ui")
+        store.addTask(title: "from ui", createdOn: Self.stampDate)
         await store.ioTask?.value
         #expect(store.board?.tasks(in: .pending).map(\.title) == ["from ui"])
-        #expect(mock.files[store.boardURL]?.contains("- [ ] from ui") == true)
+        #expect(mock.files[store.boardURL]?.contains("- [ ] 2026-07-18 from ui") == true)
     }
 
     @Test("addTask to an explicit state persists in that section")
@@ -98,12 +103,12 @@ struct TaskBoardStoreTests {
         let (store, mock) = makeStore(files: [".devtail/tasks.md": TaskBoardParser.render(.empty)])
         store.refresh()
         await store.ioTask?.value
-        store.addTask(title: "now", to: .doing)
+        store.addTask(title: "now", to: .doing, createdOn: Self.stampDate)
         await store.ioTask?.value
         #expect(store.board?.tasks(in: .doing).map(\.title) == ["now"])
         let written = mock.files[store.boardURL] ?? ""
         #expect(written.contains("## Doing"))
-        #expect(written.contains("- [ ] now"))
+        #expect(written.contains("- [ ] 2026-07-18 now"))
     }
 
     @Test("renameTask updates the title and persists")
@@ -192,13 +197,13 @@ struct TaskBoardStoreTests {
         // the chained mutation write the pre-archive board back to disk.
         mock.appendDelayNanoseconds = 50_000_000
         store.archiveDone(on: Date(timeIntervalSince1970: 1_784_332_800))
-        store.addTask(title: "quick add")
+        store.addTask(title: "quick add", createdOn: Self.stampDate)
         await store.ioTask?.value
         #expect(store.board?.tasks(in: .done).isEmpty == true)
         #expect(store.board?.tasks(in: .pending).map(\.title) == ["quick add"])
         let written = mock.files[store.boardURL] ?? ""
         #expect(written.contains("shipped") == false)
-        #expect(written.contains("- [ ] quick add"))
+        #expect(written.contains("- [ ] 2026-07-18 quick add"))
         #expect((mock.files[store.archiveURL] ?? "").contains("- [x] shipped"))
     }
 
@@ -242,7 +247,7 @@ struct TaskBoardStoreTests {
         mock.appendDelayNanoseconds = 50_000_000
         mock.failAppends = true
         store.archiveDone(on: Date(timeIntervalSince1970: 1_784_332_800))
-        store.addTask(title: "quick add")
+        store.addTask(title: "quick add", createdOn: Self.stampDate)
         await store.ioTask?.value
         #expect(store.board?.tasks(in: .done).map(\.title) == ["shipped"])
         #expect(mock.files[store.archiveURL] == nil)
