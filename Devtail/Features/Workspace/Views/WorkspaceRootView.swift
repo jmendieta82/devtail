@@ -115,13 +115,13 @@ struct WorkspaceRootView: View {
                     WorkspaceSidePanel(session: session)
                 }
             }
-            // idealWidth pinned to maxWidth: HSplitView opens children at
-            // their ideal size, so without it both panels debut at their
-            // minimum and look cramped until manually dragged.
+            // HSplitView does not reliably honor idealWidth (legacy
+            // NSSplitView wrapper), so the default open width IS the
+            // minimum: panels debut at the width they should have, and the
+            // divider only allows growing from there.
             .frame(
-                minWidth: session.sidePanel == nil ? 48 : 48 + 1 + 220,
-                idealWidth: session.sidePanel == nil ? 48 : 48 + 1 + 300,
-                maxWidth: session.sidePanel == nil ? 48 : 48 + 1 + 300
+                minWidth: session.sidePanel == nil ? 48 : 48 + 1 + 300,
+                maxWidth: session.sidePanel == nil ? 48 : 48 + 1 + 360
             )
 
             VStack(spacing: 0) {
@@ -134,7 +134,7 @@ struct WorkspaceRootView: View {
                 collapsedDashboardStrip
             } else {
                 WorkspaceDashboardColumn(session: session)
-                    .frame(minWidth: 260, idealWidth: 340, maxWidth: 340)
+                    .frame(minWidth: 340, maxWidth: 400)
             }
         }
     }
