@@ -79,8 +79,12 @@ struct WorkspaceRootView: View {
                     WorkspaceSidePanel(session: session)
                 }
             }
+            // idealWidth pinned to maxWidth: HSplitView opens children at
+            // their ideal size, so without it both panels debut at their
+            // minimum and look cramped until manually dragged.
             .frame(
                 minWidth: session.sidePanel == nil ? 48 : 48 + 1 + 220,
+                idealWidth: session.sidePanel == nil ? 48 : 48 + 1 + 300,
                 maxWidth: session.sidePanel == nil ? 48 : 48 + 1 + 300
             )
 
@@ -94,7 +98,7 @@ struct WorkspaceRootView: View {
                 collapsedDashboardStrip
             } else {
                 WorkspaceDashboardColumn(session: session)
-                    .frame(minWidth: 260, maxWidth: 340)
+                    .frame(minWidth: 260, idealWidth: 340, maxWidth: 340)
             }
         }
     }
