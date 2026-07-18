@@ -155,4 +155,24 @@ struct TaskBoardStoreTests {
         await store.ioTask?.value
         #expect(mock.files[store.archiveURL] == nil)
     }
+
+    @Test("addTask during an in-flight archive does not resurrect archived tasks")
+    func addDuringArchiveDoesNotResurrect() async {
+        let (store, mock) = makeStore(files: [".devtail/tasks.md": "## Done\n- [x] shipped\n"])
+        store.refresh()
+        await store.ioTask?.value
+        // Hold the archive's append in flight so the add interleaves
+        // behind it — the exact window where a non-optimistic archive let
+        // the chained mutation write the pre-archive board back to disk.
+        mock.appendDelayNanoseconds = 50_000_000
+        store.archiveDone(on: Date(timeIntervalSince1970: 1_784_332_800))
+        store.addTask(title: "quick add")
+        await store.ioTask?.value
+        #expect(store.board?.tasks(in: .done).isEmpty == true)
+        #expect(store.board?.tasks(in: .pending).map(\.title) == ["quick add"])
+        let written = mock.files[store.boardURL] ?? ""
+        #expect(written.contains("shipped") == false)
+        #expect(written.contains("- [ ] quick add"))
+        #expect((mock.files[store.archiveURL] ?? "").contains("- [x] shipped"))
+    }
 }

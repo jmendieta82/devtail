@@ -73,22 +73,27 @@ final class TaskBoardStore {
 
     /// Archives Done tasks: append to the archive file under a dated
     /// heading FIRST, and only rewrite the board when that append
-    /// succeeded — a failed archive must never lose tasks. NOT optimistic
-    /// (unlike `mutate`): the board keeps its Done tasks until the append
-    /// lands.
+    /// succeeded — a failed archive re-refreshes from disk, restoring the
+    /// Done tasks (they were never removed from the file). Optimistic like
+    /// `mutate` — the in-memory board drops the Done tasks immediately, so
+    /// a mutation issued while the archive I/O is in flight derives from
+    /// the post-archive board instead of resurrecting the archived tasks
+    /// through its own chained write.
     func archiveDone(on date: Date) {
         guard var working = board, !working.tasks(in: .done).isEmpty else { return }
         let removed = working.removeDoneTasks()
+        board = working
         let heading = Self.archiveDateFormatter.string(from: date)
         let block = "## \(heading)\n" + removed.map { "- [x] \($0.title)" }.joined(separator: "\n") + "\n\n"
         let previous = ioTask
         ioTask = Task { @MainActor [weak self] in
             await previous?.value
             guard let self else { return }
-            guard await self.fileAccess.append(block, to: self.archiveURL) else { return }
-            if await self.fileAccess.write(TaskBoardParser.render(working), to: self.boardURL) {
-                self.board = working
-            } else {
+            guard await self.fileAccess.append(block, to: self.archiveURL) else {
+                await self.refreshFromDisk()
+                return
+            }
+            if await !self.fileAccess.write(TaskBoardParser.render(working), to: self.boardURL) {
                 await self.refreshFromDisk()
             }
         }

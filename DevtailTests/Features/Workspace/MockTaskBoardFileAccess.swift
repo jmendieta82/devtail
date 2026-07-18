@@ -15,6 +15,9 @@ final class MockTaskBoardFileAccess: TaskBoardFileAccessing, @unchecked Sendable
     var failWrites = false
     var failAppends = false
     var readDelayNanoseconds: UInt64 = 0
+    /// Delay before append returns — holds an archive's I/O in flight so
+    /// tests can interleave a mutation behind it.
+    var appendDelayNanoseconds: UInt64 = 0
 
     func read(at url: URL) async -> String? {
         if readDelayNanoseconds > 0 {
@@ -30,6 +33,9 @@ final class MockTaskBoardFileAccess: TaskBoardFileAccessing, @unchecked Sendable
     }
 
     func append(_ text: String, to url: URL) async -> Bool {
+        if appendDelayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: appendDelayNanoseconds)
+        }
         guard !failAppends else { return false }
         files[url] = (files[url] ?? "") + text
         return true
