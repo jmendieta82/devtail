@@ -122,7 +122,9 @@ struct TaskBoardPanel: View {
     }
 
     private func taskCard(_ task: TaskItem) -> some View {
-        HStack(alignment: .center, spacing: DevtailTokens.Spacing.gapSmall) {
+        // firstTextBaseline keeps the checkbox and menu pinned to the
+        // FIRST line when a long title wraps the card taller.
+        HStack(alignment: .firstTextBaseline, spacing: DevtailTokens.Spacing.gapSmall) {
             Button {
                 store.moveTask(id: task.id, to: task.state == .done ? .pending : .done)
             } label: {
@@ -136,7 +138,9 @@ struct TaskBoardPanel: View {
             .help(task.state == .done ? "Reopen (back to Pending)" : "Mark done")
 
             if editingTaskID == task.id {
-                TextField("Task title", text: $editingTitle)
+                // axis: .vertical so long titles edit as wrapped text
+                // instead of a scrolling single line.
+                TextField("Task title", text: $editingTitle, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(DevtailTokens.Typography.caption)
                     .focused($editingFieldFocused)
@@ -149,10 +153,12 @@ struct TaskBoardPanel: View {
                         ? DevtailTokens.Colors.textTertiary
                         : DevtailTokens.Colors.textSecondary)
                     .strikethrough(task.state == .done)
-                    .lineLimit(2)
-                    .help(task.title)
-                    // High-priority so the double-click wins over the card's
-                    // hit-testing without eating single clicks elsewhere.
+                    // No line limit — the card grows to show the whole
+                    // annotation. fixedSize(vertical) is what makes Text
+                    // WRAP here instead of truncating to one line inside
+                    // the HStack.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .onTapGesture(count: 2) { beginRename(task) }
             }
 
