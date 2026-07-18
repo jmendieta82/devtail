@@ -305,6 +305,7 @@ struct WorkspaceDashboardColumn: View {
                 shortcutRow("\u{2318}P", "Processes")
                 shortcutRow("\u{2318}T", "Terminal")
                 shortcutRow("\u{2318}B", "Task board")
+                shortcutRow("\u{21E7}\u{2318}A", "Agent")
                 shortcutRow("\u{2318}S", "Settings (Save in file tabs)")
                 shortcutRow("\u{2318}I", "Toggle left panel")
                 shortcutRow("\u{2318}D", "Toggle project panel")

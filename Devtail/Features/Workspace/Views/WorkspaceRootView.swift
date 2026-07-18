@@ -51,6 +51,11 @@ struct WorkspaceRootView: View {
                 Button("") { session.selectedTab = .tasks }
                     .keyboardShortcut("b", modifiers: .command)
 
+                // Shift-modified: bare Cmd+A must keep meaning Select All
+                // in every text field and the terminal.
+                Button("") { session.selectedTab = .agent }
+                    .keyboardShortcut("a", modifiers: [.command, .shift])
+
                 // Cmd+S belongs to Save while a file tab is active — the
                 // env editor registers it on its Save button — so the
                 // settings binding only exists on non-file tabs, keeping
