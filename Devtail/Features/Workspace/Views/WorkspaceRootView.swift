@@ -47,6 +47,10 @@ struct WorkspaceRootView: View {
                 Button("") { session.selectedTab = .terminal }
                     .keyboardShortcut("t", modifiers: .command)
 
+                // B for board — T is taken by the terminal.
+                Button("") { session.selectedTab = .tasks }
+                    .keyboardShortcut("b", modifiers: .command)
+
                 // Cmd+S belongs to Save while a file tab is active — the
                 // env editor registers it on its Save button — so the
                 // settings binding only exists on non-file tabs, keeping
