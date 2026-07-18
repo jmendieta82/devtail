@@ -28,7 +28,16 @@ struct WorkspaceSessionGitStatusTests {
     }
 
     private func sampleStatus() -> GitStatus {
-        GitStatus(branch: "main", localBranchCount: 2, isDirty: true, changedFileCount: 3, ahead: 1, behind: 0)
+        GitStatus(
+            branch: "main",
+            localBranches: ["main", "dev"],
+            isDirty: true,
+            changedFileCount: 3,
+            ahead: 1,
+            behind: 0,
+            lastCommitSubject: "feat: something",
+            lastCommitDate: Date(timeIntervalSince1970: 1_752_854_400)
+        )
     }
 
     @Test func gitStatusDefaultsToNilOnFreshSession() {

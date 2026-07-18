@@ -25,15 +25,18 @@ import Foundation
 import os.log
 
 /// Snapshot of a git repository's status, as read by `GitStatusReader`.
-/// Optional fields (`ahead`/`behind`) are nil when there is no upstream
-/// configured for the current branch.
+/// Optional fields (`ahead`/`behind`, `lastCommitSubject`/`lastCommitDate`)
+/// are nil when there is no upstream configured for the current branch or
+/// when there is no readable HEAD commit.
 struct GitStatus: Equatable, Sendable {
     let branch: String
-    let localBranchCount: Int
+    let localBranches: [String]
     let isDirty: Bool
     let changedFileCount: Int
     let ahead: Int?
     let behind: Int?
+    let lastCommitSubject: String?
+    let lastCommitDate: Date?
 }
 
 /// Injection seam for `WorkspaceSession.refreshGitStatus()`: the real
@@ -67,7 +70,7 @@ struct GitStatusReader: GitStatusReading, Sendable {
         guard !branch.isEmpty else { return nil }
 
         let branchListOutput = await Self.run(["branch", "--format=%(refname:short)"], in: root) ?? ""
-        let localBranchCount = Self.parseBranchList(branchListOutput).count
+        let localBranches = Self.parseBranchList(branchListOutput)
 
         let porcelainOutput = await Self.run(["status", "--porcelain"], in: root) ?? ""
         let (isDirty, changedFileCount) = Self.parsePorcelain(porcelainOutput)
@@ -81,13 +84,23 @@ struct GitStatusReader: GitStatusReading, Sendable {
             behind = parsed.behind
         }
 
+        var lastCommitSubject: String?
+        var lastCommitDate: Date?
+        if let logOutput = await Self.run(["log", "-1", "--format=%s%x09%ct"], in: root),
+           let parsed = Self.parseLastCommit(logOutput) {
+            lastCommitSubject = parsed.subject
+            lastCommitDate = parsed.date
+        }
+
         return GitStatus(
             branch: branch,
-            localBranchCount: localBranchCount,
+            localBranches: localBranches,
             isDirty: isDirty,
             changedFileCount: changedFileCount,
             ahead: ahead,
-            behind: behind
+            behind: behind,
+            lastCommitSubject: lastCommitSubject,
+            lastCommitDate: lastCommitDate
         )
     }
 

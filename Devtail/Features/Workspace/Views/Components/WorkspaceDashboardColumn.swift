@@ -104,7 +104,7 @@ struct WorkspaceDashboardColumn: View {
     /// there is no upstream configured).
     private func gitStatusDetails(_ status: GitStatus) -> some View {
         VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
-            Text("\(status.localBranchCount) branches")
+            Text("\(status.localBranches.count) branches")
                 .font(DevtailTokens.Typography.captionSmall)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
 
