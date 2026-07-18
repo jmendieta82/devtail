@@ -37,12 +37,12 @@ struct WorkspaceDashboardColumn: View {
                     Button {
                         session.dashboardCollapsed = true
                     } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10))
+                        Image(systemName: "sidebar.trailing")
+                            .font(.system(size: 14))
                     }
                     .buttonStyle(.icon)
                     .foregroundStyle(.secondary)
-                    .help("Collapse project panel")
+                    .help("Hide project panel")
                 }
                 Text(session.root.path)
                     .font(.caption.monospaced())

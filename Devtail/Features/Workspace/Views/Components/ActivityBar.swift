@@ -11,11 +11,11 @@ struct ActivityBar: View {
                     session.sidePanel = (session.sidePanel == view) ? nil : view
                 } label: {
                     Image(systemName: view.icon)
-                        .font(.system(size: 16))
+                        .font(.system(size: 18))
                         .foregroundStyle(session.sidePanel == view
                             ? DevtailTokens.Colors.accentPrimary
                             : DevtailTokens.Colors.textTertiary)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.icon)
                 .help(view.help)
@@ -25,11 +25,11 @@ struct ActivityBar: View {
                 session.selectedTab = .tasks
             } label: {
                 Image(systemName: "checklist")
-                    .font(.system(size: 16))
+                    .font(.system(size: 18))
                     .foregroundStyle(session.selectedTab == .tasks
                         ? DevtailTokens.Colors.accentPrimary
                         : DevtailTokens.Colors.textTertiary)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
             }
             .buttonStyle(.icon)
             .help("Tasks")
@@ -40,11 +40,11 @@ struct ActivityBar: View {
                 session.selectedTab = .settings
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 16))
+                    .font(.system(size: 18))
                     .foregroundStyle(session.selectedTab == .settings
                         ? DevtailTokens.Colors.accentPrimary
                         : DevtailTokens.Colors.textTertiary)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
             }
             .buttonStyle(.icon)
             .help("Project settings")

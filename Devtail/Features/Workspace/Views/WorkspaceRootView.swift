@@ -100,22 +100,26 @@ struct WorkspaceRootView: View {
     }
 
     /// Slim strip shown in place of `WorkspaceDashboardColumn` when
-    /// `dashboardCollapsed` is true — just a chevron to re-expand it.
+    /// `dashboardCollapsed` is true. Uses the Xcode-style trailing-sidebar
+    /// toggle glyph so show/hide reads as the standard macOS panel
+    /// control, mirrored by the collapse button in the expanded column.
     private var collapsedDashboardStrip: some View {
         VStack {
             Button {
                 session.dashboardCollapsed = false
             } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 10))
+                Image(systemName: "sidebar.trailing")
+                    .font(.system(size: 18))
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    .frame(width: 36, height: 36)
             }
             .buttonStyle(.icon)
-            .help("Expand project panel")
-            .padding(DevtailTokens.Spacing.gapSmall)
+            .help("Show project panel")
+            .padding(.top, DevtailTokens.Spacing.gapSmall)
 
             Spacer()
         }
-        .frame(width: 28)
+        .frame(width: 44)
         .background(DevtailTokens.Colors.titleBar)
     }
 
