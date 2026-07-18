@@ -92,6 +92,9 @@ final class WorkspaceSession: Identifiable {
     /// the files side panel. The walk itself runs off the main actor — see
     /// `FileSearchWalker.search`.
     let fileSearch: FileSearchStore
+    /// Task board for this project's .devtail/tasks.md — loaded lazily by
+    /// the tasks side panel, not at session creation.
+    let taskBoard: TaskBoardStore
     /// Which side panel view is showing: files or processes.
     var sidePanel: SidePanelView = .files
     /// Injected git status reader — real `GitStatusReader()` in production,
@@ -135,6 +138,7 @@ final class WorkspaceSession: Identifiable {
         self.openedAt = openedAt
         self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
         self.fileSearch = FileSearchStore(root: root, walker: FileSearchWalker(lister: FileManagerDirectoryLister()))
+        self.taskBoard = TaskBoardStore(root: root)
         self.gitStatusReader = gitStatusReader
         self.claudeIntrospector = claudeIntrospector
     }
@@ -469,6 +473,7 @@ final class WorkspaceSessionsHolder {
         session.agent.terminate()
         session.cancelGitStatusRefresh()
         session.cancelClaudeInfoRefresh()
+        session.taskBoard.cancel()
         session.fileSearch.cancelSearch()
     }
 
