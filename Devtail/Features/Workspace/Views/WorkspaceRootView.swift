@@ -30,14 +30,42 @@ struct WorkspaceRootView: View {
         }
         .navigationTitle(session.projectName)
         .background(
-            // Hidden Cmd+P registration: from anywhere in the workspace
-            // window, switch the side panel to Files and focus the file
-            // search field (FileTreeColumn consumes the request).
-            Button("") {
-                session.sidePanel = .files
-                session.fileSearch.requestFocus()
+            // Hidden keyboard-shortcut registrations, reachable from
+            // anywhere in the workspace window. The map is mirrored by the
+            // Shortcuts card in the dashboard column — keep both in sync.
+            Group {
+                // Files panel + focused file search (the old Cmd+P role).
+                Button("") {
+                    session.sidePanel = .files
+                    session.fileSearch.requestFocus()
+                }
+                .keyboardShortcut("f", modifiers: .command)
+
+                Button("") { session.sidePanel = .processes }
+                    .keyboardShortcut("p", modifiers: .command)
+
+                Button("") { session.selectedTab = .terminal }
+                    .keyboardShortcut("t", modifiers: .command)
+
+                // Cmd+S belongs to Save while a file tab is active — the
+                // env editor registers it on its Save button — so the
+                // settings binding only exists on non-file tabs, keeping
+                // the two registrations mutually exclusive.
+                if !isFileTabSelected {
+                    Button("") { session.selectedTab = .settings }
+                        .keyboardShortcut("s", modifiers: .command)
+                }
+
+                // Panel visibility toggles: left rail panel and right
+                // dashboard column.
+                Button("") {
+                    session.sidePanel = session.sidePanel == nil ? .files : nil
+                }
+                .keyboardShortcut("i", modifiers: .command)
+
+                Button("") { session.dashboardCollapsed.toggle() }
+                    .keyboardShortcut("d", modifiers: .command)
             }
-            .keyboardShortcut("p", modifiers: .command)
             .hidden()
         )
         .onDisappear { holder.close(projectId: session.projectId) }
@@ -61,6 +89,14 @@ struct WorkspaceRootView: View {
                 pendingCloseFilePath = nil
             }
         }
+    }
+
+    /// Whether a file-viewer tab is currently selected — gates the global
+    /// Cmd+S settings shortcut so it never competes with the env editor's
+    /// Save.
+    private var isFileTabSelected: Bool {
+        if case .file = session.selectedTab { return true }
+        return false
     }
 
     private var splitContent: some View {

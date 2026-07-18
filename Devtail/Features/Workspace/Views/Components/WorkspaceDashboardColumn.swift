@@ -21,6 +21,7 @@ struct WorkspaceDashboardColumn: View {
                 quickLinksSection
                 sessionSection
                 claudeSection
+                shortcutsSection
             }
             .padding(DevtailTokens.Spacing.cardPadding)
         }
@@ -291,6 +292,40 @@ struct WorkspaceDashboardColumn: View {
                         .foregroundStyle(DevtailTokens.Colors.textSecondary)
                 }
             }
+        }
+    }
+
+    /// Workspace keyboard map — mirrors the hidden shortcut registrations
+    /// in WorkspaceRootView; keep both in sync. Cmd+S shows Settings only
+    /// outside file tabs (Save owns it there), noted in its row.
+    private var shortcutsSection: some View {
+        card(title: "Shortcuts") {
+            VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                shortcutRow("\u{2318}F", "Files + search")
+                shortcutRow("\u{2318}P", "Processes")
+                shortcutRow("\u{2318}T", "Terminal")
+                shortcutRow("\u{2318}S", "Settings (Save in file tabs)")
+                shortcutRow("\u{2318}I", "Toggle left panel")
+                shortcutRow("\u{2318}D", "Toggle project panel")
+            }
+        }
+    }
+
+    private func shortcutRow(_ keys: String, _ action: String) -> some View {
+        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+            Text(keys)
+                .font(DevtailTokens.Typography.captionSmall.monospaced())
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.primary.opacity(0.08))
+                )
+            Text(action)
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            Spacer(minLength: 0)
         }
     }
 
