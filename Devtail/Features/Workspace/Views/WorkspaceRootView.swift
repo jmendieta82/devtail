@@ -75,7 +75,8 @@ struct WorkspaceRootView: View {
             // divider only allows growing from there.
             .frame(
                 minWidth: session.sidePanel == nil ? 48 : 48 + 1 + 300,
-                maxWidth: session.sidePanel == nil ? 48 : 48 + 1 + 360
+                maxWidth: session.sidePanel == nil ? 48 : 48 + 1 + 360,
+                alignment: .leading
             )
 
             VStack(spacing: 0) {

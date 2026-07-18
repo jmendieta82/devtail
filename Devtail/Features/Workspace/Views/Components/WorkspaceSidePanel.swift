@@ -19,6 +19,19 @@ struct WorkspaceSidePanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
                 SectionHeader(title: "Processes")
+                if session.supervisor.processes.isEmpty {
+                    // Empty fallback: without it the panel collapses to the
+                    // header's natural width and the split pane CENTERS the
+                    // rail+panel cluster, leaving a dead column at the
+                    // window's leading edge (found on projects with no
+                    // processes configured).
+                    Text("No processes configured")
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    Text("Edit the project to add backend or frontend commands.")
+                        .font(DevtailTokens.Typography.captionSmall)
+                        .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                }
                 ForEach(session.supervisor.processes) { process in
                     ProcessCardView(
                         process: process,
@@ -40,6 +53,10 @@ struct WorkspaceSidePanel: View {
                 }
             }
             .padding(DevtailTokens.Spacing.cardPadding)
+            // Fill the pane regardless of content width — a narrow column
+            // (empty list) must never shrink the panel and let the split
+            // pane center the whole rail+panel cluster.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
