@@ -26,6 +26,8 @@ struct TaskBoardTabView: View {
     @State private var editingTaskID: UUID?
     @State private var editingTitle = ""
     @FocusState private var editingFieldFocused: Bool
+    /// Column currently hovered by a card drag — drives the drop highlight.
+    @State private var dropTargetState: TaskState?
 
     private var store: TaskBoardStore { session.taskBoard }
 
@@ -102,6 +104,19 @@ struct TaskBoardTabView: View {
             quickAddField(for: state)
         }
         .frame(maxWidth: .infinity, alignment: .top)
+        // Whole-column drop target: a card dragged from another column
+        // lands at the end of this one (same semantics as the move menu).
+        .background(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .fill(Self.stateColor(state).opacity(dropTargetState == state ? 0.08 : 0))
+        )
+        .dropDestination(for: String.self) { items, _ in
+            guard let raw = items.first, let id = UUID(uuidString: raw) else { return false }
+            store.moveTask(id: id, to: state)
+            return true
+        } isTargeted: { targeted in
+            dropTargetState = targeted ? state : (dropTargetState == state ? nil : dropTargetState)
+        }
     }
 
     private func columnHeader(_ state: TaskState, tasks: [TaskItem]) -> some View {
@@ -223,6 +238,10 @@ struct TaskBoardTabView: View {
                 .padding(.vertical, DevtailTokens.Spacing.gapSmall)
         }
         .opacity(task.state == .done ? 0.75 : 1)
+        // The card travels as its task id; the drop side parses it back.
+        // String payload keeps TaskItem free of Transferable/Codable
+        // conformances it does not otherwise need.
+        .draggable(task.id.uuidString)
     }
 
     /// One state-color mapping shared by the column dots and the card
