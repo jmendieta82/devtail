@@ -64,20 +64,51 @@ struct GitStatusReaderTests {
         #expect(result.count == 1)
     }
 
-    // MARK: - parseBranchCount
+    // MARK: - parseBranchList
 
-    @Test("parseBranchCount counts one branch per line")
-    func parseBranchCountMultiple() {
-        #expect(GitStatusReader.parseBranchCount("main\ndev\n") == 2)
+    @Test("parseBranchList returns one branch name per line, in order")
+    func parseBranchListMultiple() {
+        #expect(GitStatusReader.parseBranchList("main\ndev\n") == ["main", "dev"])
     }
 
-    @Test("parseBranchCount returns zero for empty output")
-    func parseBranchCountEmpty() {
-        #expect(GitStatusReader.parseBranchCount("") == 0)
+    @Test("parseBranchList returns empty for empty output")
+    func parseBranchListEmpty() {
+        #expect(GitStatusReader.parseBranchList("") == [])
     }
 
-    @Test("parseBranchCount ignores blank lines")
-    func parseBranchCountIgnoresBlankLines() {
-        #expect(GitStatusReader.parseBranchCount("main\n\ndev\n") == 2)
+    @Test("parseBranchList ignores blank lines and trims whitespace")
+    func parseBranchListIgnoresBlankLines() {
+        #expect(GitStatusReader.parseBranchList("main\n\n  dev \n") == ["main", "dev"])
+    }
+
+    // MARK: - parseLastCommit
+
+    @Test("parseLastCommit parses subject and unix timestamp")
+    func parseLastCommitValid() {
+        let result = GitStatusReader.parseLastCommit("fix: teardown race\t1752854400\n")
+        #expect(result?.subject == "fix: teardown race")
+        #expect(result?.date == Date(timeIntervalSince1970: 1_752_854_400))
+    }
+
+    @Test("parseLastCommit keeps tabs inside the subject (splits on the last tab)")
+    func parseLastCommitSubjectWithTab() {
+        let result = GitStatusReader.parseLastCommit("subject\twith tab\t1752854400")
+        #expect(result?.subject == "subject\twith tab")
+        #expect(result?.date == Date(timeIntervalSince1970: 1_752_854_400))
+    }
+
+    @Test("parseLastCommit returns nil for empty output")
+    func parseLastCommitEmpty() {
+        #expect(GitStatusReader.parseLastCommit("") == nil)
+    }
+
+    @Test("parseLastCommit returns nil when the tab separator is missing")
+    func parseLastCommitMissingTab() {
+        #expect(GitStatusReader.parseLastCommit("just a subject") == nil)
+    }
+
+    @Test("parseLastCommit returns nil for a non-numeric timestamp")
+    func parseLastCommitBadTimestamp() {
+        #expect(GitStatusReader.parseLastCommit("subject\tnot-a-number") == nil)
     }
 }

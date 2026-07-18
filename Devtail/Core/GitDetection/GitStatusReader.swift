@@ -15,7 +15,7 @@
 //  Process launch + pipe read is blocking I/O.
 //
 //  The PARSING of each command's stdout is extracted to pure static
-//  functions (`parseAheadBehind`, `parseBranchCount`, `parsePorcelain`) so
+//  functions (`parseAheadBehind`, `parseBranchList`, `parseLastCommit`, `parsePorcelain`) so
 //  the interesting logic is unit-testable without touching a real process
 //  or filesystem. `status(in:)` itself is best-effort/manual-tested only —
 //  see the design doc.
@@ -67,7 +67,7 @@ struct GitStatusReader: GitStatusReading, Sendable {
         guard !branch.isEmpty else { return nil }
 
         let branchListOutput = await Self.run(["branch", "--format=%(refname:short)"], in: root) ?? ""
-        let localBranchCount = Self.parseBranchCount(branchListOutput)
+        let localBranchCount = Self.parseBranchList(branchListOutput).count
 
         let porcelainOutput = await Self.run(["status", "--porcelain"], in: root) ?? ""
         let (isDirty, changedFileCount) = Self.parsePorcelain(porcelainOutput)
@@ -185,11 +185,24 @@ struct GitStatusReader: GitStatusReading, Sendable {
     }
 
     /// Parses `git branch --format=%(refname:short)` output: one local
-    /// branch name per non-blank line.
-    static func parseBranchCount(_ output: String) -> Int {
+    /// branch name per non-blank line, order preserved.
+    static func parseBranchList(_ output: String) -> [String] {
         output
             .split(separator: "\n", omittingEmptySubsequences: true)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            .count
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// Parses `git log -1 --format=%s%x09%ct` output: commit subject, a
+    /// tab, and the unix committer timestamp. Splits on the LAST tab so a
+    /// subject containing tabs stays intact. Returns nil for any malformed
+    /// shape (no tab, empty subject, non-numeric timestamp).
+    static func parseLastCommit(_ output: String) -> (subject: String, date: Date)? {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let tabIndex = trimmed.lastIndex(of: "\t") else { return nil }
+        let subject = String(trimmed[..<tabIndex]).trimmingCharacters(in: .whitespaces)
+        let timestampText = String(trimmed[trimmed.index(after: tabIndex)...])
+        guard !subject.isEmpty, let timestamp = TimeInterval(timestampText) else { return nil }
+        return (subject: subject, date: Date(timeIntervalSince1970: timestamp))
     }
 }
