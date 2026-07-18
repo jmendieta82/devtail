@@ -95,8 +95,15 @@ final class WorkspaceSession: Identifiable {
     /// Task board for this project's .devtail/tasks.md — loaded lazily by
     /// the tasks side panel, not at session creation.
     let taskBoard: TaskBoardStore
-    /// Which side panel view is showing: files or processes.
-    var sidePanel: SidePanelView = .files
+    /// Which side panel view is showing: files or processes. `nil` means
+    /// collapsed — the activity rail stays visible, but the panel itself
+    /// (and its divider) is hidden. VS Code-style toggle: reselecting the
+    /// active rail icon collapses it; any rail icon re-opens.
+    var sidePanel: SidePanelView? = .files
+    /// Whether the right-hand project dashboard column is collapsed to a
+    /// slim chevron strip. Independent of `sidePanel` — the two panels
+    /// collapse separately.
+    var dashboardCollapsed = false
     /// Injected git status reader — real `GitStatusReader()` in production,
     /// a fake in tests. Lets `refreshGitStatus()` be exercised without
     /// shelling out to a real `git` process.

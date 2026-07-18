@@ -68,15 +68,21 @@ struct WorkspaceRootView: View {
             HStack(spacing: 0) {
                 ActivityBar(session: session)
                     .background(DevtailTokens.Colors.titleBar)
-                // separatorColor is a hairline that vanishes between two
-                // identical dark fills — use an explicit primary tint so the
-                // rail/panel boundary stays visible in both appearances.
-                Rectangle()
-                    .fill(Color.primary.opacity(0.12))
-                    .frame(width: DevtailTokens.BorderWidth.default)
-                WorkspaceSidePanel(session: session)
+                if session.sidePanel != nil {
+                    // separatorColor is a hairline that vanishes between two
+                    // identical dark fills — use an explicit primary tint so
+                    // the rail/panel boundary stays visible in both
+                    // appearances.
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.12))
+                        .frame(width: DevtailTokens.BorderWidth.default)
+                    WorkspaceSidePanel(session: session)
+                }
             }
-            .frame(minWidth: 48 + 1 + 220, maxWidth: 48 + 1 + 300)
+            .frame(
+                minWidth: session.sidePanel == nil ? 48 : 48 + 1 + 220,
+                maxWidth: session.sidePanel == nil ? 48 : 48 + 1 + 300
+            )
 
             VStack(spacing: 0) {
                 tabRow
@@ -84,9 +90,33 @@ struct WorkspaceRootView: View {
             }
             .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
 
-            WorkspaceDashboardColumn(session: session)
-                .frame(minWidth: 260, maxWidth: 340)
+            if session.dashboardCollapsed {
+                collapsedDashboardStrip
+            } else {
+                WorkspaceDashboardColumn(session: session)
+                    .frame(minWidth: 260, maxWidth: 340)
+            }
         }
+    }
+
+    /// Slim strip shown in place of `WorkspaceDashboardColumn` when
+    /// `dashboardCollapsed` is true — just a chevron to re-expand it.
+    private var collapsedDashboardStrip: some View {
+        VStack {
+            Button {
+                session.dashboardCollapsed = false
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 10))
+            }
+            .buttonStyle(.icon)
+            .help("Expand project panel")
+            .padding(DevtailTokens.Spacing.gapSmall)
+
+            Spacer()
+        }
+        .frame(width: 28)
+        .background(DevtailTokens.Colors.titleBar)
     }
 
     private var tabRow: some View {

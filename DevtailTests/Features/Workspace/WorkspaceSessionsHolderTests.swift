@@ -394,6 +394,29 @@ struct WorkspaceSessionsHolderTests {
         #expect(session.sidePanel == .files)
     }
 
+    /// The store just holds the optional — nil (collapsed) and any concrete
+    /// panel both round-trip. The toggle decision itself lives in the view
+    /// (ActivityBar), not here.
+    @Test func sidePanelTogglesToNilWhenReselected() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+
+        session.sidePanel = nil
+        #expect(session.sidePanel == nil)
+
+        session.sidePanel = .processes
+        #expect(session.sidePanel == .processes)
+    }
+
+    @Test func dashboardCollapsedDefaultsFalse() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        #expect(session.dashboardCollapsed == false)
+
+        session.dashboardCollapsed = true
+        #expect(session.dashboardCollapsed == true)
+    }
+
     // MARK: - Settings tab (ephemeral, opened from the activity rail gear)
 
     /// The settings tab is opened by direct assignment (activity rail gear

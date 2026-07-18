@@ -34,6 +34,15 @@ struct WorkspaceDashboardColumn: View {
                     Text(session.projectName)
                         .font(.headline)
                     Spacer()
+                    Button {
+                        session.dashboardCollapsed = true
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.icon)
+                    .foregroundStyle(.secondary)
+                    .help("Collapse project panel")
                 }
                 Text(session.root.path)
                     .font(.caption.monospaced())

@@ -8,7 +8,7 @@ struct ActivityBar: View {
         VStack(spacing: DevtailTokens.Spacing.gapSmall) {
             ForEach(SidePanelView.allCases, id: \.self) { view in
                 Button {
-                    session.sidePanel = view
+                    session.sidePanel = (session.sidePanel == view) ? nil : view
                 } label: {
                     Image(systemName: view.icon)
                         .font(.system(size: 16))
