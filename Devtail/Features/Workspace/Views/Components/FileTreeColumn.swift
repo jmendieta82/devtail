@@ -31,6 +31,10 @@ struct FileTreeColumn: View {
                 }
             }
             .padding(DevtailTokens.Spacing.cardPadding)
+            // Fill the pane regardless of content width — same contract as
+            // processesPanel: a narrow state (root error, pre-load) must
+            // never let the split pane center the rail+panel cluster.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onAppear { session.fileTree.loadRootIfNeeded() }
         // `initial: true` covers a Cmd+P fired while the processes panel was
