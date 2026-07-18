@@ -10,6 +10,8 @@ struct WorkspaceSidePanel: View {
             FileTreeColumn(session: session)
         case .processes:
             processesPanel
+        case .tasks:
+            TaskBoardPanel(session: session)
         }
     }
 

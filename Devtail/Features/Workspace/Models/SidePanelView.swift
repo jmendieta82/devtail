@@ -10,11 +10,13 @@ import Foundation
 enum SidePanelView: CaseIterable {
     case files
     case processes
+    case tasks
 
     var icon: String {
         switch self {
         case .files: "folder"
         case .processes: "play.square.stack"
+        case .tasks: "checklist"
         }
     }
 
@@ -22,6 +24,7 @@ enum SidePanelView: CaseIterable {
         switch self {
         case .files: "Files"
         case .processes: "Processes"
+        case .tasks: "Tasks"
         }
     }
 }
