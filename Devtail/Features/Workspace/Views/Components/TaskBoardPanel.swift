@@ -7,6 +7,12 @@
 //  for the Done group, and quick-add into Pending. Refreshes on appear
 //  so agent-written items show up when the panel opens.
 //
+//  Each task renders as a card from the ProcessCardView/dashboard family
+//  (Radius.card surface, subtle fill and stroke) with a kanban-style
+//  state spine on the leading edge; the spine and the section dots share
+//  one state-color mapping (Doing = accent, Pending = yellow, Done =
+//  green) so state reads at a glance without labels.
+//
 
 import SwiftUI
 
@@ -69,7 +75,10 @@ struct TaskBoardPanel: View {
 
     private func stateGroup(_ state: TaskState, tasks: [TaskItem]) -> some View {
         VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
-            HStack {
+            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                Circle()
+                    .fill(Self.stateColor(state))
+                    .frame(width: 7, height: 7)
                 Text("\(state.displayName) \u{00B7} \(tasks.count)")
                     .font(DevtailTokens.Typography.captionSmall)
                     .foregroundStyle(DevtailTokens.Colors.textTertiary)
@@ -90,25 +99,33 @@ struct TaskBoardPanel: View {
             if tasks.isEmpty {
                 Text("Empty")
                     .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    .foregroundStyle(DevtailTokens.Colors.textTertiary.opacity(0.6))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+                    .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                            .strokeBorder(DevtailTokens.Colors.borderSubtle,
+                                          style: StrokeStyle(lineWidth: DevtailTokens.BorderWidth.default, dash: [4, 3]))
+                    )
             } else {
                 ForEach(tasks) { task in
-                    taskRow(task)
+                    taskCard(task)
                 }
             }
         }
     }
 
-    private func taskRow(_ task: TaskItem) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: DevtailTokens.Spacing.gapSmall) {
+    private func taskCard(_ task: TaskItem) -> some View {
+        HStack(alignment: .center, spacing: DevtailTokens.Spacing.gapSmall) {
             Button {
                 store.moveTask(id: task.id, to: task.state == .done ? .pending : .done)
             } label: {
-                Image(systemName: task.state == .done ? "checkmark.square" : "square")
-                    .font(.system(size: 12))
+                Image(systemName: task.state == .done ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 13))
                     .foregroundStyle(task.state == .done
                         ? DevtailTokens.Colors.trafficGreen
-                        : DevtailTokens.Colors.textSecondary)
+                        : DevtailTokens.Colors.textTertiary)
             }
             .buttonStyle(.icon)
             .help(task.state == .done ? "Reopen (back to Pending)" : "Mark done")
@@ -138,6 +155,38 @@ struct TaskBoardPanel: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+        }
+        .padding(.vertical, DevtailTokens.Spacing.gapSmall + 2)
+        .padding(.leading, DevtailTokens.Spacing.gapMedium)
+        .padding(.trailing, DevtailTokens.Spacing.gapSmall)
+        .background(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .fill(Color.primary.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                .stroke(DevtailTokens.Colors.borderSubtle,
+                        lineWidth: DevtailTokens.BorderWidth.default)
+        )
+        .overlay(alignment: .leading) {
+            // Kanban state spine: rounded color edge inset from the card's
+            // corners, the one at-a-glance state signal on the card itself.
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Self.stateColor(task.state).opacity(task.state == .done ? 0.45 : 0.9))
+                .frame(width: 3)
+                .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+        }
+        .opacity(task.state == .done ? 0.75 : 1)
+    }
+
+    /// One state-color mapping shared by the section dots and the card
+    /// spines — Doing carries the app accent (it is "what is active now"),
+    /// Pending/Done reuse the traffic palette.
+    private static func stateColor(_ state: TaskState) -> Color {
+        switch state {
+        case .doing: DevtailTokens.Colors.accentPrimary
+        case .pending: DevtailTokens.Colors.trafficYellow
+        case .done: DevtailTokens.Colors.trafficGreen
         }
     }
 
