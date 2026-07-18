@@ -1,25 +1,26 @@
 //
-//  TaskBoardPanel.swift
+//  TaskBoardTabView.swift
 //  Devtail
 //
-//  Side-panel task board over .devtail/tasks.md: three state groups,
-//  checkbox toggling (Done vs Pending), a move menu per task, archive
-//  for the Done group, and quick-add into Pending. Refreshes on appear
-//  so agent-written items show up when the panel opens.
+//  Trello-style task board over .devtail/tasks.md, mounted as a full-width
+//  closable tab (mirrors the Settings tab mount pattern in
+//  WorkspaceRootView: conditional ZStack member, no PTY to preserve). The
+//  three columns render side by side, one per TaskState — column = state
+//  = source of truth, same contract as the side-panel board it replaces.
 //
 //  Each task renders as a card from the ProcessCardView/dashboard family
 //  (Radius.card surface, subtle fill and stroke) with a kanban-style
-//  state spine on the leading edge; the spine and the section dots share
+//  state spine on the leading edge; the spine and the column dots share
 //  one state-color mapping (Doing = accent, Pending = yellow, Done =
-//  green) so state reads at a glance without labels.
+//  green) so state reads at a glance without labels. Refreshes on appear
+//  so agent-written items show up when the tab opens.
 //
 
 import SwiftUI
 
-struct TaskBoardPanel: View {
+struct TaskBoardTabView: View {
     let session: WorkspaceSession
 
-    @State private var newTaskTitle = ""
     /// Task currently in inline title editing (double-click or menu Edit),
     /// with its draft text. Nil when nothing is being edited.
     @State private var editingTaskID: UUID?
@@ -30,23 +31,18 @@ struct TaskBoardPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapMedium) {
-                    header
-                    if let board = store.board {
-                        ForEach(TaskState.allCases, id: \.self) { state in
-                            stateGroup(state, tasks: board.tasks(in: state))
-                        }
-                    } else if !store.fileExists {
-                        emptyState
-                    }
-                }
+            header
                 .padding(DevtailTokens.Spacing.cardPadding)
-            }
             if store.board != nil {
-                addField
+                board
+            } else if !store.fileExists {
+                emptyState
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            } else {
+                Spacer()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { store.refresh() }
     }
 
@@ -78,47 +74,72 @@ struct TaskBoardPanel: View {
         }
     }
 
-    private func stateGroup(_ state: TaskState, tasks: [TaskItem]) -> some View {
-        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
-            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-                Circle()
-                    .fill(Self.stateColor(state))
-                    .frame(width: 7, height: 7)
-                Text("\(state.displayName) \u{00B7} \(tasks.count)")
-                    .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary)
-                    .textCase(.uppercase)
-                Spacer()
-                if state == .done && !tasks.isEmpty {
-                    Button {
-                        store.archiveDone(on: Date())
-                    } label: {
-                        Image(systemName: "archivebox")
-                            .font(.system(size: 10))
-                    }
-                    .buttonStyle(.icon)
-                    .foregroundStyle(.secondary)
-                    .help("Move done tasks to tasks-archive.md")
-                }
-            }
-            if tasks.isEmpty {
-                Text("Empty")
-                    .font(DevtailTokens.Typography.captionSmall)
-                    .foregroundStyle(DevtailTokens.Colors.textTertiary.opacity(0.6))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, DevtailTokens.Spacing.gapSmall)
-                    .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
-                            .strokeBorder(DevtailTokens.Colors.borderSubtle,
-                                          style: StrokeStyle(lineWidth: DevtailTokens.BorderWidth.default, dash: [4, 3]))
-                    )
-            } else {
-                ForEach(tasks) { task in
-                    taskCard(task)
-                }
+    private var board: some View {
+        HStack(alignment: .top, spacing: DevtailTokens.Spacing.gapMedium) {
+            ForEach(TaskState.allCases, id: \.self) { state in
+                column(state, tasks: store.board?.tasks(in: state) ?? [])
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, DevtailTokens.Spacing.cardPadding)
+        .padding(.bottom, DevtailTokens.Spacing.cardPadding)
+    }
+
+    private func column(_ state: TaskState, tasks: [TaskItem]) -> some View {
+        VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
+            columnHeader(state, tasks: tasks)
+            ScrollView {
+                VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapSmall) {
+                    if tasks.isEmpty {
+                        emptyColumnPlaceholder
+                    } else {
+                        ForEach(tasks) { task in
+                            taskCard(task)
+                        }
+                    }
+                }
+            }
+            quickAddField(for: state)
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private func columnHeader(_ state: TaskState, tasks: [TaskItem]) -> some View {
+        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+            Circle()
+                .fill(Self.stateColor(state))
+                .frame(width: 7, height: 7)
+            Text("\(state.displayName) \u{00B7} \(tasks.count)")
+                .font(DevtailTokens.Typography.captionSmall)
+                .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                .textCase(.uppercase)
+            Spacer()
+            if state == .done && !tasks.isEmpty {
+                Button {
+                    store.archiveDone(on: Date())
+                } label: {
+                    Image(systemName: "archivebox")
+                        .font(.system(size: 10))
+                }
+                .buttonStyle(.icon)
+                .foregroundStyle(.secondary)
+                .help("Move done tasks to tasks-archive.md")
+            }
+        }
+    }
+
+    private var emptyColumnPlaceholder: some View {
+        Text("Empty")
+            .font(DevtailTokens.Typography.captionSmall)
+            .foregroundStyle(DevtailTokens.Colors.textTertiary.opacity(0.6))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+            .padding(.horizontal, DevtailTokens.Spacing.gapMedium)
+            .overlay(
+                RoundedRectangle(cornerRadius: DevtailTokens.Radius.card)
+                    .strokeBorder(DevtailTokens.Colors.borderSubtle,
+                                  style: StrokeStyle(lineWidth: DevtailTokens.BorderWidth.default, dash: [4, 3]))
+            )
     }
 
     private func taskCard(_ task: TaskItem) -> some View {
@@ -204,7 +225,7 @@ struct TaskBoardPanel: View {
         .opacity(task.state == .done ? 0.75 : 1)
     }
 
-    /// One state-color mapping shared by the section dots and the card
+    /// One state-color mapping shared by the column dots and the card
     /// spines — Doing carries the app accent (it is "what is active now"),
     /// Pending/Done reuse the traffic palette.
     private static func stateColor(_ state: TaskState) -> Color {
@@ -215,35 +236,12 @@ struct TaskBoardPanel: View {
         }
     }
 
-    private var addField: some View {
-        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
-            TextField("Add a task", text: $newTaskTitle)
-                .textFieldStyle(.plain)
-                .font(DevtailTokens.Typography.caption)
-                .onSubmit(submitNewTask)
-            Button(action: submitNewTask) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.icon)
-            .foregroundStyle(.secondary)
-            .disabled(newTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty)
-            .help("Add to Pending")
+    /// Per-column quick-add: pinned under that column's cards, adds
+    /// straight into that column's state.
+    private func quickAddField(for state: TaskState) -> some View {
+        QuickAddField(state: state) { title in
+            store.addTask(title: title, to: state)
         }
-        .padding(DevtailTokens.Spacing.cardPadding)
-        .background(DevtailTokens.Colors.titleBar)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(DevtailTokens.Colors.borderSubtle)
-                .frame(height: DevtailTokens.BorderWidth.default)
-        }
-    }
-
-    private func submitNewTask() {
-        let title = newTaskTitle.trimmingCharacters(in: .whitespaces)
-        guard !title.isEmpty else { return }
-        store.addTask(title: title)
-        newTaskTitle = ""
     }
 
     // MARK: - Inline rename
@@ -266,5 +264,39 @@ struct TaskBoardPanel: View {
     private func cancelRename() {
         editingTaskID = nil
         editingTitle = ""
+    }
+}
+
+/// Quick-add field for one board column — owns its own draft text so
+/// typing in one column never touches another's field.
+private struct QuickAddField: View {
+    let state: TaskState
+    let onAdd: (String) -> Void
+
+    @State private var title = ""
+
+    var body: some View {
+        HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+            TextField("Add a task", text: $title)
+                .textFieldStyle(.plain)
+                .font(DevtailTokens.Typography.caption)
+                .onSubmit(submit)
+            Button(action: submit) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.icon)
+            .foregroundStyle(.secondary)
+            .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+            .help("Add to \(state.displayName)")
+        }
+        .padding(.vertical, DevtailTokens.Spacing.gapSmall)
+    }
+
+    private func submit() {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        onAdd(trimmed)
+        title = ""
     }
 }

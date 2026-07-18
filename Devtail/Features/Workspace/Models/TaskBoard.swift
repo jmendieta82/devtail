@@ -71,10 +71,10 @@ struct TaskBoard: Equatable, Sendable {
         }
     }
 
-    /// New tasks always enter Pending, at the end.
-    mutating func add(title: String) {
-        sections[.pending, default: []].append(
-            .task(TaskItem(title: title, state: .pending))
+    /// New tasks enter the given section (Pending by default), at the end.
+    mutating func add(title: String, to state: TaskState = .pending) {
+        sections[state, default: []].append(
+            .task(TaskItem(title: title, state: state))
         )
     }
 

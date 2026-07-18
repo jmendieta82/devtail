@@ -93,6 +93,19 @@ struct TaskBoardStoreTests {
         #expect(mock.files[store.boardURL]?.contains("- [ ] from ui") == true)
     }
 
+    @Test("addTask to an explicit state persists in that section")
+    func addTaskToDoingPersists() async {
+        let (store, mock) = makeStore(files: [".devtail/tasks.md": TaskBoardParser.render(.empty)])
+        store.refresh()
+        await store.ioTask?.value
+        store.addTask(title: "now", to: .doing)
+        await store.ioTask?.value
+        #expect(store.board?.tasks(in: .doing).map(\.title) == ["now"])
+        let written = mock.files[store.boardURL] ?? ""
+        #expect(written.contains("## Doing"))
+        #expect(written.contains("- [ ] now"))
+    }
+
     @Test("renameTask updates the title and persists")
     func renameTaskPersists() async {
         let (store, mock) = makeStore(files: [".devtail/tasks.md": "## Pending\n- [ ] typo\n"])

@@ -131,6 +131,14 @@ struct TaskBoardParserTests {
         #expect(board.tasks(in: .pending).map(\.title) == ["new work"])
     }
 
+    @Test("add to an explicit state lands there, leaving Pending untouched")
+    func addToExplicitState() {
+        var board = TaskBoard.empty
+        board.add(title: "x", to: .doing)
+        #expect(board.tasks(in: .doing).map(\.title) == ["x"])
+        #expect(board.tasks(in: .pending).isEmpty)
+    }
+
     @Test("move relocates a task to the end of the target section")
     func moveRelocates() {
         var board = TaskBoard.empty

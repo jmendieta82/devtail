@@ -15,4 +15,6 @@ enum WorkspaceTab: Hashable {
     case agent
     /// Project settings form, rendered as an ephemeral center tab.
     case settings
+    /// Trello-style task board, rendered as an ephemeral center tab.
+    case tasks
 }

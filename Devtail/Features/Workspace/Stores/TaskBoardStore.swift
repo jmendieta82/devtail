@@ -63,8 +63,8 @@ final class TaskBoardStore {
         }
     }
 
-    func addTask(title: String) {
-        mutate { $0.add(title: title) }
+    func addTask(title: String, to state: TaskState = .pending) {
+        mutate { $0.add(title: title, to: state) }
     }
 
     func moveTask(id: UUID, to target: TaskState) {

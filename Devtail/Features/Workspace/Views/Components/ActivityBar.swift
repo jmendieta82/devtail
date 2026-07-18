@@ -20,6 +20,20 @@ struct ActivityBar: View {
                 .buttonStyle(.icon)
                 .help(view.help)
             }
+
+            Button {
+                session.selectedTab = .tasks
+            } label: {
+                Image(systemName: "checklist")
+                    .font(.system(size: 16))
+                    .foregroundStyle(session.selectedTab == .tasks
+                        ? DevtailTokens.Colors.accentPrimary
+                        : DevtailTokens.Colors.textTertiary)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.icon)
+            .help("Tasks")
+
             Spacer()
 
             Button {
