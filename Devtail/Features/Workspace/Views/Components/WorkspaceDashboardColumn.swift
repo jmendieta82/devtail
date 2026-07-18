@@ -6,6 +6,7 @@
 //  Read-only surface — all editing lives in ProjectFormView.
 //
 
+import Foundation
 import SwiftUI
 
 struct WorkspaceDashboardColumn: View {
@@ -99,18 +100,25 @@ struct WorkspaceDashboardColumn: View {
         }
     }
 
-    /// Enriched git details shown once `gitStatus` has loaded: local branch
-    /// count, dirty/clean state, and ahead/behind vs. upstream (hidden when
-    /// there is no upstream configured).
+    /// Enriched git details shown once `gitStatus` has loaded: expandable
+    /// local branch list (current branch highlighted), dirty/clean state,
+    /// last commit (subject + relative time, hidden when HEAD is unreadable),
+    /// and ahead/behind vs. upstream (hidden when there is no upstream).
     private func gitStatusDetails(_ status: GitStatus) -> some View {
         VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
-            Text("\(status.localBranches.count) branches")
-                .font(DevtailTokens.Typography.captionSmall)
-                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            branchListRow(status)
 
             Text(status.isDirty ? "\(status.changedFileCount) uncommitted" : "Clean")
                 .font(DevtailTokens.Typography.captionSmall)
                 .foregroundStyle(status.isDirty ? DevtailTokens.Colors.trafficYellow : DevtailTokens.Colors.trafficGreen)
+
+            if let subject = status.lastCommitSubject, let date = status.lastCommitDate {
+                Text("\(subject) \u{00B7} \(Self.relativeFormatter.localizedString(for: date, relativeTo: Date()))")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    .lineLimit(1)
+                    .help(subject)
+            }
 
             if let ahead = status.ahead, let behind = status.behind {
                 Text("\u{2191}\(ahead) \u{2193}\(behind)")
@@ -119,6 +127,44 @@ struct WorkspaceDashboardColumn: View {
             }
         }
     }
+
+    /// "N branches" row: plain text when the list is empty (nothing to
+    /// expand into), otherwise a DisclosureGroup listing every local branch
+    /// with the current one highlighted — same shape as `claudeCategoryRow`.
+    private func branchListRow(_ status: GitStatus) -> some View {
+        Group {
+            if status.localBranches.isEmpty {
+                Text("0 branches")
+                    .font(DevtailTokens.Typography.captionSmall)
+                    .foregroundStyle(DevtailTokens.Colors.textSecondary)
+            } else {
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: DevtailTokens.Spacing.gapTiny) {
+                        ForEach(status.localBranches, id: \.self) { name in
+                            Label(name, systemImage: name == status.branch ? "checkmark" : "arrow.triangle.branch")
+                                .font(DevtailTokens.Typography.captionSmall)
+                                .foregroundStyle(name == status.branch
+                                    ? DevtailTokens.Colors.accentPrimary
+                                    : DevtailTokens.Colors.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.top, DevtailTokens.Spacing.gapTiny)
+                } label: {
+                    Text("\(status.localBranches.count) branches")
+                        .font(DevtailTokens.Typography.captionSmall)
+                        .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                }
+            }
+        }
+    }
+
+    /// Shared formatter for the last-commit relative timestamp ("2h ago").
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
 
     private var quickLinksSection: some View {
         card(title: "Quick Links") {
