@@ -173,6 +173,13 @@ struct TaskBoardTabView: View {
             .buttonStyle(.icon)
             .help(task.state == .done ? "Reopen (back to Pending)" : "Mark done")
 
+            if let priority = task.priority {
+                Image(systemName: "flag.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Self.priorityColor(priority))
+                    .help("Priority: \(priority.displayName)")
+            }
+
             if editingTaskID == task.id {
                 // axis: .vertical so long titles edit as wrapped text
                 // instead of a scrolling single line.
@@ -183,19 +190,27 @@ struct TaskBoardTabView: View {
                     .onSubmit { commitRename(task) }
                     .onExitCommand { cancelRename() }
             } else {
-                Text(task.title)
-                    .font(DevtailTokens.Typography.caption)
-                    .foregroundStyle(task.state == .done
-                        ? DevtailTokens.Colors.textTertiary
-                        : DevtailTokens.Colors.textSecondary)
-                    .strikethrough(task.state == .done)
-                    // No line limit — the card grows to show the whole
-                    // annotation. fixedSize(vertical) is what makes Text
-                    // WRAP here instead of truncating to one line inside
-                    // the HStack.
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .onTapGesture(count: 2) { beginRename(task) }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.title)
+                        .font(DevtailTokens.Typography.caption)
+                        .foregroundStyle(task.state == .done
+                            ? DevtailTokens.Colors.textTertiary
+                            : DevtailTokens.Colors.textSecondary)
+                        .strikethrough(task.state == .done)
+                        // No line limit — the card grows to show the whole
+                        // annotation. fixedSize(vertical) is what makes Text
+                        // WRAP here instead of truncating to one line inside
+                        // the HStack.
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onTapGesture(count: 2) { beginRename(task) }
+                    if let createdDate = task.createdDate {
+                        Text(createdDate)
+                            .font(DevtailTokens.Typography.captionSmall)
+                            .foregroundStyle(DevtailTokens.Colors.textTertiary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Spacer(minLength: 0)
@@ -206,6 +221,20 @@ struct TaskBoardTabView: View {
                 ForEach(TaskState.allCases.filter { $0 != task.state }, id: \.self) { target in
                     Button("Move to \(target.displayName)") {
                         store.moveTask(id: task.id, to: target)
+                    }
+                }
+                Divider()
+                Menu("Priority") {
+                    ForEach(TaskPriority.allCases, id: \.self) { priority in
+                        Button(priority.displayName) {
+                            store.setTaskPriority(id: task.id, to: priority)
+                        }
+                    }
+                    if task.priority != nil {
+                        Divider()
+                        Button("Clear priority") {
+                            store.setTaskPriority(id: task.id, to: nil)
+                        }
                     }
                 }
             } label: {
@@ -252,6 +281,16 @@ struct TaskBoardTabView: View {
         case .doing: DevtailTokens.Colors.accentPrimary
         case .pending: DevtailTokens.Colors.trafficYellow
         case .done: DevtailTokens.Colors.trafficGreen
+        }
+    }
+
+    /// Flag color per priority — high uses the traffic red (most urgent),
+    /// medium the traffic yellow, low a muted tertiary tone.
+    private static func priorityColor(_ priority: TaskPriority) -> Color {
+        switch priority {
+        case .high: DevtailTokens.Colors.trafficRed
+        case .medium: DevtailTokens.Colors.trafficYellow
+        case .low: DevtailTokens.Colors.textTertiary
         }
     }
 

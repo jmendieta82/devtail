@@ -177,6 +177,20 @@ struct TaskBoardParserTests {
         #expect(board.tasks(in: .pending).map(\.title) == ["a"])
     }
 
+    @Test("setPriority sets then clears in place, keeping position and id")
+    func setPriorityInPlace() {
+        var board = TaskBoardParser.parse("## Doing\n- [ ] a\n- [ ] b\n")
+        let id = board.tasks(in: .doing)[0].id
+        board.setPriority(id: id, to: .high)
+        #expect(board.tasks(in: .doing)[0].priority == .high)
+        #expect(board.tasks(in: .doing)[0].id == id)
+        #expect(board.tasks(in: .doing).map(\.title) == ["a", "b"])
+
+        board.setPriority(id: id, to: nil)
+        #expect(board.tasks(in: .doing)[0].priority == nil)
+        #expect(board.tasks(in: .doing)[0].id == id)
+    }
+
     @Test("removeDoneTasks returns done tasks and clears only task lines from Done")
     func removeDoneTasks() {
         var board = TaskBoardParser.parse("## Done\nkept note\n- [x] shipped\n")
@@ -184,5 +198,59 @@ struct TaskBoardParserTests {
         #expect(removed.map(\.title) == ["shipped"])
         #expect(board.tasks(in: .done).isEmpty)
         #expect(board.sections[.done] == [.raw("kept note")])
+    }
+
+    // MARK: - priority + creation date
+
+    @Test("parse reads both priority and creation date, leaving title clean")
+    func parsePriorityAndDate() {
+        let board = TaskBoardParser.parse("## Pending\n- [ ] (A) 2026-07-18 title\n")
+        let task = board.tasks(in: .pending)[0]
+        #expect(task.title == "title")
+        #expect(task.priority == .high)
+        #expect(task.createdDate == "2026-07-18")
+    }
+
+    @Test("parse reads a priority token with no date")
+    func parsePriorityOnly() {
+        let board = TaskBoardParser.parse("## Pending\n- [ ] (B) title\n")
+        let task = board.tasks(in: .pending)[0]
+        #expect(task.title == "title")
+        #expect(task.priority == .medium)
+        #expect(task.createdDate == nil)
+    }
+
+    @Test("parse reads a creation date with no priority")
+    func parseDateOnly() {
+        let board = TaskBoardParser.parse("## Pending\n- [ ] 2026-07-18 title\n")
+        let task = board.tasks(in: .pending)[0]
+        #expect(task.title == "title")
+        #expect(task.priority == nil)
+        #expect(task.createdDate == "2026-07-18")
+    }
+
+    @Test("parse leaves a non-priority parenthetical in the title untouched")
+    func parseParenthesesInTitleNotPriority() {
+        let boardD = TaskBoardParser.parse("## Pending\n- [ ] (D) title\n")
+        #expect(boardD.tasks(in: .pending)[0].title == "(D) title")
+        #expect(boardD.tasks(in: .pending)[0].priority == nil)
+
+        let boardLower = TaskBoardParser.parse("## Pending\n- [ ] (a) title\n")
+        #expect(boardLower.tasks(in: .pending)[0].title == "(a) title")
+        #expect(boardLower.tasks(in: .pending)[0].priority == nil)
+    }
+
+    @Test("render writes priority and date tokens back verbatim")
+    func renderWritesTokensBack() {
+        let text = "## Pending\n- [ ] (B) 2026-07-18 x\n"
+        let rendered = TaskBoardParser.render(TaskBoardParser.parse(text))
+        #expect(rendered.contains("- [ ] (B) 2026-07-18 x"))
+    }
+
+    @Test("render omits priority/date tokens when absent")
+    func renderOmitsAbsentTokens() {
+        let text = "## Pending\n- [ ] plain title\n"
+        let rendered = TaskBoardParser.render(TaskBoardParser.parse(text))
+        #expect(rendered.contains("- [ ] plain title"))
     }
 }

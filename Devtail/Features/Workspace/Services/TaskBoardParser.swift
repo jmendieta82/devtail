@@ -16,6 +16,14 @@ enum TaskBoardParser {
     /// captures the title. Leading whitespace tolerated.
     private static let taskLinePattern = /^\s*- \[( |x|X)\] (.*)$/
 
+    /// Matches a leading priority token — uppercase A/B/C only — followed
+    /// by exactly one space, at the start of the remainder.
+    private static let priorityTokenPattern = /^\(([ABC])\) (.*)$/
+
+    /// Matches a leading `YYYY-MM-DD` creation date followed by exactly
+    /// one space. Shape only — no calendar validation.
+    private static let dateTokenPattern = /^(\d{4}-\d{2}-\d{2}) (.*)$/
+
     static func parse(_ text: String) -> TaskBoard {
         var preamble: [String] = []
         var sections: [TaskState: [TaskBoardLine]] = [:]
@@ -37,8 +45,19 @@ enum TaskBoardParser {
                 continue
             }
             if let match = line.firstMatch(of: taskLinePattern) {
+                var remainder = String(match.2)
+                var priority: TaskPriority?
+                var createdDate: String?
+                if let priorityMatch = remainder.firstMatch(of: priorityTokenPattern) {
+                    priority = TaskPriority(rawValue: String(priorityMatch.1))
+                    remainder = String(priorityMatch.2)
+                }
+                if let dateMatch = remainder.firstMatch(of: dateTokenPattern) {
+                    createdDate = String(dateMatch.1)
+                    remainder = String(dateMatch.2)
+                }
                 sections[section, default: []].append(
-                    .task(TaskItem(title: String(match.2), state: section))
+                    .task(TaskItem(title: remainder, state: section, priority: priority, createdDate: createdDate))
                 )
             } else {
                 sections[section, default: []].append(.raw(line))
@@ -59,7 +78,10 @@ enum TaskBoardParser {
                 switch line {
                 case .task(let item):
                     let box = state == .done ? "x" : " "
-                    lines.append("- [\(box)] \(item.title)")
+                    var prefix = ""
+                    if let priority = item.priority { prefix += "\(priority.token) " }
+                    if let createdDate = item.createdDate { prefix += "\(createdDate) " }
+                    lines.append("- [\(box)] \(prefix)\(item.title)")
                 case .raw(let raw):
                     lines.append(raw)
                 }

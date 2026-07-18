@@ -63,8 +63,12 @@ final class TaskBoardStore {
         }
     }
 
-    func addTask(title: String, to state: TaskState = .pending) {
-        mutate { $0.add(title: title, to: state) }
+    /// Stamps every new task with its creation date (`YYYY-MM-DD`, UTC) so
+    /// the file records when a task was added without ever guessing it
+    /// back out later.
+    func addTask(title: String, to state: TaskState = .pending, createdOn date: Date = Date()) {
+        let createdDate = Self.archiveDateFormatter.string(from: date)
+        mutate { $0.add(title: title, to: state, createdDate: createdDate) }
     }
 
     func moveTask(id: UUID, to target: TaskState) {
@@ -73,6 +77,10 @@ final class TaskBoardStore {
 
     func renameTask(id: UUID, to title: String) {
         mutate { $0.rename(id: id, to: title) }
+    }
+
+    func setTaskPriority(id: UUID, to priority: TaskPriority?) {
+        mutate { $0.setPriority(id: id, to: priority) }
     }
 
     /// Archives Done tasks: append to the archive file under a dated

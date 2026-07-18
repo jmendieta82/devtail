@@ -202,6 +202,31 @@ struct TaskBoardStoreTests {
         #expect((mock.files[store.archiveURL] ?? "").contains("- [x] shipped"))
     }
 
+    @Test("addTask stamps today's creation date and persists it")
+    func addTaskStampsCreationDate() async {
+        let (store, mock) = makeStore(files: [".devtail/tasks.md": TaskBoardParser.render(.empty)])
+        store.refresh()
+        await store.ioTask?.value
+        store.addTask(title: "stamped", createdOn: Date(timeIntervalSince1970: 1_784_332_800))
+        await store.ioTask?.value
+        #expect(store.board?.tasks(in: .pending).first?.createdDate == "2026-07-18")
+        let written = mock.files[store.boardURL] ?? ""
+        #expect(written.contains("- [ ] 2026-07-18 "))
+    }
+
+    @Test("setTaskPriority persists the priority token")
+    func setTaskPriorityPersists() async {
+        let (store, mock) = makeStore(files: [".devtail/tasks.md": "## Pending\n- [ ] a\n"])
+        store.refresh()
+        await store.ioTask?.value
+        let id = store.board!.tasks(in: .pending)[0].id
+        store.setTaskPriority(id: id, to: .high)
+        await store.ioTask?.value
+        #expect(store.board?.tasks(in: .pending).first?.priority == .high)
+        let written = mock.files[store.boardURL] ?? ""
+        #expect(written.contains("- [ ] (A) "))
+    }
+
     @Test("addTask chained behind a FAILED archive append never loses the Done tasks")
     func addDuringFailedArchiveKeepsDoneTasks() async {
         let original = "## Done\n- [x] shipped\n"

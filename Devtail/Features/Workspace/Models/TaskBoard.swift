@@ -33,17 +33,42 @@ enum TaskState: String, CaseIterable, Sendable {
     }
 }
 
+/// Optional task priority, rendered as a leading `(A)`/`(B)`/`(C)` token
+/// (uppercase only) right after the checkbox.
+enum TaskPriority: String, CaseIterable, Sendable {
+    case high = "A"
+    case medium = "B"
+    case low = "C"
+
+    var token: String { "(\(rawValue))" }
+
+    var displayName: String {
+        switch self {
+        case .high: "High"
+        case .medium: "Medium"
+        case .low: "Low"
+        }
+    }
+}
+
 /// One task on the board. `id` is assigned at parse time and stable for
 /// the lifetime of the loaded board (not persisted to the file).
 struct TaskItem: Identifiable, Equatable, Sendable {
     let id: UUID
     var title: String
     var state: TaskState
+    var priority: TaskPriority?
+    /// Raw `YYYY-MM-DD` string — kept as a string (not `Date`) so parsing
+    /// never invents or shifts calendar dates across timezones. Shape is
+    /// validated at parse time only.
+    var createdDate: String?
 
-    init(id: UUID = UUID(), title: String, state: TaskState) {
+    init(id: UUID = UUID(), title: String, state: TaskState, priority: TaskPriority? = nil, createdDate: String? = nil) {
         self.id = id
         self.title = title
         self.state = state
+        self.priority = priority
+        self.createdDate = createdDate
     }
 }
 
@@ -72,9 +97,9 @@ struct TaskBoard: Equatable, Sendable {
     }
 
     /// New tasks enter the given section (Pending by default), at the end.
-    mutating func add(title: String, to state: TaskState = .pending) {
+    mutating func add(title: String, to state: TaskState = .pending, priority: TaskPriority? = nil, createdDate: String? = nil) {
         sections[state, default: []].append(
-            .task(TaskItem(title: title, state: state))
+            .task(TaskItem(title: title, state: state, priority: priority, createdDate: createdDate))
         )
     }
 
@@ -108,6 +133,23 @@ struct TaskBoard: Equatable, Sendable {
                   }),
                   case .task(var item) = lines[index] else { continue }
             item.title = title
+            lines[index] = .task(item)
+            sections[state] = lines
+            return
+        }
+    }
+
+    /// Sets or clears a task's priority in place — position and state are
+    /// untouched. No-op when the id is not on the board.
+    mutating func setPriority(id: UUID, to priority: TaskPriority?) {
+        for state in TaskState.allCases {
+            guard var lines = sections[state],
+                  let index = lines.firstIndex(where: {
+                      if case .task(let item) = $0 { return item.id == id }
+                      return false
+                  }),
+                  case .task(var item) = lines[index] else { continue }
+            item.priority = priority
             lines[index] = .task(item)
             sections[state] = lines
             return
