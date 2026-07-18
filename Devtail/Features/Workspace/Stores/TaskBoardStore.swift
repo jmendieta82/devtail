@@ -107,21 +107,26 @@ final class TaskBoardStore {
 
     /// Shared mutation path, optimistic + serialized: the board is
     /// updated in place immediately (so rapid successive mutations
-    /// compose instead of deriving from a stale copy), and the rendered
-    /// snapshot is written behind any in-flight write (FIFO — the last
-    /// snapshot contains all prior changes, so last-write-wins is
-    /// correct). A failed write re-refreshes from disk so the UI never
-    /// drifts from the file for long.
+    /// compose instead of deriving from a stale copy), and a write is
+    /// queued behind any in-flight I/O (FIFO). The write renders the
+    /// board AS IT STANDS when the write executes — never a snapshot
+    /// captured at queue time. A queued snapshot goes stale when an
+    /// earlier chained operation fails and refreshFromDisk reassigns the
+    /// board (e.g. a failed archive append restoring its Done tasks):
+    /// writing that stale snapshot would persist the aborted state and
+    /// silently lose the restored tasks from disk. Rendering the current
+    /// board at execution time makes every queued write converge on the
+    /// final in-memory state instead. A failed write still re-refreshes
+    /// from disk so the UI never drifts from the file for long.
     private func mutate(_ change: (inout TaskBoard) -> Void) {
         guard var working = board else { return }
         change(&working)
         board = working
-        let snapshot = working
         let previous = ioTask
         ioTask = Task { @MainActor [weak self] in
             await previous?.value
-            guard let self else { return }
-            if await !self.fileAccess.write(TaskBoardParser.render(snapshot), to: self.boardURL) {
+            guard let self, let current = self.board else { return }
+            if await !self.fileAccess.write(TaskBoardParser.render(current), to: self.boardURL) {
                 await self.refreshFromDisk()
             }
         }

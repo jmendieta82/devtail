@@ -175,4 +175,27 @@ struct TaskBoardStoreTests {
         #expect(written.contains("- [ ] quick add"))
         #expect((mock.files[store.archiveURL] ?? "").contains("- [x] shipped"))
     }
+
+    @Test("addTask chained behind a FAILED archive append never loses the Done tasks")
+    func addDuringFailedArchiveKeepsDoneTasks() async {
+        let original = "## Done\n- [x] shipped\n"
+        let (store, mock) = makeStore(files: [".devtail/tasks.md": original])
+        store.refresh()
+        await store.ioTask?.value
+        // Failed archive restores the board from disk; the chained add's
+        // write must render the RESTORED board, not its queue-time
+        // snapshot — a stale snapshot would persist the post-archive
+        // state, losing "shipped" from both files. The interleaved add
+        // itself is knowingly discarded by the restore (rare failure
+        // path, user sees the board revert).
+        mock.appendDelayNanoseconds = 50_000_000
+        mock.failAppends = true
+        store.archiveDone(on: Date(timeIntervalSince1970: 1_784_332_800))
+        store.addTask(title: "quick add")
+        await store.ioTask?.value
+        #expect(store.board?.tasks(in: .done).map(\.title) == ["shipped"])
+        #expect(mock.files[store.archiveURL] == nil)
+        let written = mock.files[store.boardURL] ?? original
+        #expect(written.contains("- [x] shipped"))
+    }
 }
