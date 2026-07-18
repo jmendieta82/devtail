@@ -152,6 +152,23 @@ struct TaskBoardParserTests {
         #expect(board.tasks(in: .done).isEmpty)
     }
 
+    @Test("rename updates the title in place, keeping position and state")
+    func renameUpdatesInPlace() {
+        var board = TaskBoardParser.parse("## Doing\n- [ ] before\n- [ ] neighbor\n")
+        let id = board.tasks(in: .doing)[0].id
+        board.rename(id: id, to: "after")
+        #expect(board.tasks(in: .doing).map(\.title) == ["after", "neighbor"])
+        #expect(board.tasks(in: .doing)[0].id == id)
+    }
+
+    @Test("rename with an unknown id is a no-op")
+    func renameUnknownIdNoop() {
+        var board = TaskBoard.empty
+        board.add(title: "a")
+        board.rename(id: UUID(), to: "b")
+        #expect(board.tasks(in: .pending).map(\.title) == ["a"])
+    }
+
     @Test("removeDoneTasks returns done tasks and clears only task lines from Done")
     func removeDoneTasks() {
         var board = TaskBoardParser.parse("## Done\nkept note\n- [x] shipped\n")

@@ -97,6 +97,23 @@ struct TaskBoard: Equatable, Sendable {
         }
     }
 
+    /// Renames a task in place — position and state are untouched. No-op
+    /// when the id is not on the board.
+    mutating func rename(id: UUID, to title: String) {
+        for state in TaskState.allCases {
+            guard var lines = sections[state],
+                  let index = lines.firstIndex(where: {
+                      if case .task(let item) = $0 { return item.id == id }
+                      return false
+                  }),
+                  case .task(var item) = lines[index] else { continue }
+            item.title = title
+            lines[index] = .task(item)
+            sections[state] = lines
+            return
+        }
+    }
+
     /// Removes and returns every task in Done (raw lines stay), for the
     /// archive flow.
     mutating func removeDoneTasks() -> [TaskItem] {

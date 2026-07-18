@@ -20,6 +20,11 @@ struct TaskBoardPanel: View {
     let session: WorkspaceSession
 
     @State private var newTaskTitle = ""
+    /// Task currently in inline title editing (double-click or menu Edit),
+    /// with its draft text. Nil when nothing is being edited.
+    @State private var editingTaskID: UUID?
+    @State private var editingTitle = ""
+    @FocusState private var editingFieldFocused: Bool
 
     private var store: TaskBoardStore { session.taskBoard }
 
@@ -130,18 +135,32 @@ struct TaskBoardPanel: View {
             .buttonStyle(.icon)
             .help(task.state == .done ? "Reopen (back to Pending)" : "Mark done")
 
-            Text(task.title)
-                .font(DevtailTokens.Typography.caption)
-                .foregroundStyle(task.state == .done
-                    ? DevtailTokens.Colors.textTertiary
-                    : DevtailTokens.Colors.textSecondary)
-                .strikethrough(task.state == .done)
-                .lineLimit(2)
-                .help(task.title)
+            if editingTaskID == task.id {
+                TextField("Task title", text: $editingTitle)
+                    .textFieldStyle(.plain)
+                    .font(DevtailTokens.Typography.caption)
+                    .focused($editingFieldFocused)
+                    .onSubmit { commitRename(task) }
+                    .onExitCommand { cancelRename() }
+            } else {
+                Text(task.title)
+                    .font(DevtailTokens.Typography.caption)
+                    .foregroundStyle(task.state == .done
+                        ? DevtailTokens.Colors.textTertiary
+                        : DevtailTokens.Colors.textSecondary)
+                    .strikethrough(task.state == .done)
+                    .lineLimit(2)
+                    .help(task.title)
+                    // High-priority so the double-click wins over the card's
+                    // hit-testing without eating single clicks elsewhere.
+                    .onTapGesture(count: 2) { beginRename(task) }
+            }
 
             Spacer(minLength: 0)
 
             Menu {
+                Button("Edit") { beginRename(task) }
+                Divider()
                 ForEach(TaskState.allCases.filter { $0 != task.state }, id: \.self) { target in
                     Button("Move to \(target.displayName)") {
                         store.moveTask(id: task.id, to: target)
@@ -219,5 +238,27 @@ struct TaskBoardPanel: View {
         guard !title.isEmpty else { return }
         store.addTask(title: title)
         newTaskTitle = ""
+    }
+
+    // MARK: - Inline rename
+
+    private func beginRename(_ task: TaskItem) {
+        editingTitle = task.title
+        editingTaskID = task.id
+        editingFieldFocused = true
+    }
+
+    /// Empty (post-trim) input cancels instead of renaming to nothing —
+    /// a task with no title would render as an unusable blank card.
+    private func commitRename(_ task: TaskItem) {
+        defer { cancelRename() }
+        let title = editingTitle.trimmingCharacters(in: .whitespaces)
+        guard !title.isEmpty, title != task.title else { return }
+        store.renameTask(id: task.id, to: title)
+    }
+
+    private func cancelRename() {
+        editingTaskID = nil
+        editingTitle = ""
     }
 }

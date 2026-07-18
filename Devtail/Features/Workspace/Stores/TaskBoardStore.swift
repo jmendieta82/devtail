@@ -71,6 +71,10 @@ final class TaskBoardStore {
         mutate { $0.move(id: id, to: target) }
     }
 
+    func renameTask(id: UUID, to title: String) {
+        mutate { $0.rename(id: id, to: title) }
+    }
+
     /// Archives Done tasks: append to the archive file under a dated
     /// heading FIRST, and only rewrite the board when that append
     /// succeeded — a failed archive re-refreshes from disk, restoring the
