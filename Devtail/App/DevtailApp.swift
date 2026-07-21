@@ -111,7 +111,7 @@ struct DevtailApp: App {
         .environment(appSettings)
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1200, height: 760)
-        .commands { WorkspaceCommands() }
+        .commands { WorkspaceCommands(holder: workspaceHolder) }
     }
 }
 

@@ -450,17 +450,36 @@ final class WorkspaceSessionsHolder {
         }
     }
 
-    /// User-initiated restart of the agent session after it exited. Mirrors
+    /// Builds the agent launch command from the configured setting: same
+    /// blank-setting sanitize-and-fallback as `openSession`, plus the resume
+    /// flag. With `resume`, ` --continue` is appended unless the configured
+    /// command already carries a `--continue` or standalone `-c` token —
+    /// token-wise, not substring-wise, so `--coverage` or a path containing
+    /// `-c` doesn't suppress the append.
+    static func agentLaunchCommand(configured: String, resume: Bool) -> String {
+        let trimmed = configured.trimmingCharacters(in: .whitespaces)
+        let command = trimmed.isEmpty ? "claude" : trimmed
+        guard resume else { return command }
+        let tokens = command.split(whereSeparator: \.isWhitespace)
+        if tokens.contains("--continue") || tokens.contains("-c") { return command }
+        return command + " --continue"
+    }
+
+    /// User-initiated restart of the agent session. Mirrors
     /// `restartInteractive`: terminate the old session, spawn a fresh one
     /// with the (sanitized) configured command, re-wire, reset the flag.
-    func restartAgent(projectId: UUID) {
+    /// Works on a live agent too (the terminate-first shape makes it the
+    /// stuck-agent escape hatch, not just the dead-state recovery). With
+    /// `resume`, the fresh agent relaunches with ` --continue` so it picks
+    /// the previous conversation back up — see `agentLaunchCommand`.
+    func restartAgent(projectId: UUID, resume: Bool = false) {
         guard let session = sessions[projectId] else { return }
 
         session.agent.terminate()
 
-        let command = settings.agentCommand.trimmingCharacters(in: .whitespaces)
+        let command = Self.agentLaunchCommand(configured: settings.agentCommand, resume: resume)
         let fresh = engine.makeSession(
-            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: session.root, readOnly: false, imagePaste: true)
+            TerminalSessionConfig(command: command, cwd: session.root, readOnly: false, imagePaste: true)
         )
         fresh.start()
         session.agent = fresh

@@ -369,6 +369,53 @@ struct WorkspaceSessionsHolderTests {
         #expect(old?.terminateCount == 1)
     }
 
+    // MARK: - Restart with context (resume command construction)
+
+    @Test func resumeCommandAppendsContinueToPlainClaude() {
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude", resume: true) == "claude --continue")
+    }
+
+    @Test func resumeCommandDoesNotDoubleContinueFlag() {
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude --continue", resume: true) == "claude --continue")
+    }
+
+    @Test func resumeCommandDoesNotDoubleStandaloneCFlag() {
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude -c", resume: true) == "claude -c")
+    }
+
+    /// The `-c`/`--continue` detection is token-based, not substring-based:
+    /// a flag or path merely containing those characters must not suppress
+    /// the append.
+    @Test func resumeCommandTokenCheckIgnoresSubstringMatches() {
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude --coverage", resume: true) == "claude --coverage --continue")
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "/opt/tools-c/claude", resume: true) == "/opt/tools-c/claude --continue")
+    }
+
+    @Test func freshCommandNeverAppendsContinue() {
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude", resume: false) == "claude")
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude --continue", resume: false) == "claude --continue")
+    }
+
+    /// Same blank-setting sanitize-and-fallback as `openSession`.
+    @Test func resumeCommandFallsBackToClaudeWhenConfiguredIsBlank() {
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "   ", resume: true) == "claude --continue")
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "", resume: false) == "claude")
+    }
+
+    @Test func restartAgentWithResumeSpawnsAgentWithContinueCommand() {
+        let (holder, engine) = makeSUT(agentCommand: "claude")
+        let session = holder.openSession(for: project("alpha"))
+        let old = session.agent as? MockTerminalSession
+
+        holder.restartAgent(projectId: session.projectId, resume: true)
+
+        #expect(session.agent !== old)
+        #expect(session.agentExited == false)
+        #expect(old?.terminateCount == 1)
+        #expect(engine.configs.last?.command == "claude --continue")
+        #expect((session.agent as? MockTerminalSession)?.startCount == 1)
+    }
+
     @Test func staleAgentExitAfterRestartDoesNotReflipFlag() {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))

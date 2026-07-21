@@ -12,6 +12,9 @@ import SwiftUI
 
 struct WorkspaceCommands: Commands {
     @FocusedValue(\.workspaceSession) private var session
+    /// Restart lives on the holder, not the session — injected from
+    /// DevtailApp because focused values only carry the session.
+    let holder: WorkspaceSessionsHolder
 
     var body: some Commands {
         CommandMenu("Workspace") {
@@ -71,6 +74,17 @@ struct WorkspaceCommands: Commands {
                 session?.dashboardCollapsed.toggle()
             }
             .keyboardShortcut("d", modifiers: .command)
+            .disabled(session == nil)
+
+            Divider()
+
+            // Always-available escape hatch: works on a live or stuck agent
+            // too, not just after exit — restartAgent terminates first.
+            Button("Restart Agent with Context") {
+                guard let session else { return }
+                holder.restartAgent(projectId: session.projectId, resume: true)
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(session == nil)
         }
     }

@@ -259,12 +259,18 @@ struct WorkspaceRootView: View {
 
     private func terminalStack(appearance: TerminalAppearance) -> some View {
         ZStack {
+            // .id(ObjectIdentifier(...)) on both hosts: replacing the session
+            // (restart) must remount the NSView — updateNSView ignores
+            // terminalView by design, so without a fresh structural identity
+            // the dead terminal's view would stay mounted forever.
             if let interactive = session.interactive {
                 TerminalHostView(terminalView: interactive.view, appearance: appearance, isActive: session.selectedTab == .terminal)
+                    .id(ObjectIdentifier(interactive))
                     .opacity(session.selectedTab == .terminal ? 1 : 0)
                     .allowsHitTesting(session.selectedTab == .terminal)
             }
             TerminalHostView(terminalView: session.agent.view, appearance: appearance, isActive: session.selectedTab == .agent)
+                .id(ObjectIdentifier(session.agent))
                 .opacity(session.selectedTab == .agent ? 1 : 0)
                 .allowsHitTesting(session.selectedTab == .agent)
             ForEach(session.supervisor.processes) { process in
@@ -331,11 +337,18 @@ struct WorkspaceRootView: View {
             Text("agent exited")
                 .font(DevtailTokens.Typography.caption)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
-            Button("Restart agent") {
-                holder.restartAgent(projectId: session.projectId)
+            HStack(spacing: DevtailTokens.Spacing.gapSmall) {
+                Button("Restart") {
+                    holder.restartAgent(projectId: session.projectId)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                Button("Restart with context") {
+                    holder.restartAgent(projectId: session.projectId, resume: true)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
         }
         .padding(DevtailTokens.Spacing.cardPadding)
         .background(
