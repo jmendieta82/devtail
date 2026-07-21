@@ -96,7 +96,7 @@ final class TaskBoardStore {
         let removed = working.removeDoneTasks()
         board = working
         let heading = Self.archiveDateFormatter.string(from: date)
-        let block = "## \(heading)\n" + removed.map { "- [x] \($0.title)" }.joined(separator: "\n") + "\n\n"
+        let block = "## \(heading)\n" + removed.map { TaskBoardParser.renderTaskLine($0, checked: true) }.joined(separator: "\n") + "\n\n"
         let previous = ioTask
         ioTask = Task { @MainActor [weak self] in
             await previous?.value

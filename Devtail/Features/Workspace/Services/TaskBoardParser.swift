@@ -17,12 +17,14 @@ enum TaskBoardParser {
     private static let taskLinePattern = /^\s*- \[( |x|X)\] (.*)$/
 
     /// Matches a leading priority token — uppercase A/B/C only — followed
-    /// by exactly one space, at the start of the remainder.
-    private static let priorityTokenPattern = /^\(([ABC])\) (.*)$/
+    /// by one or more spaces (extras are normalized on render), at the
+    /// start of the remainder.
+    private static let priorityTokenPattern = /^\(([ABC])\) +(.*)$/
 
-    /// Matches a leading `YYYY-MM-DD` creation date followed by exactly
-    /// one space. Shape only — no calendar validation.
-    private static let dateTokenPattern = /^(\d{4}-\d{2}-\d{2}) (.*)$/
+    /// Matches a leading `YYYY-MM-DD` creation date followed by one or
+    /// more spaces (extras are normalized on render). Shape only — no
+    /// calendar validation.
+    private static let dateTokenPattern = /^(\d{4}-\d{2}-\d{2}) +(.*)$/
 
     static func parse(_ text: String) -> TaskBoard {
         var preamble: [String] = []
@@ -77,11 +79,7 @@ enum TaskBoardParser {
             for line in sectionLines {
                 switch line {
                 case .task(let item):
-                    let box = state == .done ? "x" : " "
-                    var prefix = ""
-                    if let priority = item.priority { prefix += "\(priority.token) " }
-                    if let createdDate = item.createdDate { prefix += "\(createdDate) " }
-                    lines.append("- [\(box)] \(prefix)\(item.title)")
+                    lines.append(renderTaskLine(item, checked: state == .done))
                 case .raw(let raw):
                     lines.append(raw)
                 }
@@ -93,5 +91,16 @@ enum TaskBoardParser {
         // Single trailing newline, no trailing blank line.
         if lines.last == "" { lines.removeLast() }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// Renders one canonical task line — `- [x] (A) 2026-07-18 title`,
+    /// tokens optional, exactly one space each. Shared by `render` and
+    /// the store's archive append so the two cannot drift.
+    static func renderTaskLine(_ item: TaskItem, checked: Bool) -> String {
+        let box = checked ? "x" : " "
+        var prefix = ""
+        if let priority = item.priority { prefix += "\(priority.token) " }
+        if let createdDate = item.createdDate { prefix += "\(createdDate) " }
+        return "- [\(box)] \(prefix)\(item.title)"
     }
 }

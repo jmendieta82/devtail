@@ -240,6 +240,23 @@ struct TaskBoardParserTests {
         #expect(boardLower.tasks(in: .pending)[0].priority == nil)
     }
 
+    @Test("parse consumes extra spaces after a priority token, leaving title clean")
+    func parseDoubleSpaceAfterPriority() {
+        let board = TaskBoardParser.parse("## Pending\n- [ ] (A)  title\n")
+        let task = board.tasks(in: .pending)[0]
+        #expect(task.title == "title")
+        #expect(task.priority == .high)
+    }
+
+    @Test("parse reads the date even with extra spaces between priority and date")
+    func parseDoubleSpaceBetweenPriorityAndDate() {
+        let board = TaskBoardParser.parse("## Pending\n- [ ] (A)  2026-07-18 title\n")
+        let task = board.tasks(in: .pending)[0]
+        #expect(task.title == "title")
+        #expect(task.priority == .high)
+        #expect(task.createdDate == "2026-07-18")
+    }
+
     @Test("render writes priority and date tokens back verbatim")
     func renderWritesTokensBack() {
         let text = "## Pending\n- [ ] (B) 2026-07-18 x\n"

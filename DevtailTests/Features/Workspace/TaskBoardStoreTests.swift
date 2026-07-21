@@ -164,6 +164,17 @@ struct TaskBoardStoreTests {
         #expect(mock.files[store.boardURL]?.contains("shipped") == false)
     }
 
+    @Test("archiveDone preserves priority and creation date tokens in the archive")
+    func archiveDonePreservesTokens() async {
+        let (store, mock) = makeStore(files: [".devtail/tasks.md": "## Done\n- [x] (A) 2026-07-18 shipped\n"])
+        store.refresh()
+        await store.ioTask?.value
+        store.archiveDone(on: Date(timeIntervalSince1970: 1_784_332_800))
+        await store.ioTask?.value
+        let archive = mock.files[store.archiveURL] ?? ""
+        #expect(archive.contains("- [x] (A) 2026-07-18 shipped"))
+    }
+
     @Test("archiveDone with a failed append leaves the board and file untouched")
     func archiveAppendFailureLeavesBoard() async {
         let original = "## Done\n- [x] shipped\n"

@@ -295,8 +295,8 @@ struct WorkspaceDashboardColumn: View {
         }
     }
 
-    /// Workspace keyboard map — mirrors the hidden shortcut registrations
-    /// in WorkspaceRootView; keep both in sync. Cmd+S shows Settings only
+    /// Workspace keyboard map — mirrors the menu Commands in
+    /// WorkspaceCommands; keep both in sync. Cmd+S shows Settings only
     /// outside file tabs (Save owns it there), noted in its row.
     private var shortcutsSection: some View {
         card(title: "Shortcuts") {
