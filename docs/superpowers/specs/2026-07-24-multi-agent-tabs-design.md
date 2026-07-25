@@ -38,7 +38,10 @@ New `AgentInstance` (`@Observable`, `Identifiable`, final class):
   Renaming is out of scope.
 - `session: TerminalSession`
 - `exited: Bool`
-- `claudeSessionId: UUID` — generated at creation, passed to the CLI via `--session-id`.
+
+> **Reverted 2026-07-24:** this originally also carried `claudeSessionId: UUID`,
+> generated at creation and passed to the CLI via `--session-id`. See the note at the
+> end of section 3.
 
 `WorkspaceSession` replaces `agent: TerminalSession` + `agentExited: Bool` with
 `private(set) var agents: [AgentInstance]`. `openSession(for:)` seeds the first
@@ -64,17 +67,28 @@ closed.
 
 ### 3. Launch and restart
 
-- `agentLaunchCommand` gains a token-aware `--session-id <uuid>` append at creation
-  (same append mechanism used today for `--continue`).
-- "Restart with context" uses `--resume <claudeSessionId>` instead of `--continue`,
-  so each tab resumes exactly its own conversation. Known caveat (accepted): if the
-  user switches conversations with `/resume` inside the terminal, the tracked id goes
-  stale and restart-with-context returns to the tracked conversation.
-- Plain restart generates a fresh `claudeSessionId`.
+- Fresh spawn (`openSession`'s agent seed, `openAgent`, plain restart) appends nothing
+  — the plain configured command, as it was before this feature.
+- "Restart with context" appends `--continue`. The existing token-aware guard is kept:
+  a configured command that already carries `--continue`/`-c`/`--resume`/`-r`/
+  `--session-id` is left untouched.
 - The remount fix from 66561b8 is preserved per instance: each agent host in the
   `ZStack` `ForEach` keeps `.id(ObjectIdentifier(instance.session))`.
 - `wireAgentExit` becomes per-instance with the same session-identity guard
   (`instance.session === terminal`).
+
+> **Reverted 2026-07-24 — per-tab `--session-id` / `--resume`:** this section
+> originally had `agentLaunchCommand` append a token-aware `--session-id <uuid>` at
+> creation and "Restart with context" use `--resume <claudeSessionId>` instead of
+> `--continue`, so each tab would resume exactly its own conversation. In practice
+> Claude Code only persists a conversation's `.jsonl` file once the session has had
+> activity — a tab that was opened but never conversed in has no conversation file on
+> disk. `--resume <that id>` then fails fatally ("No conversation found with session
+> ID: …") and kills the tab. Javier's explicit call: go back to plain `--continue` on
+> restart-with-context, accepting its known multi-tab caveat (with several agent tabs
+> open in the same project, `--continue` resumes the project's most recently active
+> conversation, which may not be the tab you restarted). `AgentInstance.claudeSessionId`
+> and `rotateClaudeSessionId()` were removed as dead code.
 
 ### 4. Lifecycle and quit correctness
 
@@ -100,6 +114,10 @@ closed.
   remain a per-project aggregate).
 - Persisting agent tabs across app restarts.
 - Split view (tabs only, per Javier's choice).
+- Per-tab conversation resume (`--session-id` / `--resume <id>`) — tried and reverted
+  2026-07-24, see section 3. Restart-with-context uses `--continue`, whose caveat
+  (resumes the project's most recent conversation, not necessarily this tab's) is
+  accepted, not solved.
 
 ### 6. Testing
 
@@ -110,7 +128,7 @@ On top of `MockTerminalEngine` in `WorkspaceSessionsHolderTests`:
   selection moves to a neighbor when the selected tab closes.
 - Restart replaces the session for the right instance only; exit-wire identity guard
   holds across restarts.
-- `agentLaunchCommand`: `--session-id` appended token-aware at creation; restart with
-  context uses `--resume <id>`; plain restart rotates the id.
+- `agentLaunchCommand`: fresh spawn is the plain configured command; restart with
+  context appends `--continue`; token-aware guard still respected.
 - Quit accounting: `liveTerminalSessions()` counts every live agent across projects.
 - Fallback resolver: tab fallbacks land on the first agent.

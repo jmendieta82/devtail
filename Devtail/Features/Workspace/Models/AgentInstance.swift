@@ -5,9 +5,11 @@
 //  Runtime state of one Claude agent tab. Ephemeral by design (never
 //  persisted): mirrors ManagedProcess's shape — an @Observable identity
 //  wrapper the UI and holder share, with the session replaced wholesale on
-//  restart. `claudeSessionId` is OUR generated conversation id, handed to
-//  the CLI via --session-id so restart-with-context can --resume exactly
-//  this tab's conversation (--continue is ambiguous with N tabs in one cwd).
+//  restart. No per-tab conversation id: restart-with-context relaunches
+//  with plain `--continue`, which resumes the project's most recently
+//  active conversation (Claude Code has no per-tab session tracking that
+//  survives a session that never produced conversation activity — see
+//  agentLaunchCommand's doc comment in WorkspaceSessionsHolder).
 //
 
 import Foundation
@@ -21,19 +23,9 @@ final class AgentInstance: Identifiable {
     /// Set when the agent process exits. No auto-respawn — drives the
     /// dead-state overlay only.
     var exited = false
-    /// The Claude conversation id this tab launched with. Stable across
-    /// restart-with-context; rotated by plain restart (fresh conversation).
-    private(set) var claudeSessionId: UUID
 
-    init(title: String, session: TerminalSession, claudeSessionId: UUID) {
+    init(title: String, session: TerminalSession) {
         self.title = title
         self.session = session
-        self.claudeSessionId = claudeSessionId
-    }
-
-    /// Fresh conversation id for a plain (non-resume) restart.
-    func rotateClaudeSessionId() -> UUID {
-        claudeSessionId = UUID()
-        return claudeSessionId
     }
 }

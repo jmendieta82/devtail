@@ -400,17 +400,12 @@ final class WorkspaceSessionsHolder {
         let supervisor = ProcessSupervisor(engine: engine, browserLauncher: browserLauncher)
         supervisor.configure(panes: project.workspacePanes.sorted { $0.order < $1.order }, root: root)
 
-        let claudeSessionId = UUID()
-        let command = Self.agentLaunchCommand(
-            configured: settings.agentCommand, sessionId: claudeSessionId, resume: false
-        )
+        let command = Self.agentLaunchCommand(configured: settings.agentCommand, resume: false)
         let agentTerminal = engine.makeSession(
             TerminalSessionConfig(command: command, cwd: root, readOnly: false, imagePaste: true)
         )
         if !isShuttingDown { agentTerminal.start() }
-        let agentInstance = AgentInstance(
-            title: "agent", session: agentTerminal, claudeSessionId: claudeSessionId
-        )
+        let agentInstance = AgentInstance(title: "agent", session: agentTerminal)
 
         // Managed processes are configured (cards visible, stopped) but do
         // NOT auto-start — the user starts each one manually via its
@@ -505,29 +500,39 @@ final class WorkspaceSessionsHolder {
 
     /// Builds an agent launch command from the configured setting: sanitizes
     /// a runtime-blank setting to "claude" (a blank must not silently spawn
-    /// a plain shell in an agent tab), then appends the per-instance
-    /// conversation flag — `--session-id <uuid>` on create, `--resume
-    /// <uuid>` on restart-with-context. If the configured command already
-    /// carries its own session/continue/resume token the user wins and
-    /// nothing is appended — token-wise, not substring-wise, so `--coverage`
-    /// or a path containing `-c` doesn't suppress the append.
-    static func agentLaunchCommand(configured: String, sessionId: UUID, resume: Bool) -> String {
+    /// a plain shell in an agent tab), then appends `--continue` on
+    /// restart-with-context only. A fresh spawn appends nothing — plain
+    /// configured command, as it was before per-tab session ids.
+    ///
+    /// Per-tab `--session-id <uuid>` + `--resume <uuid>` was tried and
+    /// reverted on 2026-07-24: Claude Code only writes the conversation
+    /// file once the session has activity, so a tab that never conversed
+    /// has no file on disk, and `--resume` of that id fails fatally,
+    /// killing the tab. `--continue` resumes the project's most recently
+    /// active conversation instead — with several tabs open this may
+    /// resume a different tab's conversation, an accepted tradeoff.
+    ///
+    /// If the configured command already carries its own
+    /// session/continue/resume token the user wins and nothing is
+    /// appended — token-wise, not substring-wise, so `--coverage` or a
+    /// path containing `-c` doesn't suppress the append.
+    static func agentLaunchCommand(configured: String, resume: Bool) -> String {
         let trimmed = configured.trimmingCharacters(in: .whitespaces)
         let command = trimmed.isEmpty ? "claude" : trimmed
         let tokens = command.split(whereSeparator: \.isWhitespace)
         let sessionTokens: Set<Substring> = ["--continue", "-c", "--resume", "-r", "--session-id"]
         guard !tokens.contains(where: { sessionTokens.contains($0) }) else { return command }
-        let id = sessionId.uuidString.lowercased()
-        return resume ? "\(command) --resume \(id)" : "\(command) --session-id \(id)"
+        return resume ? "\(command) --continue" : command
     }
 
     /// User-initiated restart of one agent tab. Mirrors `restartInteractive`:
     /// terminate the old session, spawn a fresh one, re-wire, reset the flag.
     /// Works on a live agent too (the terminate-first shape makes it the
     /// stuck-agent escape hatch). `agentId: nil` targets the first agent.
-    /// With `resume`, the fresh agent relaunches with `--resume` on the
-    /// instance's tracked conversation id — exactly its own conversation;
-    /// without it, the id rotates: a plain restart is a fresh conversation.
+    /// With `resume`, the fresh agent relaunches with `--continue`, which
+    /// resumes the project's most recently active conversation (may not be
+    /// this tab's own, with several tabs open — see agentLaunchCommand);
+    /// without it, it's a plain fresh spawn — a new conversation.
     func restartAgent(projectId: UUID, agentId: UUID? = nil, resume: Bool = false) {
         guard let session = sessions[projectId] else { return }
         let target: AgentInstance?
@@ -542,10 +547,7 @@ final class WorkspaceSessionsHolder {
 
         guard !isShuttingDown else { return }
 
-        let sessionId = resume ? instance.claudeSessionId : instance.rotateClaudeSessionId()
-        let command = Self.agentLaunchCommand(
-            configured: settings.agentCommand, sessionId: sessionId, resume: resume
-        )
+        let command = Self.agentLaunchCommand(configured: settings.agentCommand, resume: resume)
         let fresh = engine.makeSession(
             TerminalSessionConfig(command: command, cwd: session.root, readOnly: false, imagePaste: true)
         )
@@ -565,17 +567,12 @@ final class WorkspaceSessionsHolder {
     func openAgent(projectId: UUID) -> AgentInstance? {
         guard let session = sessions[projectId], !isShuttingDown else { return nil }
 
-        let claudeSessionId = UUID()
-        let command = Self.agentLaunchCommand(
-            configured: settings.agentCommand, sessionId: claudeSessionId, resume: false
-        )
+        let command = Self.agentLaunchCommand(configured: settings.agentCommand, resume: false)
         let terminal = engine.makeSession(
             TerminalSessionConfig(command: command, cwd: session.root, readOnly: false, imagePaste: true)
         )
         terminal.start()
-        let instance = AgentInstance(
-            title: session.nextAgentTitle(), session: terminal, claudeSessionId: claudeSessionId
-        )
+        let instance = AgentInstance(title: session.nextAgentTitle(), session: terminal)
         wireAgentExit(terminal, on: instance)
         session.agents.append(instance)
         session.selectedTab = .agent(instance.id)

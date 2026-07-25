@@ -20,7 +20,7 @@ struct WorkspaceSessionClaudeInfoTests {
         let engine = MockTerminalEngine()
         let supervisor = ProcessSupervisor(engine: engine, browserLauncher: MockBrowserLauncher())
         let terminal = engine.makeSession(TerminalSessionConfig(command: "claude", cwd: URL(fileURLWithPath: "/tmp/alpha"), readOnly: false))
-        let agent = AgentInstance(title: "agent", session: terminal, claudeSessionId: UUID())
+        let agent = AgentInstance(title: "agent", session: terminal)
         return WorkspaceSession(
             projectId: UUID(), projectName: "alpha", root: URL(fileURLWithPath: "/tmp/alpha"),
             supervisor: supervisor, agent: agent,
