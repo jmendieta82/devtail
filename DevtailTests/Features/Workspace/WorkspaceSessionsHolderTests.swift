@@ -806,4 +806,59 @@ struct WorkspaceSessionsHolderTests {
 
         #expect(session.agents.count == 2)
     }
+
+    // MARK: - Multi-agent quit accounting
+
+    /// Every live agent counts: with two agents, one exiting must NOT flip
+    /// hasLiveSessions — only when both are gone.
+    @Test func hasLiveSessionsCountsEveryAgentInstance() throws {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+
+        (session.agents[0].session as? MockTerminalSession)?.simulateExit(code: 0)
+        #expect(holder.hasLiveSessions)
+
+        (second.session as? MockTerminalSession)?.simulateExit(code: 0)
+        #expect(!holder.hasLiveSessions)
+    }
+
+    /// Deferred quit: a second agent that never exits is a straggler and gets
+    /// force-killed at the deadline — it must not survive app quit.
+    @Test func shutdownAllWithDeadlineForceKillsSecondAgentStraggler() throws {
+        var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
+        let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
+        let session = holder.openSession(for: project("alpha"))
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+        let firstMock = try #require(session.agents[0].session as? MockTerminalSession)
+        let secondMock = try #require(second.session as? MockTerminalSession)
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+
+        // SIGTERM wave reached BOTH agents.
+        #expect(firstMock.terminateCount >= 1)
+        #expect(secondMock.terminateCount >= 1)
+
+        firstMock.simulateExit(code: 0)
+        #expect(completions == 0)
+
+        scheduled[0].block()
+        #expect(secondMock.forceKillCount == 1)
+        #expect(completions == 1)
+    }
+
+    /// close(projectId:) terminates EVERY agent instance, not just the first.
+    @Test func closeTerminatesEveryAgentInstance() throws {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+        let firstMock = try #require(session.agents[0].session as? MockTerminalSession)
+        let secondMock = try #require(second.session as? MockTerminalSession)
+
+        holder.close(projectId: session.projectId)
+
+        #expect(firstMock.terminateCount == 1)
+        #expect(secondMock.terminateCount == 1)
+    }
 }
