@@ -688,4 +688,53 @@ struct WorkspaceSessionsHolderTests {
         scheduled[0].block()
         #expect(completions == 1)
     }
+
+    // MARK: - Multiple agent tabs (openAgent)
+
+    @Test func openAgentAppendsInstanceWithOwnSessionIdAndSelectsIt() throws {
+        let (holder, engine) = makeSUT(agentCommand: "claude")
+        let session = holder.openSession(for: project("alpha"))
+        let firstId = session.agents[0].claudeSessionId
+
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+
+        #expect(session.agents.count == 2)
+        #expect(session.agents[1] === second)
+        #expect(second.title == "agent 2")
+        #expect(second.claudeSessionId != firstId)
+        #expect(session.selectedTab == .agent(second.id))
+        let mock = try #require(second.session as? MockTerminalSession)
+        #expect(mock.startCount == 1)
+        #expect(engine.configs.last?.command == "claude --session-id \(second.claudeSessionId.uuidString.lowercased())")
+        #expect(engine.configs.last?.readOnly == false)
+        #expect(engine.configs.last?.cwd.path == "/tmp/alpha")
+    }
+
+    /// Titles are monotonic: agent 2, agent 3, … (the never-reused-after-close
+    /// half of this rule is asserted in Task 4, once closeAgent exists).
+    @Test func agentTitlesAreMonotonic() throws {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+        let third = try #require(holder.openAgent(projectId: session.projectId))
+        #expect(second.title == "agent 2")
+        #expect(third.title == "agent 3")
+    }
+
+    @Test func openAgentOnUnknownProjectReturnsNil() {
+        let (holder, engine) = makeSUT()
+        #expect(holder.openAgent(projectId: UUID()) == nil)
+        #expect(engine.sessions.isEmpty)
+    }
+
+    /// A "+" click racing the quit window must not spawn a child the SIGTERM
+    /// wave can no longer see — same rule as openSession during shutdown.
+    @Test func openAgentDuringShutdownIsRefused() {
+        let (holder, engine) = makeSUT(schedule: { _, _ in })
+        let session = holder.openSession(for: project("alpha"))
+        holder.shutdownAll(deadline: 2.0) {}
+
+        #expect(holder.openAgent(projectId: session.projectId) == nil)
+        #expect(engine.sessions.count == 1)
+    }
 }

@@ -521,6 +521,33 @@ final class WorkspaceSessionsHolder {
         instance.exited = false
     }
 
+    /// "+" chip: spawn one more agent tab. Mirrors the openSession agent
+    /// seed (same config shape, same exit wiring) plus selection of the new
+    /// tab. Refused during the quit window — a child spawned after the
+    /// SIGTERM wave would be an orphan (same rule as openSession's
+    /// isShuttingDown guard). Returns nil when refused or the project has
+    /// no live session.
+    @discardableResult
+    func openAgent(projectId: UUID) -> AgentInstance? {
+        guard let session = sessions[projectId], !isShuttingDown else { return nil }
+
+        let claudeSessionId = UUID()
+        let command = Self.agentLaunchCommand(
+            configured: settings.agentCommand, sessionId: claudeSessionId, resume: false
+        )
+        let terminal = engine.makeSession(
+            TerminalSessionConfig(command: command, cwd: session.root, readOnly: false, imagePaste: true)
+        )
+        terminal.start()
+        let instance = AgentInstance(
+            title: session.nextAgentTitle(), session: terminal, claudeSessionId: claudeSessionId
+        )
+        wireAgentExit(terminal, on: instance)
+        session.agents.append(instance)
+        session.selectedTab = .agent(instance.id)
+        return instance
+    }
+
     func isOpen(_ projectId: UUID) -> Bool {
         sessions[projectId] != nil
     }

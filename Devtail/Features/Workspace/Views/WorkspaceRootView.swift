@@ -131,6 +131,17 @@ struct WorkspaceRootView: View {
                         close: nil
                     )
                 }
+                Button {
+                    holder.openAgent(projectId: session.projectId)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 9, weight: .semibold))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.icon)
+                .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                .help("New agent tab")
                 ForEach(session.supervisor.processes) { process in
                     // On-demand tab: only processes with a live session (running,
                     // or exited/stopped with scrollback preserved) get a tab.
