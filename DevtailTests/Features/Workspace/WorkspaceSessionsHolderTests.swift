@@ -502,7 +502,7 @@ struct WorkspaceSessionsHolderTests {
         #expect(session.dashboardCollapsed == true)
     }
 
-    // MARK: - Settings tab (ephemeral, opened from the activity rail gear)
+    // MARK: - Settings tab (opened from the activity rail gear, closed by its X)
 
     /// The settings tab is opened by direct assignment (activity rail gear
     /// button) rather than a holder method — this just proves the session's
