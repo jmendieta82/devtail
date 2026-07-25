@@ -122,13 +122,15 @@ struct WorkspaceRootView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: DevtailTokens.Spacing.gapSmall) {
                 terminalTab
-                WorkspaceTabChip(
-                    icon: "sparkles",
-                    title: "agent",
-                    isSelected: session.selectedTab == .agent,
-                    select: { session.selectedTab = .agent },
-                    close: nil
-                )
+                ForEach(session.agents) { agent in
+                    WorkspaceTabChip(
+                        icon: "sparkles",
+                        title: agent.title,
+                        isSelected: session.selectedTab == .agent(agent.id),
+                        select: { session.selectedTab = .agent(agent.id) },
+                        close: nil
+                    )
+                }
                 ForEach(session.supervisor.processes) { process in
                     // On-demand tab: only processes with a live session (running,
                     // or exited/stopped with scrollback preserved) get a tab.
@@ -145,7 +147,7 @@ struct WorkspaceRootView: View {
                         title: "tasks",
                         isSelected: true,
                         select: {},
-                        close: { session.selectedTab = .agent }
+                        close: { session.selectedTab = session.firstAgentTab }
                     )
                 }
                 if session.selectedTab == .settings {
@@ -154,7 +156,7 @@ struct WorkspaceRootView: View {
                         title: "settings",
                         isSelected: true,
                         select: {},
-                        close: { session.selectedTab = .agent }
+                        close: { session.selectedTab = session.firstAgentTab }
                     )
                 }
             }
@@ -193,7 +195,7 @@ struct WorkspaceRootView: View {
             isSelected: session.selectedTab == .process(process.id),
             select: { session.selectedTab = .process(process.id) },
             close: {
-                if session.selectedTab == .process(process.id) { session.selectedTab = .agent }
+                if session.selectedTab == .process(process.id) { session.selectedTab = session.firstAgentTab }
                 session.supervisor.close(process)
             }
         )
@@ -269,10 +271,12 @@ struct WorkspaceRootView: View {
                     .opacity(session.selectedTab == .terminal ? 1 : 0)
                     .allowsHitTesting(session.selectedTab == .terminal)
             }
-            TerminalHostView(terminalView: session.agent.view, appearance: appearance, isActive: session.selectedTab == .agent)
-                .id(ObjectIdentifier(session.agent))
-                .opacity(session.selectedTab == .agent ? 1 : 0)
-                .allowsHitTesting(session.selectedTab == .agent)
+            ForEach(session.agents) { agent in
+                TerminalHostView(terminalView: agent.session.view, appearance: appearance, isActive: session.selectedTab == .agent(agent.id))
+                    .id(ObjectIdentifier(agent.session))
+                    .opacity(session.selectedTab == .agent(agent.id) ? 1 : 0)
+                    .allowsHitTesting(session.selectedTab == .agent(agent.id))
+            }
             ForEach(session.supervisor.processes) { process in
                 if let view = process.session?.view {
                     TerminalHostView(terminalView: view, appearance: appearance, isActive: session.selectedTab == .process(process.id))
@@ -304,8 +308,9 @@ struct WorkspaceRootView: View {
             if session.selectedTab == .terminal && session.interactiveExited {
                 deadShellOverlay
             }
-            if session.selectedTab == .agent && session.agentExited {
-                deadAgentOverlay
+            if case .agent(let agentId) = session.selectedTab,
+               let instance = session.agentInstance(with: agentId), instance.exited {
+                deadAgentOverlay(for: instance)
             }
         }
     }
@@ -332,19 +337,19 @@ struct WorkspaceRootView: View {
         )
     }
 
-    private var deadAgentOverlay: some View {
+    private func deadAgentOverlay(for instance: AgentInstance) -> some View {
         VStack(spacing: DevtailTokens.Spacing.gapMedium) {
             Text("agent exited")
                 .font(DevtailTokens.Typography.caption)
                 .foregroundStyle(DevtailTokens.Colors.textSecondary)
             HStack(spacing: DevtailTokens.Spacing.gapSmall) {
                 Button("Restart") {
-                    holder.restartAgent(projectId: session.projectId)
+                    holder.restartAgent(projectId: session.projectId, agentId: instance.id)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 Button("Restart with context") {
-                    holder.restartAgent(projectId: session.projectId, resume: true)
+                    holder.restartAgent(projectId: session.projectId, agentId: instance.id, resume: true)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

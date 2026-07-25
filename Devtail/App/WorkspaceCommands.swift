@@ -44,7 +44,8 @@ struct WorkspaceCommands: Commands {
             .disabled(session == nil)
 
             Button("Agent") {
-                session?.selectedTab = .agent
+                guard let session else { return }
+                session.selectedTab = session.firstAgentTab
             }
             .keyboardShortcut("a", modifiers: [.command, .shift])
             .disabled(session == nil)
@@ -80,9 +81,13 @@ struct WorkspaceCommands: Commands {
 
             // Always-available escape hatch: works on a live or stuck agent
             // too, not just after exit — restartAgent terminates first.
+            // Targets the SELECTED agent tab when one is selected; the
+            // first agent otherwise.
             Button("Restart Agent with Context") {
                 guard let session else { return }
-                holder.restartAgent(projectId: session.projectId, resume: true)
+                var agentId: UUID?
+                if case .agent(let id) = session.selectedTab { agentId = id }
+                holder.restartAgent(projectId: session.projectId, agentId: agentId, resume: true)
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(session == nil)

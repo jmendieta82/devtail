@@ -33,9 +33,9 @@ final class WorkspaceSession: Identifiable {
     let root: URL
     let supervisor: ProcessSupervisor
     /// Ephemeral: nil until `openInteractive` is called, terminated and reset
-    /// to nil by `closeInteractive`. Unlike `agent`, the interactive terminal
-    /// is never auto-started — the user opens/closes it at will, and closing
-    /// kills the session. Replaced wholesale on `restartInteractive` — a
+    /// to nil by `closeInteractive`. Unlike the agents, the interactive
+    /// terminal is never auto-started — the user opens/closes it at will,
+    /// and closing kills the session. Replaced wholesale on `restartInteractive` — a
     /// fresh PTY/session, not mutated in place. `fileprivate(set)` (not
     /// `private(set)`): the write happens from `WorkspaceSessionsHolder`
     /// below, a different type in the same file — `private` alone would not
@@ -50,10 +50,6 @@ final class WorkspaceSession: Identifiable {
     /// Same replace-wholesale-on-restart contract per instance as
     /// `interactive` — `fileprivate(set)` for the same reason.
     fileprivate(set) var agents: [AgentInstance]
-    /// TEMPORARY bridges while views still address "the" agent — removed
-    /// when WorkspaceTab.agent is parameterized (next task).
-    var agent: TerminalSession { agents[0].session }
-    var agentExited: Bool { agents[0].exited }
     /// Monotonic tab-title counter: "agent", then "agent 2", "agent 3", …
     /// Numbers are never reused after a close.
     private var nextAgentNumber = 2
@@ -66,10 +62,14 @@ final class WorkspaceSession: Identifiable {
     func agentInstance(with id: UUID) -> AgentInstance? {
         agents.first { $0.id == id }
     }
-    /// Which center-column tab is showing: interactive terminal, a managed
-    /// process's log, or a file viewer. The agent is the only constant tab,
-    /// so it's the default.
-    var selectedTab: WorkspaceTab = .agent
+    /// The universal tab fallback: every "go back to the agent" path
+    /// (closing files/ephemeral tabs, dismissing settings) lands on the
+    /// FIRST agent tab. Safe unconditionally — agents is never empty.
+    var firstAgentTab: WorkspaceTab { .agent(agents[0].id) }
+    /// Which center-column tab is showing. The agent tabs are the only
+    /// constant ones, so the first agent is the default — assigned in init
+    /// (the id doesn't exist at declaration time).
+    var selectedTab: WorkspaceTab
     /// Files open in the workspace (read-only viewer tabs).
     private(set) var openFiles: [OpenFile] = []
     /// In-flight edit state for open env files, keyed by path. This is the
@@ -155,6 +155,7 @@ final class WorkspaceSession: Identifiable {
         self.root = root
         self.supervisor = supervisor
         self.agents = [agent]
+        self.selectedTab = .agent(agent.id)
         self.currentBranch = currentBranch
         self.openedAt = openedAt
         self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
@@ -184,7 +185,7 @@ final class WorkspaceSession: Identifiable {
         clearDraft(for: path)
         guard selectedTab == .file(path) else { return }
         if openFiles.isEmpty {
-            selectedTab = .agent
+            selectedTab = firstAgentTab
         } else {
             selectedTab = .file(openFiles[max(0, index - 1)].path)
         }
@@ -423,7 +424,7 @@ final class WorkspaceSessionsHolder {
         session.interactive = nil
         session.interactiveExited = false
         if session.selectedTab == .terminal {
-            session.selectedTab = .agent
+            session.selectedTab = session.firstAgentTab
         }
     }
 

@@ -87,7 +87,7 @@ struct WorkspaceSessionOpenFilesTests {
         s.openFile(at: "/tmp/a.swift")
         s.closeFile(at: "/tmp/a.swift")
         #expect(s.openFiles.isEmpty)
-        #expect(s.selectedTab == .agent)
+        #expect(s.selectedTab == s.firstAgentTab)
     }
 
     @Test func closeUnselectedKeepsSelection() {

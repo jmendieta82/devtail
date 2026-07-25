@@ -192,13 +192,11 @@ struct WorkspaceSessionsHolderTests {
         #expect(abs(session.openedAt.timeIntervalSinceNow) < 5)
     }
 
-    @Test func openSessionStartsOnAgentTab() {
+    @Test func openSessionStartsOnFirstAgentTab() {
         let (holder, _) = makeSUT()
-        let p = project("alpha")
-
-        let session = holder.openSession(for: p)
-
-        #expect(session.selectedTab == .agent)
+        let session = holder.openSession(for: project("alpha"))
+        #expect(session.selectedTab == .agent(session.agents[0].id))
+        #expect(session.firstAgentTab == .agent(session.agents[0].id))
     }
 
     // MARK: - Interactive shell (ephemeral: open/close on demand)
@@ -245,7 +243,7 @@ struct WorkspaceSessionsHolderTests {
         #expect(mock?.terminateCount == 1)
         #expect(session.interactive == nil)
         #expect(session.interactiveExited == false)
-        #expect(session.selectedTab == .agent)
+        #expect(session.selectedTab == session.firstAgentTab)
     }
 
     @Test func closeInteractiveDoesNotChangeSelectionWhenAnotherTabIsSelected() {
@@ -253,11 +251,11 @@ struct WorkspaceSessionsHolderTests {
         let p = project("alpha")
         let session = holder.openSession(for: p)
         holder.openInteractive(projectId: p.id)
-        session.selectedTab = .agent
+        session.selectedTab = session.firstAgentTab
 
         holder.closeInteractive(projectId: p.id)
 
-        #expect(session.selectedTab == .agent)
+        #expect(session.selectedTab == session.firstAgentTab)
     }
 
     @Test func closeInteractiveWhenNoneOpenIsSafeNoOp() {
@@ -341,7 +339,7 @@ struct WorkspaceSessionsHolderTests {
         let agentConfigs = engine.configs.filter { $0.command == "claude --continue" }
         #expect(agentConfigs.count == 1)
         #expect(agentConfigs[0].readOnly == false)
-        #expect(session.agentExited == false)
+        #expect(session.agents[0].exited == false)
     }
 
     @Test func openSessionSpawnsAgentWithDefaultClaude() {
@@ -354,19 +352,19 @@ struct WorkspaceSessionsHolderTests {
     @Test func agentExitSetsAgentExitedFlag() {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))
-        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
-        #expect(session.agentExited == true)
+        (session.agents[0].session as? MockTerminalSession)?.simulateExit(code: 0)
+        #expect(session.agents[0].exited == true)
         #expect(session.interactiveExited == false)
     }
 
     @Test func restartAgentCreatesFreshSessionAndResetsFlag() {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))
-        let old = session.agent as? MockTerminalSession
+        let old = session.agents[0].session as? MockTerminalSession
         old?.simulateExit(code: 1)
         holder.restartAgent(projectId: session.projectId)
-        #expect(session.agent !== old)
-        #expect(session.agentExited == false)
+        #expect(session.agents[0].session !== old)
+        #expect(session.agents[0].exited == false)
         #expect(old?.terminateCount == 1)
     }
 
@@ -459,16 +457,16 @@ struct WorkspaceSessionsHolderTests {
     @Test func staleAgentExitAfterRestartDoesNotReflipFlag() {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))
-        let old = session.agent as? MockTerminalSession
+        let old = session.agents[0].session as? MockTerminalSession
         holder.restartAgent(projectId: session.projectId)
         old?.simulateExit(code: 1)
-        #expect(session.agentExited == false)
+        #expect(session.agents[0].exited == false)
     }
 
     @Test func closeTerminatesAgentSession() {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))
-        let agent = session.agent as? MockTerminalSession
+        let agent = session.agents[0].session as? MockTerminalSession
         holder.close(projectId: session.projectId)
         #expect(agent?.terminateCount == 1)
     }
@@ -513,13 +511,13 @@ struct WorkspaceSessionsHolderTests {
     @Test func selectedTabCanSwitchToSettingsAndBackToAgent() {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))
-        #expect(session.selectedTab == .agent)
+        #expect(session.selectedTab == session.firstAgentTab)
 
         session.selectedTab = .settings
         #expect(session.selectedTab == .settings)
 
-        session.selectedTab = .agent
-        #expect(session.selectedTab == .agent)
+        session.selectedTab = session.firstAgentTab
+        #expect(session.selectedTab == session.firstAgentTab)
     }
 
     // MARK: - Quit path: hasLiveSessions + shutdownAll(deadline:completion:)
@@ -531,14 +529,14 @@ struct WorkspaceSessionsHolderTests {
         let session = holder.openSession(for: project("alpha"))
         #expect(holder.hasLiveSessions)
 
-        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
+        (session.agents[0].session as? MockTerminalSession)?.simulateExit(code: 0)
         #expect(!holder.hasLiveSessions)
     }
 
     @Test func shutdownAllWithDeadlineCompletesImmediatelyWhenNothingLive() {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))
-        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
+        (session.agents[0].session as? MockTerminalSession)?.simulateExit(code: 0)
 
         var completions = 0
         holder.shutdownAll(deadline: 2.0) { completions += 1 }
@@ -552,7 +550,7 @@ struct WorkspaceSessionsHolderTests {
         let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
         let session = holder.openSession(for: project("alpha"))
         holder.openInteractive(projectId: session.projectId)
-        let agent = try #require(session.agent as? MockTerminalSession)
+        let agent = try #require(session.agents[0].session as? MockTerminalSession)
         let interactive = try #require(session.interactive as? MockTerminalSession)
 
         var completions = 0
@@ -580,7 +578,7 @@ struct WorkspaceSessionsHolderTests {
         var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
         let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
         let session = holder.openSession(for: project("alpha"))
-        let agent = try #require(session.agent as? MockTerminalSession)
+        let agent = try #require(session.agents[0].session as? MockTerminalSession)
 
         var completions = 0
         holder.shutdownAll(deadline: 2.0) { completions += 1 }
@@ -603,7 +601,7 @@ struct WorkspaceSessionsHolderTests {
         let (holder, _) = makeSUT(schedule: { scheduled.append(($0, $1)) })
         let session = holder.openSession(for: project("alpha"))
         holder.openInteractive(projectId: session.projectId)
-        let agent = try #require(session.agent as? MockTerminalSession)
+        let agent = try #require(session.agents[0].session as? MockTerminalSession)
         let interactive = try #require(session.interactive as? MockTerminalSession)
 
         var completions = 0
@@ -632,7 +630,7 @@ struct WorkspaceSessionsHolderTests {
         p.workspacePanes.append(pane)
 
         let session = holder.openSession(for: p)
-        (session.agent as? MockTerminalSession)?.simulateExit(code: 0)
+        (session.agents[0].session as? MockTerminalSession)?.simulateExit(code: 0)
         #expect(!holder.hasLiveSessions)
 
         session.supervisor.startAll()
@@ -660,7 +658,7 @@ struct WorkspaceSessionsHolderTests {
         holder.shutdownAll(deadline: 2.0) { completions += 1 }
 
         let late = holder.openSession(for: project("beta"))
-        let lateAgent = try #require(late.agent as? MockTerminalSession)
+        let lateAgent = try #require(late.agents[0].session as? MockTerminalSession)
         #expect(lateAgent.startCount == 0)
 
         scheduled[0].block()
