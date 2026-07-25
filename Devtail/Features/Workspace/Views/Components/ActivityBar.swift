@@ -22,7 +22,7 @@ struct ActivityBar: View {
             }
 
             Button {
-                session.selectedTab = .tasks
+                session.openTasks()
             } label: {
                 Image(systemName: "checklist")
                     .font(.system(size: 18))
@@ -37,7 +37,7 @@ struct ActivityBar: View {
             Spacer()
 
             Button {
-                session.selectedTab = .settings
+                session.openSettings()
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 18))

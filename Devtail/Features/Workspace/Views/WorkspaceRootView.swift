@@ -154,22 +154,22 @@ struct WorkspaceRootView: View {
                 ForEach(session.openFiles) { file in
                     fileTab(for: file)
                 }
-                if session.selectedTab == .tasks {
+                if session.isTasksTabOpen {
                     WorkspaceTabChip(
                         icon: "checklist",
                         title: "tasks",
-                        isSelected: true,
-                        select: {},
-                        close: { session.selectedTab = session.firstAgentTab }
+                        isSelected: session.selectedTab == .tasks,
+                        select: { session.selectedTab = .tasks },
+                        close: { session.closeTasks() }
                     )
                 }
-                if session.selectedTab == .settings {
+                if session.isSettingsTabOpen {
                     WorkspaceTabChip(
                         icon: "gearshape",
                         title: "settings",
-                        isSelected: true,
-                        select: {},
-                        close: { session.selectedTab = session.firstAgentTab }
+                        isSelected: session.selectedTab == .settings,
+                        select: { session.selectedTab = .settings },
+                        close: { session.closeSettings() }
                     )
                 }
             }

@@ -70,6 +70,10 @@ final class WorkspaceSession: Identifiable {
     /// constant ones, so the first agent is the default — assigned in init
     /// (the id doesn't exist at declaration time).
     var selectedTab: WorkspaceTab
+    /// Tasks/settings tabs stay in the row once opened — only their own X
+    /// removes them. Selection never closes a tab.
+    private(set) var isTasksTabOpen = false
+    private(set) var isSettingsTabOpen = false
     /// Files open in the workspace (read-only viewer tabs).
     private(set) var openFiles: [OpenFile] = []
     /// In-flight edit state for open env files, keyed by path. This is the
@@ -189,6 +193,36 @@ final class WorkspaceSession: Identifiable {
         } else {
             selectedTab = .file(openFiles[max(0, index - 1)].path)
         }
+    }
+
+    /// Open the tasks tab (mark it open and select it). Idempotent: calling
+    /// again while already open simply re-selects it.
+    func openTasks() {
+        isTasksTabOpen = true
+        selectedTab = .tasks
+    }
+
+    /// Close the tasks tab. If it was selected, selection falls back to
+    /// `firstAgentTab`; otherwise the current selection is untouched.
+    func closeTasks() {
+        isTasksTabOpen = false
+        guard selectedTab == .tasks else { return }
+        selectedTab = firstAgentTab
+    }
+
+    /// Open the settings tab (mark it open and select it). Idempotent:
+    /// calling again while already open simply re-selects it.
+    func openSettings() {
+        isSettingsTabOpen = true
+        selectedTab = .settings
+    }
+
+    /// Close the settings tab. If it was selected, selection falls back to
+    /// `firstAgentTab`; otherwise the current selection is untouched.
+    func closeSettings() {
+        isSettingsTabOpen = false
+        guard selectedTab == .settings else { return }
+        selectedTab = firstAgentTab
     }
 
     /// Whether `path` currently has unsaved edits. Derives from the draft

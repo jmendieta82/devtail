@@ -38,7 +38,7 @@ struct WorkspaceCommands: Commands {
             .disabled(session == nil)
 
             Button("Task Board") {
-                session?.selectedTab = .tasks
+                session?.openTasks()
             }
             .keyboardShortcut("b", modifiers: .command)
             .disabled(session == nil)
@@ -58,7 +58,7 @@ struct WorkspaceCommands: Commands {
             // when a file tab is selected lets the env editor's Save keep
             // Cmd+S in file tabs.
             Button("Settings") {
-                session?.selectedTab = .settings
+                session?.openSettings()
             }
             .keyboardShortcut("s", modifiers: .command)
             .disabled(session == nil || isFileTabSelected)

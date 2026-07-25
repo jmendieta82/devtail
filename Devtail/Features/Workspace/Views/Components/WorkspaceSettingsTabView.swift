@@ -55,7 +55,7 @@ struct WorkspaceSettingsTabView: View {
                         // ScrollView needed).
                         ProjectFormView(
                             projectID: project.id,
-                            onDismiss: { session.selectedTab = session.firstAgentTab },
+                            onDismiss: { session.closeSettings() },
                             isDirty: $isDirty
                         )
                         // Readable measure: the center column can span the whole

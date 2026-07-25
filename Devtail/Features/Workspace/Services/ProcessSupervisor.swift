@@ -39,8 +39,17 @@ final class ProcessSupervisor {
     func reconfigure(panes: [WorkspacePane], root: URL) {
         let incoming = Self.activePanes(from: panes)
         let incomingIds = Set(incoming.map(\.id))
+        let closing = processes.filter { !incomingIds.contains($0.id) }
 
-        for process in processes where !incomingIds.contains(process.id) {
+        if !closing.isEmpty {
+            Log.lifecycle.debug("""
+                Process reconfigure closing \(closing.count, privacy: .public): \
+                incoming pane ids \(incomingIds.map(\.uuidString), privacy: .public) vs \
+                current process ids \(self.processes.map(\.id.uuidString), privacy: .public)
+                """)
+        }
+
+        for process in closing {
             close(process)
         }
 
