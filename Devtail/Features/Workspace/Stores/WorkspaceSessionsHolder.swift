@@ -548,6 +548,28 @@ final class WorkspaceSessionsHolder {
         return instance
     }
 
+    /// Close one agent tab: terminate the PTY (a real close, not a hide)
+    /// and drop the instance. Refused for the last remaining agent — the
+    /// firstAgentTab fallback contract requires at least one. If the closed
+    /// tab was selected, selection moves to the previous neighbor (or the
+    /// next when the closed tab was first) — same rule as closeFile.
+    func closeAgent(projectId: UUID, agentId: UUID) {
+        guard let session = sessions[projectId], session.agents.count > 1,
+              let index = session.agents.firstIndex(where: { $0.id == agentId }) else { return }
+
+        let instance = session.agents.remove(at: index)
+        instance.session.terminate()
+        if session.selectedTab == .agent(agentId) {
+            // `index` is the pre-removal position; `agents` has just shrunk
+            // by exactly one element. For index >= 1, index - 1 is still a
+            // valid post-removal position (the new previous neighbor); for
+            // index == 0 (closed tab was first), max(0, -1) == 0 selects the
+            // new first element. Do not change this arithmetic without
+            // re-verifying both cases.
+            session.selectedTab = .agent(session.agents[max(0, index - 1)].id)
+        }
+    }
+
     func isOpen(_ projectId: UUID) -> Bool {
         sessions[projectId] != nil
     }

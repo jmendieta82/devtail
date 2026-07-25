@@ -128,7 +128,9 @@ struct WorkspaceRootView: View {
                         title: agent.title,
                         isSelected: session.selectedTab == .agent(agent.id),
                         select: { session.selectedTab = .agent(agent.id) },
-                        close: nil
+                        close: session.agents.count == 1 ? nil : {
+                            holder.closeAgent(projectId: session.projectId, agentId: agent.id)
+                        }
                     )
                 }
                 Button {

@@ -710,15 +710,18 @@ struct WorkspaceSessionsHolderTests {
         #expect(engine.configs.last?.cwd.path == "/tmp/alpha")
     }
 
-    /// Titles are monotonic: agent 2, agent 3, … (the never-reused-after-close
-    /// half of this rule is asserted in Task 4, once closeAgent exists).
-    @Test func agentTitlesAreMonotonic() throws {
+    @Test func agentTitlesAreMonotonicAndNeverReused() throws {
         let (holder, _) = makeSUT()
         let session = holder.openSession(for: project("alpha"))
         let second = try #require(holder.openAgent(projectId: session.projectId))
         let third = try #require(holder.openAgent(projectId: session.projectId))
         #expect(second.title == "agent 2")
         #expect(third.title == "agent 3")
+
+        holder.closeAgent(projectId: session.projectId, agentId: second.id)
+
+        let fourth = try #require(holder.openAgent(projectId: session.projectId))
+        #expect(fourth.title == "agent 4")
     }
 
     @Test func openAgentOnUnknownProjectReturnsNil() {
@@ -736,5 +739,71 @@ struct WorkspaceSessionsHolderTests {
 
         #expect(holder.openAgent(projectId: session.projectId) == nil)
         #expect(engine.sessions.count == 1)
+    }
+
+    // MARK: - closeAgent
+
+    @Test func closeAgentTerminatesAndRemovesInstance() throws {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+        let mock = try #require(second.session as? MockTerminalSession)
+
+        holder.closeAgent(projectId: session.projectId, agentId: second.id)
+
+        #expect(session.agents.count == 1)
+        #expect(session.agentInstance(with: second.id) == nil)
+        #expect(mock.terminateCount == 1)
+    }
+
+    /// The last agent tab cannot be closed — the invariant every fallback
+    /// (firstAgentTab) relies on.
+    @Test func closeAgentRefusesToCloseTheLastInstance() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let only = session.agents[0]
+
+        holder.closeAgent(projectId: session.projectId, agentId: only.id)
+
+        #expect(session.agents.count == 1)
+        #expect((only.session as? MockTerminalSession)?.terminateCount == 0)
+    }
+
+    /// Closing the selected tab selects the previous neighbor (or the next one
+    /// when the closed tab was first) — same rule as closeFile.
+    @Test func closeAgentSelectsNeighborWhenSelectedTabCloses() throws {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+        let third = try #require(holder.openAgent(projectId: session.projectId))
+
+        session.selectedTab = .agent(second.id)
+        holder.closeAgent(projectId: session.projectId, agentId: second.id)
+        #expect(session.selectedTab == .agent(session.agents[0].id))
+
+        session.selectedTab = .agent(session.agents[0].id)
+        holder.closeAgent(projectId: session.projectId, agentId: session.agents[0].id)
+        #expect(session.selectedTab == .agent(third.id))
+    }
+
+    @Test func closeAgentKeepsSelectionWhenAnotherTabIsSelected() throws {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let second = try #require(holder.openAgent(projectId: session.projectId))
+        session.selectedTab = session.firstAgentTab
+
+        holder.closeAgent(projectId: session.projectId, agentId: second.id)
+
+        #expect(session.selectedTab == session.firstAgentTab)
+    }
+
+    @Test func closeAgentWithUnknownIdIsSafeNoOp() {
+        let (holder, _) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        _ = holder.openAgent(projectId: session.projectId)
+
+        holder.closeAgent(projectId: session.projectId, agentId: UUID())
+
+        #expect(session.agents.count == 2)
     }
 }
