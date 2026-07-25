@@ -14,8 +14,10 @@ enum WorkspaceTab: Hashable {
     /// First-class interactive agent tab (auto-launched agent command).
     /// Parameterized by AgentInstance id — a project can run several.
     case agent(UUID)
-    /// Project settings form, rendered as an ephemeral center tab.
+    /// Project settings form, rendered as a center tab. Stays in the tab row
+    /// once opened (`WorkspaceSession.isSettingsTabOpen`) until its own X.
     case settings
-    /// Trello-style task board, rendered as an ephemeral center tab.
+    /// Trello-style task board, rendered as a center tab. Stays in the tab row
+    /// once opened (`WorkspaceSession.isTasksTabOpen`) until its own X.
     case tasks
 }

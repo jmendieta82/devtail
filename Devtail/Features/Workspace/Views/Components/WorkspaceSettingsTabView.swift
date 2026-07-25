@@ -2,7 +2,8 @@
 //  WorkspaceSettingsTabView.swift
 //  Devtail
 //
-//  Settings as an ephemeral center tab, split into two scopes via a
+//  Settings as a center tab (persistent once opened — only its own X
+//  closes it), split into two scopes via a
 //  segmented switcher: "Project" reuses ProjectFormView in edit mode
 //  (pane edits save straight through the store, so this view watches the
 //  panes signature and re-syncs the supervisor incrementally — the open

@@ -100,7 +100,7 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
         )
         let mcpServers = discoverMCPServers(projectRoot: projectRoot, home: home)
         let tokenUsage = readTokenUsage(projectRoot: projectRoot, home: home, isCancelled: isCancelled)
-        let currentModel = readCurrentModel(projectRoot: projectRoot, home: home)
+        let currentModel = readCurrentModel(projectRoot: projectRoot, home: home, isCancelled: isCancelled)
 
         return ClaudeIntrospection(
             skills: skills,
@@ -289,10 +289,15 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
     /// `.jsonl` transcript (by modification date), scanned from its last
     /// line backwards for the first line carrying `message.model`. Nil when
     /// there are no transcripts, or none of their lines carry a model —
-    /// best-effort, same contract as token aggregation.
-    private func readCurrentModel(projectRoot: URL, home: URL) -> String? {
+    /// best-effort, same contract as token aggregation. Honors `isCancelled`
+    /// before the read for the same reason `readTokenUsage` does: a cancelled
+    /// refresh should not pay for a heavy transcript it will discard.
+    private func readCurrentModel(
+        projectRoot: URL, home: URL, isCancelled: @Sendable () -> Bool
+    ) -> String? {
+        guard !isCancelled() else { return nil }
         let jsonlFiles = transcriptFiles(projectRoot: projectRoot, home: home)
-        guard let newest = newestFile(jsonlFiles) else { return nil }
+        guard let newest = newestFile(jsonlFiles), !isCancelled() else { return nil }
         guard let content = try? String(contentsOf: newest, encoding: .utf8) else { return nil }
 
         let lines = content.components(separatedBy: "\n")

@@ -63,7 +63,7 @@ final class WorkspaceSession: Identifiable {
         agents.first { $0.id == id }
     }
     /// The universal tab fallback: every "go back to the agent" path
-    /// (closing files/ephemeral tabs, dismissing settings) lands on the
+    /// (closing the selected file, tasks, or settings tab) lands on the
     /// FIRST agent tab. Safe unconditionally — agents is never empty.
     var firstAgentTab: WorkspaceTab { .agent(agents[0].id) }
     /// Which center-column tab is showing. The agent tabs are the only
