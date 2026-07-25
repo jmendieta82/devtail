@@ -45,13 +45,27 @@ final class WorkspaceSession: Identifiable {
     /// at the prompt). No auto-respawn: a crashing shell must not loop: this
     /// only drives the dead-state UI affordance until the user restarts it.
     var interactiveExited = false
-    /// Second first-class terminal session running the configured coding
-    /// agent (e.g. `claude`). Same replace-wholesale-on-restart contract as
+    /// The Claude agent tabs, in tab-row order. Always at least one — the
+    /// first is seeded at session open; the last one cannot be closed.
+    /// Same replace-wholesale-on-restart contract per instance as
     /// `interactive` — `fileprivate(set)` for the same reason.
-    fileprivate(set) var agent: TerminalSession
-    /// Set true when the agent process exits. Mirrors `interactiveExited`;
-    /// no auto-respawn here either.
-    var agentExited = false
+    fileprivate(set) var agents: [AgentInstance]
+    /// TEMPORARY bridges while views still address "the" agent — removed
+    /// when WorkspaceTab.agent is parameterized (next task).
+    var agent: TerminalSession { agents[0].session }
+    var agentExited: Bool { agents[0].exited }
+    /// Monotonic tab-title counter: "agent", then "agent 2", "agent 3", …
+    /// Numbers are never reused after a close.
+    private var nextAgentNumber = 2
+
+    fileprivate func nextAgentTitle() -> String {
+        defer { nextAgentNumber += 1 }
+        return "agent \(nextAgentNumber)"
+    }
+
+    func agentInstance(with id: UUID) -> AgentInstance? {
+        agents.first { $0.id == id }
+    }
     /// Which center-column tab is showing: interactive terminal, a managed
     /// process's log, or a file viewer. The agent is the only constant tab,
     /// so it's the default.
@@ -131,7 +145,7 @@ final class WorkspaceSession: Identifiable {
 
     init(projectId: UUID, projectName: String, root: URL,
          supervisor: ProcessSupervisor,
-         agent: TerminalSession,
+         agent: AgentInstance,
          currentBranch: String? = nil,
          openedAt: Date = Date(),
          gitStatusReader: GitStatusReading = GitStatusReader(),
@@ -140,7 +154,7 @@ final class WorkspaceSession: Identifiable {
         self.projectName = projectName
         self.root = root
         self.supervisor = supervisor
-        self.agent = agent
+        self.agents = [agent]
         self.currentBranch = currentBranch
         self.openedAt = openedAt
         self.fileTree = FileTreeStore(root: root, lister: FileManagerDirectoryLister())
@@ -351,13 +365,17 @@ final class WorkspaceSessionsHolder {
         let supervisor = ProcessSupervisor(engine: engine, browserLauncher: browserLauncher)
         supervisor.configure(panes: project.workspacePanes.sorted { $0.order < $1.order }, root: root)
 
-        // A runtime-blank setting must not silently spawn a plain shell in
-        // the agent tab — sanitize and fall back to "claude".
-        let command = settings.agentCommand.trimmingCharacters(in: .whitespaces)
-        let agent = engine.makeSession(
-            TerminalSessionConfig(command: command.isEmpty ? "claude" : command, cwd: root, readOnly: false, imagePaste: true)
+        let claudeSessionId = UUID()
+        let command = Self.agentLaunchCommand(
+            configured: settings.agentCommand, sessionId: claudeSessionId, resume: false
         )
-        if !isShuttingDown { agent.start() }
+        let agentTerminal = engine.makeSession(
+            TerminalSessionConfig(command: command, cwd: root, readOnly: false, imagePaste: true)
+        )
+        if !isShuttingDown { agentTerminal.start() }
+        let agentInstance = AgentInstance(
+            title: "agent", session: agentTerminal, claudeSessionId: claudeSessionId
+        )
 
         // Managed processes are configured (cards visible, stopped) but do
         // NOT auto-start — the user starts each one manually via its
@@ -366,10 +384,10 @@ final class WorkspaceSessionsHolder {
 
         let session = WorkspaceSession(
             projectId: project.id, projectName: project.name, root: root,
-            supervisor: supervisor, agent: agent,
+            supervisor: supervisor, agent: agentInstance,
             currentBranch: branch
         )
-        wireAgentExit(agent, on: session)
+        wireAgentExit(agentTerminal, on: agentInstance)
         sessions[project.id] = session
         // Inert during shutdown: the refreshes spawn work that outlives quit.
         guard !isShuttingDown else { return session }
@@ -441,50 +459,65 @@ final class WorkspaceSessionsHolder {
         session.interactiveExited = false
     }
 
-    /// Mirrors `wireInteractiveExit` for the agent session: same identity
-    /// guard against stale exits from a since-replaced (restarted) agent.
-    private func wireAgentExit(_ terminal: TerminalSession, on session: WorkspaceSession) {
-        terminal.onExit = { [weak session, weak terminal] _ in
-            guard let session, let terminal, session.agent === terminal else { return }
-            session.agentExited = true
+    /// Mirrors `wireInteractiveExit` per agent instance: same identity guard
+    /// against stale exits from a since-replaced (restarted) session.
+    private func wireAgentExit(_ terminal: TerminalSession, on instance: AgentInstance) {
+        terminal.onExit = { [weak instance, weak terminal] _ in
+            guard let instance, let terminal, instance.session === terminal else { return }
+            instance.exited = true
         }
     }
 
-    /// Builds the agent launch command from the configured setting: same
-    /// blank-setting sanitize-and-fallback as `openSession`, plus the resume
-    /// flag. With `resume`, ` --continue` is appended unless the configured
-    /// command already carries a `--continue` or standalone `-c` token —
-    /// token-wise, not substring-wise, so `--coverage` or a path containing
-    /// `-c` doesn't suppress the append.
-    static func agentLaunchCommand(configured: String, resume: Bool) -> String {
+    /// Builds an agent launch command from the configured setting: sanitizes
+    /// a runtime-blank setting to "claude" (a blank must not silently spawn
+    /// a plain shell in an agent tab), then appends the per-instance
+    /// conversation flag — `--session-id <uuid>` on create, `--resume
+    /// <uuid>` on restart-with-context. If the configured command already
+    /// carries its own session/continue/resume token the user wins and
+    /// nothing is appended — token-wise, not substring-wise, so `--coverage`
+    /// or a path containing `-c` doesn't suppress the append.
+    static func agentLaunchCommand(configured: String, sessionId: UUID, resume: Bool) -> String {
         let trimmed = configured.trimmingCharacters(in: .whitespaces)
         let command = trimmed.isEmpty ? "claude" : trimmed
-        guard resume else { return command }
         let tokens = command.split(whereSeparator: \.isWhitespace)
-        if tokens.contains("--continue") || tokens.contains("-c") { return command }
-        return command + " --continue"
+        let sessionTokens: Set<Substring> = ["--continue", "-c", "--resume", "-r", "--session-id"]
+        guard !tokens.contains(where: { sessionTokens.contains($0) }) else { return command }
+        let id = sessionId.uuidString.lowercased()
+        return resume ? "\(command) --resume \(id)" : "\(command) --session-id \(id)"
     }
 
-    /// User-initiated restart of the agent session. Mirrors
-    /// `restartInteractive`: terminate the old session, spawn a fresh one
-    /// with the (sanitized) configured command, re-wire, reset the flag.
+    /// User-initiated restart of one agent tab. Mirrors `restartInteractive`:
+    /// terminate the old session, spawn a fresh one, re-wire, reset the flag.
     /// Works on a live agent too (the terminate-first shape makes it the
-    /// stuck-agent escape hatch, not just the dead-state recovery). With
-    /// `resume`, the fresh agent relaunches with ` --continue` so it picks
-    /// the previous conversation back up — see `agentLaunchCommand`.
-    func restartAgent(projectId: UUID, resume: Bool = false) {
+    /// stuck-agent escape hatch). `agentId: nil` targets the first agent.
+    /// With `resume`, the fresh agent relaunches with `--resume` on the
+    /// instance's tracked conversation id — exactly its own conversation;
+    /// without it, the id rotates: a plain restart is a fresh conversation.
+    func restartAgent(projectId: UUID, agentId: UUID? = nil, resume: Bool = false) {
         guard let session = sessions[projectId] else { return }
+        let target: AgentInstance?
+        if let agentId {
+            target = session.agentInstance(with: agentId)
+        } else {
+            target = session.agents.first
+        }
+        guard let instance = target else { return }
 
-        session.agent.terminate()
+        instance.session.terminate()
 
-        let command = Self.agentLaunchCommand(configured: settings.agentCommand, resume: resume)
+        guard !isShuttingDown else { return }
+
+        let sessionId = resume ? instance.claudeSessionId : instance.rotateClaudeSessionId()
+        let command = Self.agentLaunchCommand(
+            configured: settings.agentCommand, sessionId: sessionId, resume: resume
+        )
         let fresh = engine.makeSession(
             TerminalSessionConfig(command: command, cwd: session.root, readOnly: false, imagePaste: true)
         )
         fresh.start()
-        session.agent = fresh
-        wireAgentExit(fresh, on: session)
-        session.agentExited = false
+        instance.session = fresh
+        wireAgentExit(fresh, on: instance)
+        instance.exited = false
     }
 
     func isOpen(_ projectId: UUID) -> Bool {
@@ -496,7 +529,7 @@ final class WorkspaceSessionsHolder {
         guard let session = sessions.removeValue(forKey: projectId) else { return }
         session.supervisor.shutdownAll()
         session.interactive?.terminate()
-        session.agent.terminate()
+        for instance in session.agents { instance.session.terminate() }
         session.cancelGitStatusRefresh()
         session.cancelClaudeInfoRefresh()
         session.taskBoard.cancel()
@@ -519,8 +552,8 @@ final class WorkspaceSessionsHolder {
     private func liveTerminalSessions() -> [TerminalSession] {
         var live: [TerminalSession] = []
         for session in sessions.values {
-            if !session.agentExited {
-                live.append(session.agent)
+            for instance in session.agents where !instance.exited {
+                live.append(instance.session)
             }
             if let interactive = session.interactive, !session.interactiveExited {
                 live.append(interactive)

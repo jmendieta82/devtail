@@ -346,8 +346,9 @@ struct WorkspaceSessionsHolderTests {
 
     @Test func openSessionSpawnsAgentWithDefaultClaude() {
         let (holder, engine) = makeSUT()
-        _ = holder.openSession(for: project("alpha"))
-        #expect(engine.configs.contains { $0.command == "claude" && !$0.readOnly })
+        let session = holder.openSession(for: project("alpha"))
+        let expected = "claude --session-id \(session.agents[0].claudeSessionId.uuidString.lowercased())"
+        #expect(engine.configs.contains { $0.command == expected && !$0.readOnly })
     }
 
     @Test func agentExitSetsAgentExitedFlag() {
@@ -369,51 +370,90 @@ struct WorkspaceSessionsHolderTests {
         #expect(old?.terminateCount == 1)
     }
 
-    // MARK: - Restart with context (resume command construction)
+    /// restartAgent with an explicit unknown agentId is a safe no-op.
+    @Test func restartAgentWithUnknownAgentIdIsNoOp() {
+        let (holder, engine) = makeSUT()
+        let session = holder.openSession(for: project("alpha"))
+        let before = engine.sessions.count
 
-    @Test func resumeCommandAppendsContinueToPlainClaude() {
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude", resume: true) == "claude --continue")
+        holder.restartAgent(projectId: session.projectId, agentId: UUID())
+
+        #expect(engine.sessions.count == before)
+        #expect((session.agents[0].session as? MockTerminalSession)?.terminateCount == 0)
     }
 
-    @Test func resumeCommandDoesNotDoubleContinueFlag() {
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude --continue", resume: true) == "claude --continue")
+    // MARK: - Launch command construction (per-instance session ids)
+
+    @Test func createCommandAppendsSessionIdToPlainClaude() {
+        let id = UUID()
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude", sessionId: id, resume: false)
+            == "claude --session-id \(id.uuidString.lowercased())")
     }
 
-    @Test func resumeCommandDoesNotDoubleStandaloneCFlag() {
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude -c", resume: true) == "claude -c")
+    @Test func resumeCommandAppendsResumeWithSameId() {
+        let id = UUID()
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude", sessionId: id, resume: true)
+            == "claude --resume \(id.uuidString.lowercased())")
     }
 
-    /// The `-c`/`--continue` detection is token-based, not substring-based:
-    /// a flag or path merely containing those characters must not suppress
-    /// the append.
-    @Test func resumeCommandTokenCheckIgnoresSubstringMatches() {
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude --coverage", resume: true) == "claude --coverage --continue")
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "/opt/tools-c/claude", resume: true) == "/opt/tools-c/claude --continue")
+    /// A configured command that already carries its own session/resume flags
+    /// wins — no append, in either mode.
+    @Test func commandWithExistingSessionTokensIsLeftAlone() {
+        let id = UUID()
+        for configured in ["claude --continue", "claude -c", "claude --resume abc", "claude -r", "claude --session-id abc"] {
+            #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: configured, sessionId: id, resume: false) == configured)
+            #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: configured, sessionId: id, resume: true) == configured)
+        }
     }
 
-    @Test func freshCommandNeverAppendsContinue() {
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude", resume: false) == "claude")
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude --continue", resume: false) == "claude --continue")
+    /// Token-based detection, not substring: `--coverage` or a path containing
+    /// `-c`/`-r` must not suppress the append.
+    @Test func sessionTokenCheckIgnoresSubstringMatches() {
+        let id = UUID()
+        let suffix = "--session-id \(id.uuidString.lowercased())"
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "claude --coverage", sessionId: id, resume: false)
+            == "claude --coverage \(suffix)")
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "/opt/tools-c/claude", sessionId: id, resume: false)
+            == "/opt/tools-c/claude \(suffix)")
     }
 
-    /// Same blank-setting sanitize-and-fallback as `openSession`.
-    @Test func resumeCommandFallsBackToClaudeWhenConfiguredIsBlank() {
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "   ", resume: true) == "claude --continue")
-        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "", resume: false) == "claude")
+    /// Same blank-setting sanitize-and-fallback as before.
+    @Test func launchCommandFallsBackToClaudeWhenConfiguredIsBlank() {
+        let id = UUID()
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "   ", sessionId: id, resume: false)
+            == "claude --session-id \(id.uuidString.lowercased())")
+        #expect(WorkspaceSessionsHolder.agentLaunchCommand(configured: "", sessionId: id, resume: true)
+            == "claude --resume \(id.uuidString.lowercased())")
     }
 
-    @Test func restartAgentWithResumeSpawnsAgentWithContinueCommand() {
+    @Test func restartAgentWithResumeSpawnsAgentWithResumeOfSameId() {
         let (holder, engine) = makeSUT(agentCommand: "claude")
         let session = holder.openSession(for: project("alpha"))
-        let old = session.agent as? MockTerminalSession
+        let old = session.agents[0].session as? MockTerminalSession
+        let originalId = session.agents[0].claudeSessionId
 
         holder.restartAgent(projectId: session.projectId, resume: true)
 
-        #expect(session.agent !== old)
-        #expect(session.agentExited == false)
+        #expect(session.agents[0].session !== old)
+        #expect(session.agents[0].exited == false)
         #expect(old?.terminateCount == 1)
-        #expect(engine.configs.last?.command == "claude --continue")
-        #expect((session.agent as? MockTerminalSession)?.startCount == 1)
+        #expect(session.agents[0].claudeSessionId == originalId)
+        #expect(engine.configs.last?.command == "claude --resume \(originalId.uuidString.lowercased())")
+        #expect((session.agents[0].session as? MockTerminalSession)?.startCount == 1)
+    }
+
+    /// Plain restart is a fresh conversation: the tracked id rotates and the
+    /// fresh spawn carries the NEW id.
+    @Test func restartAgentWithoutResumeRotatesClaudeSessionId() {
+        let (holder, engine) = makeSUT(agentCommand: "claude")
+        let session = holder.openSession(for: project("alpha"))
+        let originalId = session.agents[0].claudeSessionId
+
+        holder.restartAgent(projectId: session.projectId)
+
+        let newId = session.agents[0].claudeSessionId
+        #expect(newId != originalId)
+        #expect(engine.configs.last?.command == "claude --session-id \(newId.uuidString.lowercased())")
     }
 
     @Test func staleAgentExitAfterRestartDoesNotReflipFlag() {
@@ -625,6 +665,29 @@ struct WorkspaceSessionsHolderTests {
 
         scheduled[0].block()
         #expect(lateAgent.forceKillCount == 1)
+        #expect(completions == 1)
+    }
+
+    /// Mirrors `openSessionDuringShutdownIsInertAndSweptAtDeadline`: during
+    /// the terminateLater window, restartAgent must terminate the old
+    /// session (part of the SIGTERM wave already in flight) but must NOT
+    /// spawn a fresh replacement the wave can no longer see.
+    @Test func restartAgentDuringShutdownTerminatesOldButDoesNotRespawn() throws {
+        var scheduled: [(delay: TimeInterval, block: @MainActor () -> Void)] = []
+        let (holder, engine) = makeSUT(schedule: { scheduled.append(($0, $1)) })
+        let session = holder.openSession(for: project("alpha"))
+        let old = try #require(session.agents[0].session as? MockTerminalSession)
+        let sessionsBefore = engine.sessions.count
+
+        var completions = 0
+        holder.shutdownAll(deadline: 2.0) { completions += 1 }
+
+        holder.restartAgent(projectId: session.projectId)
+
+        #expect(old.terminateCount >= 1)
+        #expect(engine.sessions.count == sessionsBefore)
+
+        scheduled[0].block()
         #expect(completions == 1)
     }
 }
