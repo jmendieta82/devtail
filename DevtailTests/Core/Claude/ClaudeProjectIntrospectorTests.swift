@@ -188,6 +188,74 @@ struct ClaudeProjectIntrospectorTests {
         #expect(result.tokenUsage?.cache == 4)
     }
 
+    @Test func currentModelIsNilWhenNoTranscriptsExist() {
+        let root = makeTempDir()
+        let home = makeTempDir()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        let result = ClaudeProjectIntrospector().introspectSync(projectRoot: root, home: home)
+
+        #expect(result.currentModel == nil)
+    }
+
+    @Test func currentModelReadsLastModelFromNewestTranscript() {
+        let root = makeTempDir()
+        let home = makeTempDir()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        let encoded = ClaudePathEncoder.encode(root.path)
+        let projectDir = home.appendingPathComponent(".claude/projects/\(encoded)", isDirectory: true)
+
+        let olderLine = #"{"message":{"model":"claude-opus-4-1-20250805","usage":{"input_tokens":1,"output_tokens":1}}}"#
+        write(olderLine, to: projectDir.appendingPathComponent("older.jsonl"))
+
+        let newerLines = [
+            #"{"message":{"model":"claude-sonnet-5-20260101","usage":{"input_tokens":1,"output_tokens":1}}}"#,
+            #"{"type":"summary","text":"no model here"}"#
+        ].joined(separator: "\n")
+        write(newerLines, to: projectDir.appendingPathComponent("newer.jsonl"))
+
+        // Ensure deterministic modification-date ordering regardless of
+        // filesystem timestamp resolution.
+        let fm = FileManager.default
+        try! fm.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -60)], ofItemAtPath: projectDir.appendingPathComponent("older.jsonl").path)
+        try! fm.setAttributes([.modificationDate: Date()], ofItemAtPath: projectDir.appendingPathComponent("newer.jsonl").path)
+
+        let result = ClaudeProjectIntrospector().introspectSync(projectRoot: root, home: home)
+
+        #expect(result.currentModel == "claude-sonnet-5-20260101")
+    }
+
+    @Test func currentModelScansFromLastLineBackwardsWithinNewestTranscript() {
+        let root = makeTempDir()
+        let home = makeTempDir()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        let encoded = ClaudePathEncoder.encode(root.path)
+        let projectDir = home.appendingPathComponent(".claude/projects/\(encoded)", isDirectory: true)
+
+        let lines = [
+            #"{"message":{"model":"claude-opus-4-1-20250805"}}"#,
+            #"{"message":{"model":"claude-sonnet-5-20260101"}}"#,
+            #"{"type":"summary","text":"trailing line with no model"}"#,
+            "not valid json {{{"
+        ].joined(separator: "\n")
+        write(lines, to: projectDir.appendingPathComponent("session1.jsonl"))
+
+        let result = ClaudeProjectIntrospector().introspectSync(projectRoot: root, home: home)
+
+        #expect(result.currentModel == "claude-sonnet-5-20260101")
+    }
+
     /// Exercises the actual `async` `introspect(projectRoot:home:)` entry
     /// point that production (`WorkspaceSession`) calls, not just the
     /// synchronous `introspectSync` wrapped by every other test here.

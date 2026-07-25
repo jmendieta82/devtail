@@ -223,6 +223,11 @@ struct WorkspaceDashboardColumn: View {
                     claudeCategoryRow(title: "agents", items: info.agents, systemImage: "person.crop.circle")
                     claudeCategoryRow(title: "commands", items: info.commands, systemImage: "slash.circle")
                     claudeMCPRow(info.mcpServers)
+                    if let currentModel = info.currentModel {
+                        Label(ClaudeModelDisplayName.forId(currentModel), systemImage: "cpu")
+                            .font(DevtailTokens.Typography.caption)
+                            .foregroundStyle(DevtailTokens.Colors.textSecondary)
+                    }
                     if let usage = info.tokenUsage {
                         Label("\(TokenCountFormatter.format(usage.total)) tokens", systemImage: "number")
                             .font(DevtailTokens.Typography.caption)

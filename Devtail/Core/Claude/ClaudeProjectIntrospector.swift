@@ -45,8 +45,13 @@ struct ClaudeIntrospection: Sendable {
     let commands: [ClaudeItem]
     let mcpServers: [String]
     let tokenUsage: TokenUsage?
+    /// Raw model id actually used in the most recent session, read from the
+    /// newest transcript — not the settings-configured model, which goes
+    /// stale after a mid-session `/model` switch. Nil when there are no
+    /// transcripts yet.
+    let currentModel: String?
 
-    static let empty = ClaudeIntrospection(skills: [], agents: [], commands: [], mcpServers: [], tokenUsage: nil)
+    static let empty = ClaudeIntrospection(skills: [], agents: [], commands: [], mcpServers: [], tokenUsage: nil, currentModel: nil)
 
     /// True when there is nothing at all to show: no items in any category,
     /// no MCP servers, and no token usage. Drives the "No Claude config"
@@ -95,13 +100,15 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
         )
         let mcpServers = discoverMCPServers(projectRoot: projectRoot, home: home)
         let tokenUsage = readTokenUsage(projectRoot: projectRoot, home: home, isCancelled: isCancelled)
+        let currentModel = readCurrentModel(projectRoot: projectRoot, home: home)
 
         return ClaudeIntrospection(
             skills: skills,
             agents: agents,
             commands: commands,
             mcpServers: mcpServers,
-            tokenUsage: tokenUsage
+            tokenUsage: tokenUsage,
+            currentModel: currentModel
         )
     }
 
@@ -242,20 +249,7 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
     /// rather than paying the full I/O cost. This is best-effort: a single
     /// very large file is still read to completion once started.
     private func readTokenUsage(projectRoot: URL, home: URL, isCancelled: @Sendable () -> Bool = { false }) -> TokenUsage? {
-        let encoded = ClaudePathEncoder.encode(projectRoot.path)
-        let transcriptsDir = home.appendingPathComponent(".claude/projects/\(encoded)", isDirectory: true)
-
-        let fm = FileManager.default
-        let entries: [URL]
-        do {
-            entries = try fm.contentsOfDirectory(at: transcriptsDir, includingPropertiesForKeys: nil)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return nil
-        } catch {
-            Log.claude.error("Claude introspection listing failed at \(transcriptsDir.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return nil
-        }
-        let jsonlFiles = entries.filter { $0.pathExtension == "jsonl" }
+        let jsonlFiles = transcriptFiles(projectRoot: projectRoot, home: home)
         guard !jsonlFiles.isEmpty else { return nil }
 
         var usage = TokenUsage(input: 0, output: 0, cache: 0)
@@ -266,5 +260,66 @@ struct ClaudeProjectIntrospector: ClaudeIntrospecting, Sendable {
             TokenAggregator.accumulate(jsonlLines: lines, into: &usage)
         }
         return usage
+    }
+
+    /// Every `*.jsonl` transcript under `~/.claude/projects/<encoded-root>/`,
+    /// unordered. Empty (never throws) when the directory doesn't exist or
+    /// listing fails — shared by both token aggregation and current-model
+    /// extraction below.
+    private func transcriptFiles(projectRoot: URL, home: URL) -> [URL] {
+        let encoded = ClaudePathEncoder.encode(projectRoot.path)
+        let transcriptsDir = home.appendingPathComponent(".claude/projects/\(encoded)", isDirectory: true)
+
+        let fm = FileManager.default
+        let entries: [URL]
+        do {
+            entries = try fm.contentsOfDirectory(at: transcriptsDir, includingPropertiesForKeys: nil)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return []
+        } catch {
+            Log.claude.error("Claude introspection listing failed at \(transcriptsDir.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+        return entries.filter { $0.pathExtension == "jsonl" }
+    }
+
+    // MARK: - Current model
+
+    /// The model actually used in the most recent session: the newest
+    /// `.jsonl` transcript (by modification date), scanned from its last
+    /// line backwards for the first line carrying `message.model`. Nil when
+    /// there are no transcripts, or none of their lines carry a model —
+    /// best-effort, same contract as token aggregation.
+    private func readCurrentModel(projectRoot: URL, home: URL) -> String? {
+        let jsonlFiles = transcriptFiles(projectRoot: projectRoot, home: home)
+        guard let newest = newestFile(jsonlFiles) else { return nil }
+        guard let content = try? String(contentsOf: newest, encoding: .utf8) else { return nil }
+
+        let lines = content.components(separatedBy: "\n")
+        for line in lines.reversed() {
+            if let model = modelId(fromLine: line) {
+                return model
+            }
+        }
+        return nil
+    }
+
+    private func newestFile(_ files: [URL]) -> URL? {
+        files.max { modificationDate(of: $0) < modificationDate(of: $1) }
+    }
+
+    private func modificationDate(of file: URL) -> Date {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: file.path)
+        return (attributes?[.modificationDate] as? Date) ?? .distantPast
+    }
+
+    private func modelId(fromLine line: String) -> String? {
+        guard let data = line.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = json["message"] as? [String: Any],
+              let model = message["model"] as? String else {
+            return nil
+        }
+        return model
     }
 }

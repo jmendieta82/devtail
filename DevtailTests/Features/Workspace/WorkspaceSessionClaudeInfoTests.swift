@@ -34,7 +34,8 @@ struct WorkspaceSessionClaudeInfoTests {
             agents: [],
             commands: [],
             mcpServers: ["server-a"],
-            tokenUsage: TokenUsage(input: 10, output: 5, cache: 2)
+            tokenUsage: TokenUsage(input: 10, output: 5, cache: 2),
+            currentModel: "claude-sonnet-5-20260101"
         )
     }
 
