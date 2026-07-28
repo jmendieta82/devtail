@@ -217,6 +217,20 @@ struct TaskBoardTabView: View {
 
             Menu {
                 Button("Edit") { beginRename(task) }
+                let liveAgents = session.liveAgents
+                if liveAgents.count == 1 {
+                    Button("Send to agent") {
+                        session.sendTask(title: task.title, toAgent: liveAgents[0].id)
+                    }
+                } else if liveAgents.count > 1 {
+                    Menu("Send to") {
+                        ForEach(liveAgents) { agent in
+                            Button(agent.title) {
+                                session.sendTask(title: task.title, toAgent: agent.id)
+                            }
+                        }
+                    }
+                }
                 Divider()
                 ForEach(TaskState.allCases.filter { $0 != task.state }, id: \.self) { target in
                     Button("Move to \(target.displayName)") {
