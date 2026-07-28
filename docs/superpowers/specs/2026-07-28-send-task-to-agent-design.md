@@ -43,24 +43,31 @@ are its only current callers.
 Rename it to `sendBracketedText(_:)`. Path callers keep working unchanged — a
 path is just text. No behavior change to drag & drop or image paste.
 
-### 2. Pending-input mailbox on the agent instance
+### 2. Direct write through the session protocol
 
-The task board and the agent are different tabs, so the destination
-`AgentTerminalView` may not be mounted when the user clicks the menu item.
-A direct method call is therefore not possible.
+An earlier draft of this design routed the text through a `pendingInput`
+mailbox on `AgentInstance`, mirroring `envConflictPath` /
+`consumeEnvConflict(for:)`, on the assumption that the destination
+`AgentTerminalView` might not be mounted when the menu item is clicked.
 
-The codebase already solves exactly this shape with `envConflictPath` +
-`consumeEnvConflict(for:)` on `WorkspaceSession`: a pending value parked on
-the model, consumed one-shot by the view when it mounts or observes a change.
+**That assumption is wrong.** `TerminalHostView` documents the retention
+model: every terminal NSView stays permanently mounted for the life of the
+session because the holder owns it, not SwiftUI. Tab switching changes what is
+visible, never what exists. The destination view is therefore always reachable.
 
-Mirror it on `AgentInstance`:
+So the send is a direct call, and the mailbox is dropped entirely.
 
-- `var pendingInput: String?` — set by the send action.
-- `func consumePendingInput() -> String?` — returns and clears in one step, so
-  a second call yields nil. One-shot by design: a remount must not re-paste.
+`TerminalSession` already exposes `writeToStdin(_ text: String)`
+(`SwiftTermEngine.swift:88`), but it sends raw text. The agent prompt needs the
+bracketed-paste wrap. Add a sibling to the protocol:
 
-`AgentTerminalView` consumes it in `.onChange` (already mounted) and
-`.onAppear` (mounting fresh), then calls `sendBracketedText`.
+- `func sendBracketedText(_ text: String)` — bracketed-paste wrap when the
+  running program enabled mode 2004, raw text otherwise.
+
+`SwiftTermEngine.Session` implements it by forwarding to the
+`AgentTerminalView` method from change 1; non-agent terminal views fall back to
+`send(txt:)`. `MockTerminalEngine` records the calls, which is what makes the
+send unit-testable.
 
 ### 3. Menu entry
 
@@ -81,12 +88,11 @@ silently — the worst outcome, since it looks like it worked.
 
 ```
 Menu "Send to ▸ agent 2"
-  → session.sendTask(text:toAgent:)
-      → agents[i].pendingInput = "Tarea del board: <title>"
+  → session.sendTask(title:toAgent:)
+      → instance.session.sendBracketedText("Tarea del board: <title>")
       → session.selectedTab = .agent(id)
-  → AgentTerminalView (mounts, or observes change if already mounted)
-      → consumePendingInput()
-      → sendBracketedText(...)
+  → AgentTerminalView (already mounted — retention model)
+      → text lands in the prompt, unsubmitted
 ```
 
 Tab selection is part of the action, not a side effect. Without it the click
@@ -104,27 +110,26 @@ prompt before submitting.
 ## Error handling
 
 - **No live agents** — menu entry absent; nothing to fail.
-- **Agent dies between menu render and click** — `pendingInput` is set on a
-  dead instance and never consumed. Harmless: the value is dropped when the
-  instance is released, and a restart spawns a fresh instance.
-- **Send while the target tab is already showing** — `.onChange` fires, paste
-  lands, tab selection is a no-op.
-- **Two sends in a row before consumption** — the second overwrites the first.
-  Acceptable: the user sees the tab switch after the first click, so the
-  interleaving is not reachable in practice.
+- **Agent dies between menu render and click** — the write reaches a dead PTY
+  and is swallowed. Not worth defending against: the window is a few hundred
+  milliseconds, and the dead-state overlay (`WorkspaceRootView.swift:324`)
+  makes the situation visible the moment the tab is selected.
+- **Send while the target tab is already showing** — the write lands, tab
+  selection is a no-op.
+- **Two sends in a row** — both land, concatenated in the prompt. The user
+  sees the tab switch after the first click, so this is deliberate, not a race.
 
 ## Testing
 
-Unit-testable (existing `TaskBoardStoreTests` /
-`WorkspaceSessionsHolderTests` suites):
+Unit-testable via `MockTerminalEngine`, which records `sendBracketedText`
+calls per session:
 
-- `pendingInput` lands on the targeted agent and no other.
-- `consumePendingInput()` returns the text and clears it; a second call
-  returns nil.
-- Exited agents are excluded from the destination list.
+- The text reaches the targeted agent's session and no other.
 - Prompt formatting carries the `Tarea del board: ` prefix and the exact title.
 - Tab selection moves to the targeted agent.
+- Exited agents are excluded from the destination list.
+- Sending to an unknown agent id is a no-op.
 
-Not unit-testable: the bracketed-paste write itself needs a live PTY — the
-same seam already uncovered for drag & drop and image paste. Covered by the
-user's visual checkpoint.
+Not unit-testable: the bracketed-paste escape sequences themselves need a live
+PTY and a real `getTerminal()` — the same seam already uncovered for drag &
+drop and image paste. Covered by the user's visual checkpoint.
