@@ -225,6 +225,24 @@ final class WorkspaceSession: Identifiable {
         selectedTab = firstAgentTab
     }
 
+    /// Agents whose PTY child is still alive — the only valid destinations
+    /// for `sendTask`. Writing to an exited agent is swallowed silently by
+    /// the dead PTY, which reads as success; the task board filters them out
+    /// of its menu instead.
+    var liveAgents: [AgentInstance] {
+        agents.filter { !$0.exited }
+    }
+
+    /// Paste a task board card's title into `agentId`'s prompt and switch to
+    /// that tab. The text is pasted, NOT submitted — the user edits and
+    /// presses Enter, same contract as the agent tab's image drag & drop.
+    /// Unknown ids are a no-op.
+    func sendTask(title: String, toAgent agentId: UUID) {
+        guard let instance = agentInstance(with: agentId) else { return }
+        instance.session.sendBracketedText("Tarea del board: \(title)")
+        selectedTab = .agent(agentId)
+    }
+
     /// Whether `path` currently has unsaved edits. Derives from the draft
     /// (if one exists) rather than a separate tracked set — one source of
     /// truth, so a stuck-dirty chip with no draft behind it is structurally
