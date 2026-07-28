@@ -45,6 +45,11 @@ protocol TerminalSession: AnyObject {
     /// on read-only sessions this is a documented no-op (the read-only
     /// swallow intercepts the same delegate funnel keyboard input uses).
     func writeToStdin(_ text: String)
+    /// Paste `text` as if the user pasted it: bracketed-paste wrapped when the
+    /// running program enabled mode 2004. Unlike `writeToStdin`, this is what
+    /// a TUI like Claude Code needs to receive text as prompt input rather
+    /// than as keystrokes.
+    func sendBracketedText(_ text: String)
 }
 
 @MainActor

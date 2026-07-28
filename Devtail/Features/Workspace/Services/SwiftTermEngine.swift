@@ -89,6 +89,14 @@ final class SwiftTermSession: NSObject, TerminalSession, LocalProcessTerminalVie
         terminalView.send(txt: text)
     }
 
+    func sendBracketedText(_ text: String) {
+        if let agentView = terminalView as? AgentTerminalView {
+            agentView.sendBracketedText(text)
+        } else {
+            terminalView.send(txt: text)
+        }
+    }
+
     // MARK: - LocalProcessTerminalViewDelegate
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {

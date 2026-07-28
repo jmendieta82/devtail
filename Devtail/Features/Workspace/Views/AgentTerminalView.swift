@@ -33,7 +33,7 @@ final class AgentTerminalView: DevtailTerminalView {
     override func paste(_ sender: Any) {
         if let png = AgentImagePaste.pngData(from: NSPasteboard.general),
            let url = AgentImagePaste.saveTempImage(png, in: ensureImageDir()) {
-            sendBracketedPath(url.path)
+            sendBracketedText(url.path)
             return
         }
         super.paste(sender)
@@ -59,7 +59,7 @@ final class AgentTerminalView: DevtailTerminalView {
                         return
                     }
                     Task { @MainActor in
-                        self?.sendBracketedPath(url.path)
+                        self?.sendBracketedText(url.path)
                     }
                 }
             }
@@ -68,21 +68,22 @@ final class AgentTerminalView: DevtailTerminalView {
         let urls = AgentFileDrop.fileURLs(from: pasteboard)
         guard !urls.isEmpty else { return false }
         for url in urls {
-            sendBracketedPath(url.path)
+            sendBracketedText(url.path)
         }
         return true
     }
 
-    /// Hand-rolled bracketed-paste wrap shared by paste and drop: SwiftTerm's
+    /// Hand-rolled bracketed-paste wrap shared by paste, drop, and the task
+    /// board's "send to agent": SwiftTerm's
     /// insertText(_:replacementRange:isPaste:) overload is internal to the
     /// SwiftTerm module, so we replicate its paste path (MacTerminalView
     /// non-kitty branch) with public API only. If the running program never
-    /// enabled mode 2004, the path is sent unwrapped instead of leaking
+    /// enabled mode 2004, the text is sent unwrapped instead of leaking
     /// escape sequences.
-    private func sendBracketedPath(_ path: String) {
+    func sendBracketedText(_ text: String) {
         let bracketed = getTerminal().bracketedPasteMode
         if bracketed { send(data: EscapeSequences.bracketedPasteStart[0...]) }
-        send(txt: path)
+        send(txt: text)
         if bracketed { send(data: EscapeSequences.bracketedPasteEnd[0...]) }
     }
 
